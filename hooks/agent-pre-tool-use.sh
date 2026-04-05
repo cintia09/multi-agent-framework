@@ -1,6 +1,7 @@
 #!/bin/bash
 # Multi-Agent Framework: Pre-Tool-Use Hook
-# Enforces agent boundaries — prevents agents from doing things outside their role.
+# 1. Security: Scans staged files for secrets before git commit/push (ALWAYS active)
+# 2. Boundaries: Enforces agent role boundaries (only when agent system is active)
 # Can output {"permissionDecision":"deny","permissionDecisionReason":"..."} to block.
 
 set -e
@@ -9,17 +10,7 @@ TOOL_NAME=$(echo "$INPUT" | jq -r '.toolName')
 TOOL_ARGS=$(echo "$INPUT" | jq -r '.toolArgs')
 CWD=$(echo "$INPUT" | jq -r '.cwd')
 
-AGENTS_DIR="$CWD/.agents"
-
-# Only enforce if agent framework is initialized and an agent is active
-[ -d "$AGENTS_DIR/runtime" ] || exit 0
-ACTIVE_FILE="$AGENTS_DIR/runtime/active-agent"
-[ -f "$ACTIVE_FILE" ] || exit 0
-
-ACTIVE_AGENT=$(cat "$ACTIVE_FILE")
-[ -n "$ACTIVE_AGENT" ] || exit 0
-
-# --- Sensitive Data Scan (before git commit/push) ---
+# === SECTION 1: Security Scan (always active, no agent system required) ===
 case "$TOOL_NAME" in
   bash)
     CMD=$(echo "$TOOL_ARGS" | jq -r '.command // empty' 2>/dev/null)
@@ -42,7 +33,7 @@ case "$TOOL_NAME" in
           if grep -q 'BEGIN.*PRIVATE KEY' "$CWD/$f" 2>/dev/null; then
             SECRETS_FOUND="$SECRETS_FOUND\n  ⚠️ $f: private key detected"
           fi
-          # .env file content (skip .gitignore'd .env files themselves)
+          # .env file content
           if echo "$f" | grep -qE '\.env(\..+)?$'; then
             SECRETS_FOUND="$SECRETS_FOUND\n  ⚠️ $f: .env file should not be committed"
           fi
@@ -58,7 +49,17 @@ case "$TOOL_NAME" in
     ;;
 esac
 
-# --- Boundary Rules ---
+# === SECTION 2: Agent Boundary Rules (only when agent system is active) ===
+AGENTS_DIR="$CWD/.agents"
+
+# Only enforce boundaries if agent framework is initialized and an agent is active
+[ -d "$AGENTS_DIR/runtime" ] || exit 0
+ACTIVE_FILE="$AGENTS_DIR/runtime/active-agent"
+[ -f "$ACTIVE_FILE" ] || exit 0
+
+ACTIVE_AGENT=$(cat "$ACTIVE_FILE")
+[ -n "$ACTIVE_AGENT" ] || exit 0
+
 # Only enforce on file-modifying tools
 case "$TOOL_NAME" in
   edit|create)
