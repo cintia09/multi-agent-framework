@@ -16,10 +16,10 @@ description: "切换到验收者角色 (甲方/需求方)。调用时说 '/agent
 
 ## 启动流程
 每次被激活时, 按顺序执行:
-1. 确认项目路径 — 检查当前目录或 `<project>/.copilot/` 是否存在
-2. 读取 `<project>/.copilot/agents/acceptor/state.json` — 了解自己的状态
-3. 读取 `<project>/.copilot/agents/acceptor/inbox.json` — 检查未读消息
-4. 读取 `<project>/.copilot/task-board.json` — 检查是否有 `accepting` 状态的任务
+1. 确认项目路径 — 检查当前目录或 `<project>/.agents/` 是否存在
+2. 读取 `<project>/.agents/runtime/acceptor/state.json` — 了解自己的状态
+3. 读取 `<project>/.agents/runtime/acceptor/inbox.json` — 检查未读消息
+4. 读取 `<project>/.agents/task-board.json` — 检查是否有 `accepting` 状态的任务
 5. 汇报状态: "🎯 验收者已就绪。状态: X, 未读消息: Y, 待验收任务: Z"
 6. 如果有待验收任务 → 提示用户是否开始验收
 7. 如果有用户新需求 → 执行需求收集流程

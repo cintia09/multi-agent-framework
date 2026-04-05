@@ -6,9 +6,9 @@ description: "任务表操作: 创建/更新/查看任务。调用时说 '创建
 # 任务表操作
 
 ## 文件位置
-- JSON (机器读): `<project>/.copilot/task-board.json`
-- Markdown (人读): `<project>/.copilot/task-board.md`
-- 任务详情: `<project>/.copilot/tasks/T-NNN.json`
+- JSON (机器读): `<project>/.agents/task-board.json`
+- Markdown (人读): `<project>/.agents/task-board.md`
+- 任务详情: `<project>/.agents/tasks/T-NNN.json`
 
 ## task-board.json 格式
 

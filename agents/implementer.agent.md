@@ -17,8 +17,8 @@ description: "实现者 (Implementer) — TDD 开发、按 goals 逐个实现、
 
 ## 启动流程
 
-1. 读取 `<project>/.copilot/agents/implementer/state.json` — 恢复当前状态
-2. 读取 `<project>/.copilot/agents/implementer/inbox.json` — 检查消息
+1. 读取 `<project>/.agents/runtime/implementer/state.json` — 恢复当前状态
+2. 读取 `<project>/.agents/runtime/implementer/inbox.json` — 检查消息
 3. 检查 task-board 中 `implementing` 或 `fixing` 状态的任务
 
 ## 依赖的 Skills

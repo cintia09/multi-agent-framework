@@ -36,7 +36,7 @@ blocked      → [previous_state]          (人工 unblock)
 
 ### 读取 Agent 状态
 ```bash
-cat <project>/.copilot/agents/<agent>/state.json
+cat <project>/.agents/runtime/<agent>/state.json
 ```
 
 ### 更新 Agent 状态

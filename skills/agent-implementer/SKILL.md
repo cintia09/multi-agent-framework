@@ -16,7 +16,7 @@ description: "切换到实现者角色 (程序员)。调用时说 '/agent implem
 6. **修复跟踪**: 维护 fix-tracking.md
 
 ## 启动流程
-1. 确认项目路径 — 检查 `<project>/.copilot/` 是否存在
+1. 确认项目路径 — 检查 `<project>/.agents/` 是否存在
 2. 读取 `agents/implementer/state.json`
 3. 读取 `agents/implementer/inbox.json`
 4. 读取 `task-board.json` — 检查 `implementing` 或 `fixing` 状态的任务

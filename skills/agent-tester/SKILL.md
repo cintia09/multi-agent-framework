@@ -15,7 +15,7 @@ description: "切换到测试者角色 (QA)。调用时说 '/agent tester' 或 '
 5. **测试报告**: 全部通过后, 输出测试报告供验收者参考
 
 ## 启动流程
-1. 确认项目路径 — 检查 `<project>/.copilot/` 是否存在
+1. 确认项目路径 — 检查 `<project>/.agents/` 是否存在
 2. 读取 `agents/tester/state.json`
 3. 读取 `agents/tester/inbox.json`
 4. 读取 `task-board.json` — 检查 `testing` 状态的任务

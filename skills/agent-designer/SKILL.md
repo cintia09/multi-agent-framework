@@ -15,7 +15,7 @@ description: "切换到设计者角色 (架构师)。调用时说 '/agent design
 5. **重新设计**: 如果验收失败, 根据反馈修订设计
 
 ## 启动流程
-1. 确认项目路径 — 检查 `<project>/.copilot/` 是否存在
+1. 确认项目路径 — 检查 `<project>/.agents/` 是否存在
 2. 读取 `agents/designer/state.json`
 3. 读取 `agents/designer/inbox.json`
 4. 读取 `task-board.json` — 检查 `created` 或 `accept_fail` 状态的任务

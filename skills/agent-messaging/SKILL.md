@@ -6,7 +6,7 @@ description: "Agent 间消息: 发送消息给其他 Agent 或查看收件箱。
 # Agent 间消息
 
 ## 收件箱格式
-文件: `<project>/.copilot/agents/<agent>/inbox.json`
+文件: `<project>/.agents/runtime/<agent>/inbox.json`
 
 ```json
 {

@@ -66,17 +66,18 @@ The assistant will read the AGENTS.md in the repo and automatically:
 在任何项目目录中, 对 Copilot 说 **"初始化 Agent 系统"**, 它会调用 `agent-init` skill 自动:
 
 1. 检测项目技术栈 (语言、框架、测试、CI、部署)
-2. 创建 `.copilot/` 运行时目录 (state.json, inbox.json, task-board.json)
-3. **在 `.github/skills/` 下创建 6 个项目级 skill**:
+2. 创建 `.agents/runtime/` 运行时目录 (state.json, inbox.json)
+3. 创建 `.agents/task-board.json` 空任务表
+4. **在 `.agents/skills/` 下创建 6 个项目级 skill**:
    - `project-agents-context` — 项目技术栈、构建命令、部署方式
    - `project-acceptor` — 验收标准、业务背景
    - `project-designer` — 架构约束、技术选型
    - `project-implementer` — 编码规范、开发命令
    - `project-reviewer` — 审查标准、质量要求
    - `project-tester` — 测试框架、覆盖率要求
-4. 创建 `.copilot/.gitignore` (排除运行时状态)
+10. 创建 `.agents/.gitignore` (排除运行时状态)
 
-项目级 skill 由 Copilot 自动发现和加载, 各 agent 工作时自动获得项目上下文。
+所有文件统一在 `.agents/` 目录下, 项目级 skill 由 Copilot 自动发现和加载。
 
 ## Usage
 
@@ -116,18 +117,17 @@ The assistant will read the AGENTS.md in the repo and automatically:
     └── tester.agent.md               # 测试者
 
 <project>/                             # 项目层 (初始化后)
-├── .github/
-│   └── skills/                        # 项目级 skill (Copilot 自动发现)
-│       ├── project-agents-context/SKILL.md  # 技术栈、命令、部署
-│       ├── project-acceptor/SKILL.md  # 验收标准
-│       ├── project-designer/SKILL.md  # 架构约束
-│       ├── project-implementer/SKILL.md # 编码规范
-│       ├── project-reviewer/SKILL.md  # 审查标准
-│       └── project-tester/SKILL.md    # 测试策略
-└── .copilot/                          # 运行时数据
-    ├── task-board.json / .md
-    ├── tasks/T-NNN.json
-    └── agents/<role>/
+└── .agents/                           # 统一目录
+    ├── skills/                        # 项目级 skill (Copilot 自动发现)
+    │   ├── project-agents-context/SKILL.md  # 技术栈、命令、部署
+    │   ├── project-acceptor/SKILL.md  # 验收标准
+    │   ├── project-designer/SKILL.md  # 架构约束
+    │   ├── project-implementer/SKILL.md # 编码规范
+    │   ├── project-reviewer/SKILL.md  # 审查标准
+    │   └── project-tester/SKILL.md    # 测试策略
+    ├── task-board.json / .md          # 任务表
+    ├── tasks/T-NNN.json               # 任务详情
+    └── runtime/<role>/                # Agent 运行时
         ├── state.json / inbox.json
         └── workspace/                 # 工作产出物
 ```
