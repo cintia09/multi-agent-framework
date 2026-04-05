@@ -57,9 +57,10 @@ cat "$AGENTS_DIR/task-board.json"
    jq '.messages |= [.[] | .read = true]' "$INBOX" > "${INBOX}.tmp" && mv "${INBOX}.tmp" "$INBOX"
    ```
 7. **显示任务概览**: 检查 task-board 中分配给当前 agent 的任务
-8. **Staleness 警告**: 如果有长时间 (>24h) 未活动的任务, 提醒用户
-9. 执行目标 Agent 的启动流程 (定义在对应 skill 中)
-10. 打印: "🔄 已切换到 <角色名> (<emoji>)"
+8. **加载任务记忆**: 如果有分配的任务, 自动读取 `.agents/memory/T-NNN-memory.json`, 显示上一阶段的上下文摘要和交接备注 (调用 agent-memory skill 的"加载记忆"操作)
+9. **Staleness 警告**: 如果有长时间 (>24h) 未活动的任务, 提醒用户
+10. 执行目标 Agent 的启动流程 (定义在对应 skill 中)
+11. 打印: "🔄 已切换到 <角色名> (<emoji>)"
 
 ### 退出角色
 用户说 "退出角色" 或 "exit agent" 时:
@@ -108,6 +109,7 @@ rm -f <project>/.agents/runtime/active-agent
      ▼
 ┌─────────────────────────────────────────┐
 │ 4. 更新任务状态 (FSM 转移)               │
+│    💾 保存本阶段记忆 (agent-memory)       │
 │    写入下一个 Agent 的 inbox             │
 │    auto-dispatch 触发                    │
 └─────────┬───────────────────────────────┘

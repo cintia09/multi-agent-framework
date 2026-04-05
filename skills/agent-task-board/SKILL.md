@@ -53,6 +53,14 @@ T-002   designing      设计者    P1      题库展示模块
 ### 更新任务状态
 调用 agent-fsm skill 的状态转移逻辑。
 
+**⚡ 状态转移后必须保存记忆**:
+每次任务状态成功转移后, 当前 Agent 必须调用 agent-memory skill 保存本阶段的上下文快照:
+```
+FSM 验证通过 → 写入 task-board.json → 同步 Markdown → 💾 保存记忆 → 通知下游 Agent
+```
+记忆内容包括: 工作摘要、关键决策、产出物、修改文件、交接备注。
+详见 agent-memory skill。
+
 ### 阻塞任务 (block)
 任何 Agent 遇到无法解决的问题时:
 1. 将任务 status 设为 `blocked`

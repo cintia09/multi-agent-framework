@@ -59,13 +59,13 @@ echo "Agents:" && ls ~/.copilot/agents/*.agent.md | wc -l
 echo "Hooks:" && ls ~/.copilot/hooks/agent-*.sh | wc -l
 echo "hooks.json:" && [ -f ~/.copilot/hooks/hooks.json ] && echo "✅" || echo "❌"
 ```
-预期: Skills 11 个目录, Agents 5 个文件, Hooks 4 个脚本, hooks.json 存在。
+预期: Skills 12 个目录, Agents 5 个文件, Hooks 4 个脚本, hooks.json 存在。
 
 ### Step 8: 输出结果
 ```
 ✅ Multi-Agent Framework 安装完成
 ━━━━━━━━━━━━━━━━━━━━━━━
-Skills:  11 个已安装到 ~/.copilot/skills/
+Skills:  12 个已安装到 ~/.copilot/skills/
 Agents:  5 个已安装到 ~/.copilot/agents/
 Hooks:   4 个已安装到 ~/.copilot/hooks/ (boundary enforcement + audit log + staleness)
 Rules:   已追加到 ~/.copilot/copilot-instructions.md

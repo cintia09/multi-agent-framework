@@ -97,6 +97,9 @@ mkdir -p .agents/skills/project-tester
 # 任务数据
 mkdir -p .agents/tasks
 
+# 任务记忆 (跨阶段上下文快照, 应提交到 git)
+mkdir -p .agents/memory
+
 # Agent 运行时
 mkdir -p .agents/runtime/acceptor/workspace/{requirements,acceptance-docs,acceptance-reports}
 mkdir -p .agents/runtime/designer/workspace/{research,design-docs,test-specs}
@@ -480,6 +483,7 @@ runtime/*/inbox.json
 ━━━━━━━━━━━━━━━━━━━━━━━
 Skills: .agents/skills/ (6 project skills)
 Runtime: .agents/runtime/ (5 agents, all idle)
+Memory: .agents/memory/ (空, 任务推进时自动填充)
 任务表: .agents/task-board.json (空)
 ━━━━━━━━━━━━━━━━━━━━━━━
 下一步: /agent acceptor → 开始创建需求
