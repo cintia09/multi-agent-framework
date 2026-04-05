@@ -49,7 +49,7 @@ The assistant will read the AGENTS.md in the repo and automatically:
 ~/.copilot/
 ├── copilot-instructions.md       # 含 Agent 协作规则
 ├── skills/
-│   └── agent-*.md                # 10 个 skill 文件
+│   └── agent-*/SKILL.md          # 10 个 skill 目录 (每个含 SKILL.md)
 └── agents/
     ├── acceptor.agent.md         # 验收者 (原生 agent profile)
     ├── designer.agent.md         # 设计者
@@ -93,7 +93,13 @@ The assistant will read the AGENTS.md in the repo and automatically:
 ```
 ~/.copilot/                            # 全局层 (安装后)
 ├── copilot-instructions.md            # 含 Agent 协作规则
-├── skills/agent-*.md                  # 10 个 skill
+├── skills/
+│   ├── agent-fsm/SKILL.md            # FSM 引擎
+│   ├── agent-task-board/SKILL.md     # 任务表操作
+│   ├── agent-messaging/SKILL.md      # 消息系统
+│   ├── agent-init/SKILL.md           # 项目初始化
+│   ├── agent-switch/SKILL.md         # 角色切换
+│   └── agent-{role}/SKILL.md         # 5 个角色 skill
 └── agents/
     ├── acceptor.agent.md              # 验收者 (原生 agent profile)
     ├── designer.agent.md              # 设计者

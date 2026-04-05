@@ -14,7 +14,7 @@ git clone --depth 1 git@github.com:cintia09/multi-agent-framework.git /tmp/multi
 ### Step 2: 复制 Skills (必须用 cp, 禁止 heredoc)
 ```bash
 mkdir -p ~/.copilot/skills
-cp /tmp/multi-agent-framework/skills/agent-*.md ~/.copilot/skills/
+cp -r /tmp/multi-agent-framework/skills/agent-* ~/.copilot/skills/
 ```
 
 ### Step 3: 复制 Agent Profiles (必须用 cp, 禁止 heredoc)
@@ -38,10 +38,10 @@ rm -rf /tmp/multi-agent-framework
 
 ### Step 6: 验证安装结果
 ```bash
-echo "Skills:" && ls ~/.copilot/skills/agent-*.md | wc -l
+echo "Skills:" && ls -d ~/.copilot/skills/agent-* | wc -l
 echo "Agents:" && ls ~/.copilot/agents/*.agent.md | wc -l
 ```
-预期: Skills 10 个, Agents 5 个。
+预期: Skills 10 个目录 (每个含 SKILL.md), Agents 5 个 .agent.md 文件。
 
 ### Step 7: 输出结果
 ```

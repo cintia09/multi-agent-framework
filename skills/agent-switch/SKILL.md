@@ -20,22 +20,18 @@ description: "Agent 角色切换控制器。使用 '/agent status' 查看所有 
 🧪 测试者   busy     T-001      —          10:15
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📋 任务表摘要: 3 个任务 (1 完成, 1 进行中, 1 待处理)
+�� 任务表摘要: 3 个任务 (1 完成, 1 进行中, 1 待处理)
 ```
 
 ### 实现步骤:
 ```bash
-# 1. 找到项目的 .copilot 目录
 PROJECT_COPILOT="$(git rev-parse --show-toplevel 2>/dev/null)/.copilot"
-# 如果不在 git 仓库中, 尝试当前目录
 [ -d "$PROJECT_COPILOT" ] || PROJECT_COPILOT="./.copilot"
 
-# 2. 读取每个 agent 的 state.json
 for agent in acceptor designer implementer reviewer tester; do
   cat "$PROJECT_COPILOT/agents/$agent/state.json"
 done
 
-# 3. 读取 task-board.json 摘要
 cat "$PROJECT_COPILOT/task-board.json"
 ```
 

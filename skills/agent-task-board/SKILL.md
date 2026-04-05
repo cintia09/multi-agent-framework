@@ -54,17 +54,7 @@ T-002   designing      设计者    P1      题库展示模块
 调用 agent-fsm skill 的状态转移逻辑。
 
 ### 同步 Markdown
-每次修改 task-board.json 后, 自动生成对应的 task-board.md:
-
-```markdown
-# 📋 项目任务表
-
-> 自动生成, 请勿手动编辑。更新时间: <ISO 8601>
-
-| ID | 标题 | 状态 | 负责 | 优先级 | 更新时间 |
-|----|------|------|------|--------|---------|
-| T-001 | 用户认证系统 | implementing | implementer | P0 | 2026-04-05 |
-```
+每次修改 task-board.json 后, 自动生成对应的 task-board.md。
 
 ## 任务详情文件 (tasks/T-NNN.json)
 
@@ -105,8 +95,6 @@ T-002   designing      设计者    P1      题库展示模块
 
 ## 功能目标清单 (goals)
 
-每个任务包含 `goals` 数组, 记录该任务需要实现的所有功能目标。
-
 ### goals 字段说明
 ```json
 {
@@ -126,11 +114,3 @@ T-002   designing      设计者    P1      题库展示模块
 | `done` | 实现者标记完成 | implementer |
 | `verified` | 验收者确认通过 | acceptor |
 | `failed` | 验收者确认不通过 | acceptor |
-
-### 规则
-1. **Acceptor 创建任务时**必须定义至少 1 个 goal
-2. **Designer** 可以在设计阶段拆分或细化 goals (添加新 goal, 修改标题)
-3. **Implementer** 完成一个功能后将对应 goal 标记为 `done`
-4. **Implementer 转 reviewing 前**, 所有 goals 必须为 `done` — 否则 FSM 拒绝转移
-5. **Acceptor 验收时**逐个验证 goals, 标记为 `verified` 或 `failed`
-6. **Acceptor 标记 accepted 前**, 所有 goals 必须为 `verified` — 否则 FSM 拒绝转移

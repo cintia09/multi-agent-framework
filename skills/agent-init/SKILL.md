@@ -20,13 +20,9 @@ ls .copilot/task-board.json 2>/dev/null
 
 ### 1. 检测项目信息
 ```bash
-# 检测语言和框架
 ls package.json Cargo.toml requirements.txt go.mod pom.xml 2>/dev/null
-# 检测测试框架
 ls jest.config* playwright.config* pytest.ini vitest.config* 2>/dev/null
-# 检测 CI
 ls .github/workflows/*.yml .gitlab-ci.yml 2>/dev/null
-# 检测部署
 ls Dockerfile docker-compose* k8s/ 2>/dev/null
 ```
 
