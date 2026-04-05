@@ -1,80 +1,82 @@
 {
-  "version": 5,
+  "version": 7,
   "tasks": [
     {
       "id": "T-001",
       "title": "Update README with Phase 2 features (hooks + events.db)",
-      "status": "testing",
-      "assigned_to": "tester",
+      "status": "accepted",
+      "assigned_to": "acceptor",
       "priority": "high",
       "goals": [
         {
           "id": "G1",
           "description": "Add Hooks section: installation, 3 hook types, configuration",
-          "status": "done"
+          "status": "verified"
         },
         {
           "id": "G2",
           "description": "Add events.db section: SQLite schema, querying audit log",
-          "status": "done"
+          "status": "verified"
         },
         {
           "id": "G3",
           "description": "Update Architecture section with hooks layer and active-agent mechanism",
-          "status": "done"
+          "status": "verified"
         },
         {
           "id": "G4",
           "description": "Update File Structure section with hooks/ directory and events.db",
-          "status": "done"
+          "status": "verified"
         }
       ],
       "artifacts": {
         "design_doc": ".agents/runtime/designer/workspace/design-docs/T-001-readme-update.md",
-        "test_spec": ".agents/runtime/designer/workspace/test-specs/T-001-test-spec.md"
+        "test_spec": ".agents/runtime/designer/workspace/test-specs/T-001-test-spec.md",
+        "test_report": ".agents/runtime/tester/workspace/test-report-T-001-T-002.md"
       },
       "created_at": "2026-04-05T08:33:33Z",
-      "updated_at": "2026-04-05T04:35:00Z"
+      "updated_at": "2026-04-05T04:45:00Z"
     },
     {
       "id": "T-002",
       "title": "Phase 3: Auto-dispatch and staleness detection",
-      "status": "testing",
-      "assigned_to": "tester",
+      "status": "accepted",
+      "assigned_to": "acceptor",
       "priority": "medium",
       "goals": [
         {
           "id": "G1",
           "description": "Design auto-dispatch: when task status changes, auto-send message to next agent in FSM",
-          "status": "done"
+          "status": "verified"
         },
         {
           "id": "G2",
           "description": "Implement auto-dispatch in post-tool-use hook (detect task-board status change → write inbox)",
-          "status": "done"
+          "status": "verified"
         },
         {
           "id": "G3",
           "description": "Implement staleness detection script (find tasks/agents inactive > threshold)",
-          "status": "done"
+          "status": "verified"
         },
         {
           "id": "G4",
           "description": "Add staleness check to session-start hook (warn on stale items)",
-          "status": "done"
+          "status": "verified"
         },
         {
           "id": "G5",
           "description": "Update agent-switch to auto-process inbox queue on agent activation",
-          "status": "done"
+          "status": "verified"
         }
       ],
       "artifacts": {
         "design_doc": ".agents/runtime/designer/workspace/design-docs/T-002-auto-dispatch.md",
-        "test_spec": ".agents/runtime/designer/workspace/test-specs/T-002-test-spec.md"
+        "test_spec": ".agents/runtime/designer/workspace/test-specs/T-002-test-spec.md",
+        "test_report": ".agents/runtime/tester/workspace/test-report-T-001-T-002.md"
       },
       "created_at": "2026-04-05T08:33:33Z",
-      "updated_at": "2026-04-05T04:35:00Z"
+      "updated_at": "2026-04-05T04:45:00Z"
     }
   ]
 }
