@@ -41,13 +41,11 @@ The assistant will:
 1. 从 GitHub 读取本仓库内容
 2. 将 `skills/` 目录下的 10 个 agent skill 文件复制到 `~/.copilot/skills/`
 3. 将 `agents/` 目录下的 5 个角色模板复制到 `~/.copilot/agents/`
-4. 将 `docs/AGENTS-global.md` 复制到 `~/.copilot/AGENTS.md` (项目级 /init 指引)
-5. 将 `docs/agent-rules.md` 的内容追加到 `~/.copilot/copilot-instructions.md` (如果尚未包含)
+4. 将 `docs/agent-rules.md` 的内容追加到 `~/.copilot/copilot-instructions.md` (如果尚未包含)
 
 安装完成后, `~/.copilot/` 将包含:
 ```
 ~/.copilot/
-├── AGENTS.md                    # 项目级 /init 指引
 ├── copilot-instructions.md      # 含 Agent 协作规则
 ├── skills/
 │   └── agent-*.md               # 10 个 skill 文件
@@ -63,9 +61,10 @@ The assistant will:
 
 ## Project Initialization
 
-在任何项目目录中执行 `/init`, 助手会读取 `~/.copilot/AGENTS.md`, 自动:
+在任何项目目录中执行 `/init`, Copilot 会读取 `agent-init` skill 并自动:
 - 创建 `.copilot/agents/` 目录 (5 个角色, 含 workspace)
 - 初始化 `state.json`, `inbox.json`, `task-board.json`
+- **在项目 git root 创建 `AGENTS.md`** (Copilot 自动读取此文件)
 - 继承全局模板并根据项目技术栈定制化
 
 ## Usage
@@ -90,18 +89,19 @@ The assistant will:
 
 ```
 ~/.copilot/                      # 全局层 (安装后)
-├── AGENTS.md                    # /init 读取的项目初始化指引
-├── copilot-instructions.md
+├── copilot-instructions.md      # 含 Agent 协作规则
 ├── skills/agent-*.md            # 10 个 skill
 └── agents/<role>/instructions.md # 5 个角色模板
 
-<project>/.copilot/              # 项目层 (/init 生成)
-├── task-board.json / .md
-├── tasks/T-NNN.json
-└── agents/<role>/
-    ├── state.json / inbox.json
-    ├── instructions.md          # 定制化版本
-    └── workspace/               # 工作产出物
+<project>/                       # 项目层 (/init 生成)
+├── AGENTS.md                    # Copilot 自动读取的 Agent 指引
+└── .copilot/
+    ├── task-board.json / .md
+    ├── tasks/T-NNN.json
+    └── agents/<role>/
+        ├── state.json / inbox.json
+        ├── instructions.md      # 定制化版本
+        └── workspace/           # 工作产出物
 ```
 
 ## Design Inspirations

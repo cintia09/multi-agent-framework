@@ -85,13 +85,22 @@ mkdir -p .copilot/agents/tester/workspace/{test-cases,test-screenshots}
 _暂无任务_
 ```
 
-### 5. 生成项目定制化 instructions
-基于检测到的项目信息, 为每个 Agent 生成 `agents/<name>/instructions.md`:
+### 5. 创建项目 AGENTS.md (在 git root)
+在项目根目录创建 `AGENTS.md`, 内容包含:
+- 本项目使用 Agent 协作框架的说明
+- 5 个角色的说明和触发方式
+- 任务流转规则
+- 项目特定的技术信息 (基于 Step 1 检测结果)
+
+此文件会被 Copilot CLI 自动读取 (因为它在 git root)。
+
+### 6. 生成项目定制化 agent instructions
+读取 `~/.copilot/agents/<role>/instructions.md` (全局模板), 结合项目信息, 为每个 Agent 生成 `.copilot/agents/<name>/instructions.md`:
 - 包含项目名称和技术栈信息
-- 引用项目特定的路径、命令和约定
+- 引用项目特定的构建/测试/部署命令
 - 引用已有的测试/CI 配置
 
-### 6. 创建 .gitignore (在 .copilot/ 目录)
+### 7. 创建 .gitignore (在 .copilot/ 目录)
 ```
 # Agent runtime state (不提交到 git)
 agents/*/state.json
@@ -101,7 +110,7 @@ agents/*/inbox.json
 !agents/*/workspace/.gitkeep
 ```
 
-### 7. 输出摘要
+### 8. 输出摘要
 ```
 ✅ Agent 系统已初始化
 ━━━━━━━━━━━━━━━━━━━━━━━
