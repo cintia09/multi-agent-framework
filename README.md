@@ -22,6 +22,8 @@ A zero-dependency, file-based multi-agent collaboration framework for GitHub Cop
 - **Role isolation** — Each agent only operates within its scope
 - **Inbox messaging** — Agents communicate via `inbox.json` files
 - **Goals checklist** — Each task has verifiable feature goals
+- **Hook enforcement** — Agent boundaries enforced by shell hooks, not LLM self-discipline
+- **SQLite audit log** — Every tool use logged to events.db for debugging and analysis
 
 ## Task Lifecycle
 
@@ -41,13 +43,19 @@ The assistant will read the AGENTS.md in the repo and automatically:
 1. Clone 仓库到临时目录
 2. 复制 10 个 skill 文件到 `~/.copilot/skills/`
 3. 复制 5 个 `.agent.md` 文件到 `~/.copilot/agents/` (Copilot 原生 custom agent 格式)
-4. 追加协作规则到 `~/.copilot/copilot-instructions.md` (幂等)
-5. 清理临时目录
+4. 复制 3 个 hook 脚本 + hooks.json 到 `~/.copilot/hooks/`
+5. 追加协作规则到 `~/.copilot/copilot-instructions.md` (幂等)
+6. 清理临时目录
 
 安装完成后, `~/.copilot/` 将包含:
 ```
 ~/.copilot/
 ├── copilot-instructions.md       # 含 Agent 协作规则
+├── hooks/
+│   ├── hooks.json                # Hook 配置
+│   ├── agent-session-start.sh    # 初始化 events.db, 检查待办
+│   ├── agent-pre-tool-use.sh     # Agent 边界执行
+│   └── agent-post-tool-use.sh    # 审计日志
 ├── skills/
 │   └── agent-*/SKILL.md          # 10 个 skill 目录 (每个含 SKILL.md)
 └── agents/
@@ -101,11 +109,69 @@ The assistant will read the AGENTS.md in the repo and automatically:
 - **Implementer** 逐个实现 goals, 标记为 `done`, 全部 done 才能提交审查
 - **Acceptor** 验收时逐个验证 goals, 标记为 `verified`, 全部 verified 才能通过验收
 
+## Hooks (Agent Boundary Enforcement)
+
+The framework uses Copilot CLI's native hook system to enforce agent boundaries and maintain an audit trail.
+
+### 3 Hook Types
+
+| Hook | File | Function |
+|------|------|----------|
+| **session-start** | `agent-session-start.sh` | Initialize events.db, check pending messages/tasks |
+| **pre-tool-use** | `agent-pre-tool-use.sh` | Enforce agent boundaries — deny unauthorized edits |
+| **post-tool-use** | `agent-post-tool-use.sh` | Audit log all tool usage to events.db |
+
+### Agent Boundary Rules
+
+| Role | Can Edit | Cannot Edit |
+|------|----------|-------------|
+| 🎯 Acceptor | `.agents/` directory | Source code ⛔ |
+| 🏗️ Designer | `.agents/` directory | Source code ⛔ |
+| 💻 Implementer | Source code + own workspace | Other agents' workspace ⛔ |
+| 🔍 Reviewer | Review reports + task board | Source code ⛔ |
+| 🧪 Tester | Test files + own workspace | Source code ⛔ |
+
+The `pre-tool-use` hook reads `.agents/runtime/active-agent` to determine the current role, then enforces the boundary rules above. Violations are denied with a descriptive error message.
+
+## Audit Log (events.db)
+
+All agent actions are logged to `.agents/events.db` (SQLite) for debugging and analysis.
+
+### Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Auto-increment primary key |
+| timestamp | INTEGER | Unix timestamp (ms) |
+| event_type | TEXT | session_start, tool_use, task_board_write, state_change |
+| agent | TEXT | Active agent name |
+| task_id | TEXT | Related task ID (if applicable) |
+| tool_name | TEXT | Tool used (bash, edit, create, etc.) |
+| detail | TEXT | JSON detail string |
+
+### Querying
+
+```bash
+# Recent events
+sqlite3 .agents/events.db "SELECT * FROM events ORDER BY id DESC LIMIT 20;"
+
+# Events by agent
+sqlite3 .agents/events.db "SELECT * FROM events WHERE agent='implementer';"
+
+# Task board changes
+sqlite3 .agents/events.db "SELECT * FROM events WHERE event_type='task_board_write';"
+```
+
 ## File Structure
 
 ```
 ~/.copilot/                            # 全局层 (安装后)
 ├── copilot-instructions.md            # 含 Agent 协作规则
+├── hooks/
+│   ├── hooks.json                     # Hook 配置
+│   ├── agent-session-start.sh         # 初始化 events.db
+│   ├── agent-pre-tool-use.sh          # 边界执行
+│   └── agent-post-tool-use.sh         # 审计日志
 ├── skills/
 │   ├── agent-fsm/SKILL.md            # FSM 引擎
 │   ├── agent-task-board/SKILL.md     # 任务表操作
@@ -122,6 +188,7 @@ The assistant will read the AGENTS.md in the repo and automatically:
 
 <project>/                             # 项目层 (初始化后)
 └── .agents/                           # 统一目录
+    ├── events.db                      # SQLite 审计日志
     ├── skills/                        # 项目级 skill (Copilot 自动发现)
     │   ├── project-agents-context/SKILL.md  # 技术栈、命令、部署
     │   ├── project-acceptor/SKILL.md  # 验收标准
@@ -131,9 +198,11 @@ The assistant will read the AGENTS.md in the repo and automatically:
     │   └── project-tester/SKILL.md    # 测试策略
     ├── task-board.json / .md          # 任务表
     ├── tasks/T-NNN.json               # 任务详情
-    └── runtime/<role>/                # Agent 运行时
-        ├── state.json / inbox.json
-        └── workspace/                 # 工作产出物
+    └── runtime/
+        ├── active-agent               # 当前活跃 agent (供 hooks 读取)
+        └── <role>/                    # Agent 运行时
+            ├── state.json / inbox.json
+            └── workspace/             # 工作产出物
 ```
 
 ## Design Inspirations
@@ -147,8 +216,8 @@ The assistant will read the AGENTS.md in the repo and automatically:
 
 ## Roadmap
 
-- **Phase 1** ✅ Manual role switching + FSM + task board + goals (current)
-- **Phase 2** — events.db (SQLite audit log) + enhanced /init
+- **Phase 1** ✅ Manual role switching + FSM + task board + goals
+- **Phase 2** ✅ Hooks (boundary enforcement) + events.db (audit log)
 - **Phase 3** — Auto-dispatch, staleness detection, scheduled prompts
 
 ## License
