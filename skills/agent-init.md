@@ -11,6 +11,13 @@ description: "初始化项目的 Agent 配置。在项目目录下调用 '/init 
 
 ## 执行步骤
 
+### 0. 检查是否已初始化
+```bash
+ls .copilot/task-board.json 2>/dev/null
+```
+- **如果已存在**: 说明 Agent 系统已初始化。输出 "⚠️ Agent 系统已初始化, 跳过。" + 当前状态摘要 (调用 agent-switch 的状态面板)。**不覆盖任何文件** (保护已有的 state/inbox/task-board 数据)。
+- **如果不存在**: 执行全新初始化 (Step 1-7)。
+
 ### 1. 检测项目信息
 ```bash
 # 检测语言和框架
@@ -21,8 +28,6 @@ ls jest.config* playwright.config* pytest.ini vitest.config* 2>/dev/null
 ls .github/workflows/*.yml .gitlab-ci.yml 2>/dev/null
 # 检测部署
 ls Dockerfile docker-compose* k8s/ 2>/dev/null
-# 检测已有的 .copilot 配置
-ls .copilot/ 2>/dev/null
 ```
 
 ### 2. 创建目录结构
