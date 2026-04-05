@@ -1,4 +1,36 @@
-# 多 Agent 软件开发协作框架
+<p align="center">
+  <img src="blog/images/architecture.png" alt="Multi-Agent Framework" width="680" />
+</p>
+
+<h1 align="center">🤖 Multi-Agent Software Development Framework</h1>
+
+<p align="center">
+  <a href="https://github.com/cintia09/multi-agent-framework/releases"><img src="https://img.shields.io/github/v/release/cintia09/multi-agent-framework?style=for-the-badge&color=6366f1" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
+  <a href="https://github.com/cintia09/multi-agent-framework/stargazers"><img src="https://img.shields.io/github/stars/cintia09/multi-agent-framework?style=for-the-badge&color=f59e0b" alt="Stars"></a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Agents-5-6366f1?style=flat-square" alt="5 Agents">
+  <img src="https://img.shields.io/badge/Skills-12-10b981?style=flat-square" alt="12 Skills">
+  <img src="https://img.shields.io/badge/Hooks-4-f59e0b?style=flat-square" alt="4 Hooks">
+  <img src="https://img.shields.io/badge/FSM_States-10-ef4444?style=flat-square" alt="10 FSM States">
+  <img src="https://img.shields.io/badge/Zero_Dependencies-✓-8b5cf6?style=flat-square" alt="Zero Dependencies">
+</p>
+
+<p align="center">
+  <strong>5 个 AI Agent 角色协作的软件开发框架 — 零依赖、基于文件、FSM 驱动</strong>
+</p>
+
+<p align="center">
+  <a href="#安装">安装</a> ·
+  <a href="#使用方式">使用</a> ·
+  <a href="#12-个-skills">12 Skills</a> ·
+  <a href="#为什么需要这个框架">为什么</a> ·
+  <a href="blog/vibe-coding-and-multi-agent.md">博客</a>
+</p>
+
+---
 
 零依赖、基于文件的多 Agent 协作框架，适用于 GitHub Copilot CLI 和 Claude Code。
 
