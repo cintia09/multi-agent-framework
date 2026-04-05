@@ -45,8 +45,17 @@ cat "$AGENTS_DIR/task-board.json"
    ```
 4. 清洁上下文 (RESPAWN 模式 — 不携带上一个 Agent 的工作记忆)
 5. 加载目标 Agent 的 skill (agent-<name>.md)
-6. 执行目标 Agent 的启动流程 (定义在对应 skill 中)
-7. 打印: "🔄 已切换到 <角色名> (<emoji>)"
+6. **自动处理 inbox**: 读取未读消息, 显示给用户, 标记为已读:
+   ```bash
+   INBOX="<project>/.agents/runtime/<agent>/inbox.json"
+   UNREAD=$(jq '[.messages[] | select(.read == false)]' "$INBOX")
+   # 显示每条未读消息, 然后标记已读:
+   jq '.messages |= [.[] | .read = true]' "$INBOX" > "${INBOX}.tmp" && mv "${INBOX}.tmp" "$INBOX"
+   ```
+7. **显示任务概览**: 检查 task-board 中分配给当前 agent 的任务
+8. **Staleness 警告**: 如果有长时间 (>24h) 未活动的任务, 提醒用户
+9. 执行目标 Agent 的启动流程 (定义在对应 skill 中)
+10. 打印: "🔄 已切换到 <角色名> (<emoji>)"
 
 ### 退出角色
 用户说 "退出角色" 或 "exit agent" 时:

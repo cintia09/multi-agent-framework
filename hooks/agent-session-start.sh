@@ -61,3 +61,10 @@ fi
 if [ "$TOTAL_MSGS" -gt 0 ] || [ "$ACTIVE_TASKS" -gt 0 ]; then
   echo "Agent Framework: ${TOTAL_MSGS} pending messages, ${ACTIVE_TASKS} active tasks" >&2
 fi
+
+# Staleness check (G4) — warn about inactive tasks/agents
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+STALE_OUTPUT=$("$HOOK_DIR/agent-staleness-check.sh" "$AGENTS_DIR" 24 2>/dev/null || true)
+if echo "$STALE_OUTPUT" | grep -q "⚠️"; then
+  echo "$STALE_OUTPUT" >&2
+fi
