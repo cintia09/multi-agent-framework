@@ -1,6 +1,6 @@
 ---
 name: agent-designer
-description: "切换到设计者角色 (架构师)。调用时说 '/agent designer' 或 '切换到设计者'。"
+description: "设计者工作流: 需求分析、架构设计、测试规格。Use when analyzing requirements, creating design docs, or writing test specifications."
 ---
 
 # 🏗️ 角色: 设计者 (Designer)

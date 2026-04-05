@@ -1,6 +1,6 @@
 ---
 name: agent-reviewer
-description: "切换到代码审查者角色。调用时说 '/agent reviewer' 或 '切换到审查者'。"
+description: "审查者工作流: 代码质量、安全性、可维护性审查。Use when reviewing code changes and generating review reports."
 ---
 
 # 🔍 角色: 代码审查者 (Reviewer)

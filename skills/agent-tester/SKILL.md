@@ -1,6 +1,6 @@
 ---
 name: agent-tester
-description: "切换到测试者角色 (QA)。调用时说 '/agent tester' 或 '切换到测试者'。"
+description: "测试者工作流: 测试用例生成、自动化测试、问题报告。Use when generating test cases, running tests, or reporting issues."
 ---
 
 # 🧪 角色: 测试者 (Tester)

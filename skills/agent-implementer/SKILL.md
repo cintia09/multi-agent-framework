@@ -1,6 +1,6 @@
 ---
 name: agent-implementer
-description: "切换到实现者角色 (程序员)。调用时说 '/agent implementer' 或 '切换到实现者'。"
+description: "实现者工作流: TDD 开发、按 goals 实现、Bug 修复。Use when implementing features with TDD, fixing bugs, or tracking fixes."
 ---
 
 # 💻 角色: 实现者 (Implementer)

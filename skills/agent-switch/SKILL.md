@@ -1,6 +1,6 @@
 ---
 name: agent-switch
-description: "Agent 角色切换控制器。使用 '/agent status' 查看所有 Agent 状态, '/agent <name>' 切换角色。"
+description: "Agent 状态面板: 查看所有 Agent 的状态、任务分配和消息队列。Use when checking agent status or task overview."
 ---
 
 # Agent 角色管理

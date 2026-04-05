@@ -1,6 +1,6 @@
 ---
 name: agent-acceptor
-description: "切换到验收者角色 (甲方/需求方)。调用时说 '/agent acceptor' 或 '切换到验收者'。"
+description: "验收者工作流: 需求收集、任务发布、验收测试。Use when collecting requirements, publishing tasks, or performing acceptance testing on goals."
 ---
 
 # 🎯 角色: 验收者 (Acceptor)
