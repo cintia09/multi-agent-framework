@@ -104,7 +104,7 @@ description: "实现者工作流: TDD 开发、按 goals 实现、Bug 修复。U
 
 ## 🔄 监控模式: 监控测试者的反馈
 
-当用户说 **"监控测试者的反馈"** / **"watch feedback"** / **"监控反馈"** 时，进入针对特定任务的修复-等待-再修复循环：
+当用户说 **"监控测试者的反馈"** / **"watch feedback"** / **"监控反馈"** 时，进入**全自动**监控循环。无需用户再次输入任何指令，agent 自动处理直到完成。
 
 ### 触发方式
 ```
@@ -113,73 +113,102 @@ description: "实现者工作流: TDD 开发、按 goals 实现、Bug 修复。U
 watch feedback for T-003 → 英文触发
 ```
 
-### 监控循环
+### 全自动循环 (无需用户干预)
 
 ```
 ┌─────────────────────────────────────────────┐
-│ 🔄 反馈监控模式 (任务 T-NNN)                  │
+│ 🔄 反馈监控模式开始 (任务 T-NNN)              │
+│    自动运行, 直到所有 issue 验证通过           │
 └─────────┬───────────────────────────────────┘
           │
           ▼
 ┌─────────────────────────────────────────────┐
-│ 1. 读取 T-NNN-issues.json                    │
-│    统计当前状态                               │
+│ STEP 1: 读取 T-NNN-issues.json (加锁读取)    │
+│   统计: open={n}, fixed={n}, verified={n}     │
+│   检查 version (乐观锁)                       │
 └─────────┬───────────────────────────────────┘
           │
      有 status=="open" 或 "reopened" 的 issue？
      ┌────┴────┐
      │ YES     │ NO
      ▼         ▼
-┌──────────┐  ┌──────────────────────────────┐
-│ 2. 逐个   │  │ 所有 issue 都是 fixed/verified │
-│ 修复      │  │ ├─ 全部 verified:               │
-│ open/     │  │ │  ✅ 任务修复完成!              │
-│ reopened  │  │ │  结束监控                      │
-│ issues    │  │ ├─ 有 fixed 待验证:              │
-│           │  │ │  ⏳ "等待测试者验证 N 个修复"   │
-└────┬─────┘  │ │  报告状态, 等待用户触发         │
-     │        │ └────────────────────────────────┘
-     ▼        │
-┌──────────┐  │
-│ 3. 更新   │  │
-│ JSON     │  │
-│ fixed    │  │
-│ commit   │  │
-└────┬─────┘  │
+┌──────────┐  ┌─────────────────────────────┐
+│ STEP 2:  │  │ 检查全局状态:                 │
+│ 逐个修复  │  │                              │
+│ 所有open/ │  │ ┌─ 全部 verified:            │
+│ reopened  │  │ │  ✅ 任务修复完成!           │
+│ issues    │  │ │  → 结束循环, 输出最终报告   │
+│          │  │ │                             │
+│ 修复完成: │  │ ├─ 有 fixed 待验证:           │
+│ → fixed  │  │ │  FSM → testing              │
+│ + commit │  │ │  通知 tester                │
+└────┬─────┘  │ │  → 自动回到 STEP 1          │
+     │        │ │    (任务转回 testing 后,     │
+     ▼        │ │     tester 验证完会转回      │
+     写回JSON  │ │     fixing, auto-dispatch   │
+     (version │ │     自动写入 implementer     │
+      +1)     │ │     inbox, 下次启动时        │
+     │        │ │     自动重新进入本循环)      │
+     │        │ └─────────────────────────────┘
      │        │
-     ▼        │
-┌──────────┐  │
-│ 4. FSM   │  │
-│ → testing│  │
-│ 通知tester│  │
-└────┬─────┘  │
-     │        │
-     ▼        │
-  等待测试者验证
-  用户说 "继续监控" / "check"
-     │
-     └── 回到步骤 1 (重新读取 JSON, 看是否有 reopened)
+     └── 回到 STEP 1 (继续处理)
 ```
+
+### 自动重入机制
+
+当 implementer 修复完 → 任务转为 testing → tester 验证 → 如果 reopen → 任务转回 fixing → **auto-dispatch 自动将消息写入 implementer inbox** → implementer 下次启动/切入时自动读取 → **自动重新进入监控循环**。
+
+```
+implementer 修复         tester 验证            auto-dispatch
+→ fixed + testing ───→ reopen + fixing ───→ implementer inbox 📥
+                                               │
+                                    implementer 下次启动时自动读取
+                                    → 自动进入监控循环 ↻
+```
+
+### 并发保护 (乐观锁)
+
+`T-NNN-issues.json` 增加 `version` 字段:
+
+```json
+{
+  "task_id": "T-NNN",
+  "version": 5,
+  "...": "..."
+}
+```
+
+**读写规则:**
+1. 读取 JSON, 记录 `version: N`
+2. 修改需要的字段
+3. 写入前检查: 文件当前 version 是否仍为 N
+   - 是 → 写入, version 改为 N+1
+   - 否 → **冲突! 重新读取, 合并修改** (最多重试 3 次)
+
+**字段隔离** (降低冲突概率):
+- Implementer 只写: `status` (fixed), `fix_note`, `fix_commit`
+- Tester 只写: `status` (open/verified/reopened), `verified_at`, `reopen_reason`, `round`
+- 两边都更新: `summary` (冲突时以最新 JSON 重新计算)
 
 ### 监控状态报告
 
-每轮检查后输出:
+每轮自动输出:
 ```
 🔧 反馈监控: T-NNN (Round {round})
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ISS-001 [high]   ✅ verified  — 用户登录返回500
-ISS-002 [medium] 🔄 reopened  — 重新修复中...
+ISS-002 [medium] 🔄 reopened  — 自动修复中...
 ISS-003 [low]    🔧 fixed    — 等待测试者验证
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-进度: 1/3 verified | 1 待验证 | 1 需重新修复
+进度: 1/3 verified | 1 待验证 | 1 修复中
+下一步: 修复 ISS-002...
 ```
 
-### 等待时的行为
-当所有 open/reopened issues 已修复 (status=fixed)，等待测试者验证时:
-- 输出: "⏳ 等待测试者验证 {n} 个修复。说 **继续监控** 或 **check** 重新检查。"
-- 用户说 "继续监控" / "check" → 重新读取 JSON, 检查是否有 reopened
-- 如果测试者 reopen 了某个 issue → 自动进入修复流程
-- 如果全部 verified → 输出 "✅ T-NNN 所有问题已修复并验证! 任务完成。"
+### 终止条件
+监控循环在以下情况结束:
+1. ✅ 所有 issue 状态为 `verified` → 输出最终报告: "✅ T-NNN 所有问题已修复并验证!"
+2. ⛔ 某个 issue 被标记为 blocked → 报告并停止
+3. ❌ 乐观锁重试 3 次仍失败 → 报告冲突并停止
 
 ### 流程 C: 处理审查退回
 ```
