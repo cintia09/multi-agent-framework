@@ -88,5 +88,8 @@ state.json 格式:
 1. 当前状态 → 目标状态是否在合法转移列表中
 2. 执行转移的 Agent 是否是当前任务的 assigned_to
 3. task-board.json 的 version 是否与读取时一致 (乐观锁)
+4. **目标清单检查 (goals guard)**:
+   - `implementing → reviewing`: 任务的 goals 数组中所有目标的 status 必须为 `done` — 有任何 `pending` 则拒绝, 提示 implementer 还有未完成的功能目标
+   - `accepting → accepted`: 任务的 goals 数组中所有目标的 status 必须为 `verified` — 有任何 `pending`/`done`/`failed` 则拒绝, 提示 acceptor 还有未验证或验证失败的目标
 
 如果任何 Guard 检查失败, 中止转移, 报告原因。

@@ -30,19 +30,35 @@ description: "切换到实现者角色 (程序员)。调用时说 '/agent implem
 1. 更新 state.json (status: busy, current_task: T-NNN, sub_state: implementing)
 2. 读取设计文档 (designer/workspace/design-docs/T-NNN-design.md)
 3. 读取测试规格 (designer/workspace/test-specs/T-NNN-test-spec.md)
-4. TDD 循环:
-   a. 编写测试 (根据测试规格)
+4. **读取任务的功能目标清单** (tasks/T-NNN.json → goals 数组)
+5. 对每个 goal 执行 TDD 循环:
+   a. 编写测试 (根据 goal + 测试规格)
    b. 运行测试 (应该失败 — RED)
    c. 编写最小实现代码
    d. 运行测试 (应该通过 — GREEN)
    e. 重构 (REFACTOR)
-5. 确保 lint/typecheck/build 全部通过
-6. git commit + push (commit 消息英文, 含 Co-authored-by trailer)
-7. 使用 agent-fsm 将任务状态转为 reviewing
-8. 更新任务 artifacts
-9. 消息通知 reviewer: "T-NNN 实现完成, 请审查代码"
-10. 更新 state.json (status: idle)
+   f. **将该 goal 的 status 改为 `done`, 填写 completed_at**
+6. 确保 lint/typecheck/build 全部通过
+7. **检查: 所有 goals 是否都为 `done`** — 如果有 `pending` 的, 继续实现
+8. git commit + push (commit 消息英文, 含 Co-authored-by trailer)
+9. 使用 agent-fsm 将任务状态转为 reviewing (FSM 会检查 goals 全部 done)
+10. 更新任务 artifacts
+11. 消息通知 reviewer: "T-NNN 实现完成 (N/N goals done), 请审查代码"
+12. 更新 state.json (status: idle)
 ```
+
+### 目标清单操作
+完成一个功能目标后, 更新 tasks/T-NNN.json:
+```json
+{
+  "id": "G-001",
+  "title": "实现用户登录接口",
+  "status": "done",
+  "completed_at": "2026-04-05T10:00:00Z",
+  "note": "commit abc1234"
+}
+```
+**规则**: 只有所有 goals 都为 `done` 时, 才能提交审查。如果发现 goal 不明确或需要调整, 通过消息系统联系 designer。
 
 ### 流程 B: 修复 Bug
 ```

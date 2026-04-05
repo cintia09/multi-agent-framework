@@ -80,6 +80,9 @@ T-002   designing      设计者    P1      题库展示模块
   "created_at": "2026-04-05T08:00:00Z",
   "updated_at": "2026-04-05T08:00:00Z",
   "history": [],
+  "goals": [
+    {"id": "G-001", "title": "功能目标描述", "status": "pending", "completed_at": null, "verified_at": null}
+  ],
   "artifacts": {
     "requirement": null,
     "acceptance_doc": null,
@@ -99,3 +102,35 @@ T-002   designing      设计者    P1      题库展示模块
 - 每次修改 JSON 后必须同步 Markdown
 - 只有 acceptor 可以创建和删除任务
 - 状态变更必须通过 agent-fsm 验证
+
+## 功能目标清单 (goals)
+
+每个任务包含 `goals` 数组, 记录该任务需要实现的所有功能目标。
+
+### goals 字段说明
+```json
+{
+  "id": "G-001",
+  "title": "实现用户登录接口",
+  "status": "pending|done|verified|failed",
+  "completed_at": null,
+  "verified_at": null,
+  "note": ""
+}
+```
+
+### 目标状态
+| status | 含义 | 谁设置 |
+|--------|------|--------|
+| `pending` | 待实现 | acceptor 创建任务时定义 |
+| `done` | 实现者标记完成 | implementer |
+| `verified` | 验收者确认通过 | acceptor |
+| `failed` | 验收者确认不通过 | acceptor |
+
+### 规则
+1. **Acceptor 创建任务时**必须定义至少 1 个 goal
+2. **Designer** 可以在设计阶段拆分或细化 goals (添加新 goal, 修改标题)
+3. **Implementer** 完成一个功能后将对应 goal 标记为 `done`
+4. **Implementer 转 reviewing 前**, 所有 goals 必须为 `done` — 否则 FSM 拒绝转移
+5. **Acceptor 验收时**逐个验证 goals, 标记为 `verified` 或 `failed`
+6. **Acceptor 标记 accepted 前**, 所有 goals 必须为 `verified` — 否则 FSM 拒绝转移

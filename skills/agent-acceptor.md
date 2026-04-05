@@ -30,28 +30,48 @@ description: "切换到验收者角色 (甲方/需求方)。调用时说 '/agent
 ```
 1. 与用户沟通, 明确需求边界和验收标准
 2. 在 acceptor/workspace/requirements/ 下创建需求文档 (T-NNN-requirement.md)
-3. 在 acceptor/workspace/acceptance-docs/ 下创建验收文档 (T-NNN-acceptance.md)
-4. 使用 agent-task-board skill 创建任务
-5. 更新 state.json (status: idle, 当前任务清空)
-6. 确认: "✅ 任务 T-NNN 已发布, 设计者将接手"
+3. **拆分功能目标**: 将需求拆解为具体的功能目标清单 (goals), 每个 goal 是一个可独立验证的功能点
+4. 在 acceptor/workspace/acceptance-docs/ 下创建验收文档 (T-NNN-acceptance.md)
+5. 使用 agent-task-board skill 创建任务 (包含 goals 数组)
+6. 更新 state.json (status: idle, 当前任务清空)
+7. 确认: "✅ 任务 T-NNN 已发布 (N 个功能目标), 设计者将接手"
+```
+
+### 功能目标定义规则
+创建任务时, goals 数组中每个目标应该:
+- 有清晰的标题 (一句话描述该功能)
+- 可独立验证 (能通过一个或多个测试用例确认完成)
+- 粒度适中 (不要太大也不要太小, 通常 1-4 小时工作量)
+
+示例:
+```json
+"goals": [
+  {"id": "G-001", "title": "首页显示版权声明文字", "status": "pending", "completed_at": null, "verified_at": null},
+  {"id": "G-002", "title": "版权声明包含当前年份和项目名", "status": "pending", "completed_at": null, "verified_at": null},
+  {"id": "G-003", "title": "移动端版权声明正常显示", "status": "pending", "completed_at": null, "verified_at": null}
+]
 ```
 
 ### 流程 B: 验收
 ```
 1. 更新 state.json (status: busy, current_task: T-NNN, sub_state: accepting)
 2. 读取任务的验收文档 (acceptor/workspace/acceptance-docs/T-NNN-acceptance.md)
-3. 读取测试者的测试报告
-4. 在实际环境上执行验收测试 (可以使用 Playwright/curl)
-5. 输出验收报告到 acceptor/workspace/acceptance-reports/T-NNN-report.md
-6. 如果通过:
-   - 使用 agent-fsm skill 将任务状态转为 accepted
+3. **读取任务的功能目标清单** (tasks/T-NNN.json → goals 数组)
+4. 读取测试者的测试报告
+5. **逐个验证每个 goal**:
+   - 在实际环境上验证该功能 (Playwright/curl/手动)
+   - 通过: 将 goal status 改为 `verified`, 填写 verified_at
+   - 不通过: 将 goal status 改为 `failed`, 在 note 中说明原因
+6. 输出验收报告到 acceptor/workspace/acceptance-reports/T-NNN-report.md (包含每个 goal 的验收结果)
+7. 如果**所有 goals 都为 verified**:
+   - 使用 agent-fsm skill 将任务状态转为 accepted (FSM 会检查 goals 全部 verified)
    - 更新任务 artifacts.acceptance_report
    - 更新 state.json (status: idle)
-   - 通知: "✅ T-NNN 验收通过"
-7. 如果不通过:
-   - 在验收报告中详细说明失败原因
+   - 通知: "✅ T-NNN 验收通过 (N/N goals verified)"
+8. 如果**有任何 goal 为 failed**:
+   - 在验收报告中详细说明每个失败 goal 的原因
    - 使用 agent-fsm skill 将任务状态转为 accept_fail
-   - 消息通知 designer: "验收失败, 原因见报告"
+   - 消息通知 designer: "验收失败, N 个目标未通过, 详见报告"
    - 更新 state.json (status: idle)
 ```
 
