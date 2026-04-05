@@ -1,52 +1,13 @@
-# Multi-Agent Software Development Framework
+# Multi-Agent 协作框架 — 项目初始化指引
+
+> 本文件由全局安装放置于 `~/.copilot/AGENTS.md`。当用户在任何项目中执行 `/init` 时, Copilot 应读取此文件并自动执行项目级 Agent 初始化。
 
 ## /init 自动执行指令
 
-当在本仓库执行 `/init` 时, **请立即自动执行以下安装步骤** (不需要额外确认):
+当在任何项目中执行 `/init` 且检测到此文件存在时, **请自动执行以下项目初始化**:
 
-### Step 0: 检查是否已安装
+### Step 1: 检查是否已初始化
 ```bash
-ls ~/.copilot/skills/agent-fsm.md 2>/dev/null
-```
-- 如果已存在 → **更新模式**: 覆盖所有文件, 输出 "✅ Agent 框架已更新"
-- 如果不存在 → **全新安装**
-
-### Step 1: 复制 skills 到全局
-```bash
-cp skills/agent-*.md ~/.copilot/skills/
-```
-
-### Step 2: 复制 agents 模板到全局
-```bash
-mkdir -p ~/.copilot/agents/{acceptor,designer,implementer,reviewer,tester}/skills
-cp agents/acceptor/instructions.md ~/.copilot/agents/acceptor/
-cp agents/designer/instructions.md ~/.copilot/agents/designer/
-cp agents/implementer/instructions.md ~/.copilot/agents/implementer/
-cp agents/reviewer/instructions.md ~/.copilot/agents/reviewer/
-cp agents/tester/instructions.md ~/.copilot/agents/tester/
-```
-
-### Step 3: 复制 AGENTS.md 全局指引
-将 `docs/AGENTS-global.md` 复制到 `~/.copilot/AGENTS.md`:
-```bash
-cp docs/AGENTS-global.md ~/.copilot/AGENTS.md
-```
-这个文件是项目级 /init 的指引 — 当用户在其他项目执行 /init 时, Copilot 读取它来自动创建项目级 agent 目录。
-
-### Step 4: 追加全局协作规则
-检查 `~/.copilot/copilot-instructions.md` 是否已包含 "Multi-Agent 协作规则":
-- 如果没有 → 追加 `docs/agent-rules.md` 的内容
-- 如果已有 → 跳过 (不重复追加)
-
-### Step 5: 验证并输出
-```
-✅ Agent 框架已安装
-  Skills: 10 个 → ~/.copilot/skills/
-  Agents: 5 个角色模板 → ~/.copilot/agents/
-  AGENTS.md: 项目初始化指引 → ~/.copilot/AGENTS.md
-  Rules: 协作规则 → copilot-instructions.md
-  下一步: cd <任意项目>, 执行 /init
-```
 ls .copilot/task-board.json 2>/dev/null
 ```
 - 如果已存在 → 输出 "⚠️ Agent 系统已初始化" + 状态摘要, 不覆盖
