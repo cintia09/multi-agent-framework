@@ -1,12 +1,3 @@
-# Copilot CLI 全局指令
-
-## 基础规范
-- 所有项目 commit 消息必须使用英文
-- 每次 commit 必须包含 `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`
-- dev 分支: 不主动 push (除非用户明确要求)
-- main 分支: 正常 push
-- 每次回复结束前必须调用 `ask_user` 询问下一步
-
 ## Multi-Agent 协作规则
 
 ### Agent 角色系统

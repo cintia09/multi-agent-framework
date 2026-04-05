@@ -4,7 +4,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILLS_DIR="$HOME/.copilot/skills"
-INSTRUCTIONS="$HOME/.copilot/instructions.md"
+INSTRUCTIONS="$HOME/.copilot/copilot-instructions.md"
 
 echo "🚀 Installing Multi-Agent Framework..."
 echo ""
@@ -32,7 +32,7 @@ if [ -f "$INSTRUCTIONS" ]; then
     echo ""
     echo "📝 Appending agent rules to $INSTRUCTIONS"
     echo "" >> "$INSTRUCTIONS"
-    cat "$SCRIPT_DIR/docs/global-instructions.md" >> "$INSTRUCTIONS"
+    cat "$SCRIPT_DIR/docs/agent-rules.md" >> "$INSTRUCTIONS"
     echo "  ✅ Agent rules appended"
   fi
 else

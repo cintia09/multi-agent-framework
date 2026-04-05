@@ -35,15 +35,15 @@ created → designing → implementing → reviewing → testing → accepting �
 
 ### 1. Install skills globally
 
+Simply tell Copilot CLI (while in this repo):
+> "帮我将这个 repo 里的 agents 安装到我本地"
+
+Copilot will read the install.sh and execute it, or you can run manually:
 ```bash
 ./install.sh
 ```
 
-Or manually copy:
-```bash
-cp skills/agent-*.md ~/.copilot/skills/
-cat docs/global-instructions.md >> ~/.copilot/instructions.md
-```
+This copies 10 skill files to `~/.copilot/skills/` and appends agent collaboration rules to `~/.copilot/copilot-instructions.md`.
 
 ### 2. Initialize a project
 
