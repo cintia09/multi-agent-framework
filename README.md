@@ -1,169 +1,169 @@
-# Multi-Agent Software Development Framework
+# 多 Agent 软件开发协作框架
 
-A zero-dependency, file-based multi-agent collaboration framework for GitHub Copilot CLI and Claude Code.
+零依赖、基于文件的多 Agent 协作框架，适用于 GitHub Copilot CLI 和 Claude Code。
 
-## Overview
+## 概述
 
-5 specialized AI agent roles collaborate through a file-based state machine to deliver complete software development lifecycle (SDLC) coverage:
+5 个专业 AI Agent 角色通过基于文件的状态机协作，覆盖完整的软件开发生命周期 (SDLC)：
 
-| Role | Emoji | Responsibility |
-|------|-------|---------------|
-| **Acceptor** | 🎯 | Requirements gathering, task publishing, acceptance testing |
-| **Designer** | 🏗️ | Architecture design, technical research, test specifications |
-| **Implementer** | 💻 | TDD development, bug fixes, code submission |
-| **Reviewer** | 🔍 | Code review, security audit, quality checks |
-| **Tester** | 🧪 | Test case generation, E2E testing, issue reporting |
+| 角色 | Emoji | 职责 |
+|------|-------|------|
+| **验收者** (Acceptor) | 🎯 | 需求收集、任务发布、验收测试 |
+| **设计者** (Designer) | 🏗️ | 架构设计、技术调研、测试规格 |
+| **实现者** (Implementer) | 💻 | TDD 开发、Bug 修复、代码提交 |
+| **审查者** (Reviewer) | 🔍 | 代码审查、安全审计、质量检查 |
+| **测试者** (Tester) | 🧪 | 测试用例生成、E2E 测试、问题报告 |
 
-## Key Features
+## 核心特性
 
-- **Zero dependencies** — Pure Markdown skills + JSON state files
-- **File-based persistence** — All state in Git-trackable files
-- **FSM-enforced workflow** — Illegal state transitions are rejected
-- **Role isolation** — Each agent only operates within its scope
-- **Hook enforcement** — Agent boundaries enforced by shell hooks, not LLM self-discipline
-- **Inbox messaging** — Agents communicate via `inbox.json` files
-- **Goals checklist** — Each task has verifiable feature goals
-- **Auto-dispatch** — Task status changes automatically notify the next agent
-- **Batch processing** — Agents process all pending tasks in a single loop
-- **Watch mode** — Tester↔Implementer automatic fix-verify cycle
-- **Issue tracking** — Structured JSON with optimistic locking for concurrent safety
-- **SQLite audit log** — Every tool use logged to events.db
-- **Staleness detection** — Warns about tasks idle for too long
+- **零依赖** — 纯 Markdown Skills + JSON 状态文件
+- **文件持久化** — 所有状态存储在 Git 可追踪的文件中
+- **FSM 强制工作流** — 非法状态转移会被拒绝
+- **角色隔离** — 每个 Agent 只能在自己的职责范围内操作
+- **Hook 强制执行** — Agent 边界由 Shell Hook 强制执行，不靠 LLM 自律
+- **消息收件箱** — Agent 之间通过 `inbox.json` 通信
+- **功能目标清单** — 每个任务有可独立验证的功能目标
+- **自动调度** — 任务状态变更自动通知下一个 Agent
+- **批处理模式** — Agent 在一个循环中处理所有待办任务
+- **监控模式** — 测试者↔实现者全自动修复-验证循环
+- **问题追踪** — 结构化 JSON + 乐观锁保证并发安全
+- **SQLite 审计日志** — 每次工具使用都记录到 events.db
+- **超时检测** — 对长时间闲置的任务发出警告
 
-## Task Lifecycle
+## 任务生命周期
 
 ```
 created → designing → implementing → reviewing → testing → accepting → accepted ✅
                          ▲                          ▲  │
-                         └── reviewing (reject) ────┘  └── fixing ──┘
+                         └── reviewing (退回) ───────┘  └── fixing ──┘
                                                               ↕
-                                                     (tester↔implementer
-                                                      auto fix-verify cycle)
+                                                     (测试者↔实现者
+                                                      全自动修复-验证循环)
 ```
 
-Any task can also transition to `blocked` (human intervention required) via `/unblock`.
+任何任务都可以转为 `blocked` 状态（需要人工介入），通过 `unblock` 解除。
 
-## Installation
+## 安装
 
-Tell your AI assistant (Copilot CLI, Claude Code, etc.):
+对你的 AI 助手（Copilot CLI、Claude Code 等）说：
 
 > "根据 cintia09/multi-agent-framework 仓库里的指引, 将 agents 安装到我本地。"
 
-The assistant will read the AGENTS.md in the repo and automatically:
-1. Clone 仓库到临时目录
-2. 复制 11 个 skill 目录到 `~/.copilot/skills/`
+助手会读取仓库中的 AGENTS.md 并自动：
+1. 克隆仓库到临时目录
+2. 复制 11 个 Skill 目录到 `~/.copilot/skills/`
 3. 复制 5 个 `.agent.md` 文件到 `~/.copilot/agents/`
-4. 复制 4 个 hook 脚本 + hooks.json 到 `~/.copilot/hooks/`
-5. 追加协作规则到 `~/.copilot/copilot-instructions.md` (幂等)
+4. 复制 4 个 Hook 脚本 + hooks.json 到 `~/.copilot/hooks/`
+5. 追加协作规则到 `~/.copilot/copilot-instructions.md`（幂等）
 6. 清理临时目录
 
-Verify with the included script:
+使用内置脚本验证：
 ```bash
 bash /tmp/multi-agent-framework/scripts/verify-install.sh
 ```
 
-安装完成后, `~/.copilot/` 将包含:
+安装完成后，`~/.copilot/` 目录结构：
 ```
 ~/.copilot/
 ├── copilot-instructions.md       # 含 Agent 协作规则
 ├── hooks/
 │   ├── hooks.json                # Hook 配置
-│   ├── agent-session-start.sh    # 初始化 events.db, 检查待办
+│   ├── agent-session-start.sh    # 初始化 events.db，检查待办
 │   ├── agent-pre-tool-use.sh     # Agent 边界执行
 │   ├── agent-post-tool-use.sh    # 审计日志 + 自动调度
 │   └── agent-staleness-check.sh  # 超时任务检测
 ├── skills/
-│   └── agent-*/SKILL.md          # 11 个 skill 目录 (每个含 SKILL.md)
+│   └── agent-*/SKILL.md          # 11 个 Skill 目录（每个含 SKILL.md）
 └── agents/
-    ├── acceptor.agent.md         # 验收者 (原生 agent profile)
+    ├── acceptor.agent.md         # 验收者（原生 Agent Profile）
     ├── designer.agent.md         # 设计者
     ├── implementer.agent.md      # 实现者
     ├── reviewer.agent.md         # 审查者
     └── tester.agent.md           # 测试者
 ```
 
-**原生集成**: `/agent` 命令可直接列出并切换到这 5 个角色。
-**幂等**: 重复安装只覆盖 skills 和 agents, 不会重复追加 rules。
+**原生集成**：`/agent` 命令可直接列出并切换到这 5 个角色。
+**幂等**：重复安装只覆盖 Skills 和 Agents，不会重复追加规则。
 
-## Project Initialization
+## 项目初始化
 
-在任何项目目录中, 对 Copilot 说 **"初始化 Agent 系统"**, 它会调用 `agent-init` skill 自动:
+在任何项目目录中，对 Copilot 说 **"初始化 Agent 系统"**，它会调用 `agent-init` Skill 自动：
 
-1. **收集上下文** (4 个来源):
-   - 检测项目技术栈 (语言、框架、测试、CI、部署、monorepo)
-   - 读取 `.github/copilot-instructions.md` (项目规范, 如果存在)
-   - 读取全局 agent profiles (`~/.copilot/agents/*.agent.md`, 角色定义)
-   - 读取全局 skills (`~/.copilot/skills/agent-*/SKILL.md`, 工作流定义)
-2. 创建 `.agents/runtime/` 运行时目录 (state.json, inbox.json)
-3. 初始化 `events.db` (SQLite 审计日志)
+1. **收集上下文**（4 个来源）：
+   - 检测项目技术栈（语言、框架、测试、CI、部署、Monorepo）
+   - 读取 `.github/copilot-instructions.md`（项目规范，如果存在）
+   - 读取全局 Agent Profiles（`~/.copilot/agents/*.agent.md`，角色定义）
+   - 读取全局 Skills（`~/.copilot/skills/agent-*/SKILL.md`，工作流定义）
+2. 创建 `.agents/runtime/` 运行时目录（state.json、inbox.json）
+3. 初始化 `events.db`（SQLite 审计日志）
 4. 创建 `.agents/task-board.json` 空任务表
-5. **AI 生成 6 个项目级 skill** (基于上下文, 非拷贝!):
+5. **AI 生成 6 个项目级 Skill**（基于上下文定制，非拷贝！）：
    - `project-agents-context` — 项目技术栈、构建命令、部署方式
    - `project-acceptor` — 验收标准、业务背景
    - `project-designer` — 架构约束、技术选型
    - `project-implementer` — 编码规范、开发命令
    - `project-reviewer` — 审查标准、质量要求
    - `project-tester` — 测试框架、覆盖率要求
-6. (可选) 生成项目级 hooks (`.agents/hooks/`)
-7. 创建 `.agents/.gitignore` (排除运行时状态)
+6. （可选）生成项目级 Hooks（`.agents/hooks/`）
+7. 创建 `.agents/.gitignore`（排除运行时状态）
 
-Verify with:
+使用内置脚本验证：
 ```bash
 bash /tmp/multi-agent-framework/scripts/verify-init.sh
 ```
 
-## Usage
+## 使用方式
 
-### Basic Commands
+### 基本命令
 ```
 "初始化 Agent 系统"    → 在当前项目中初始化 .agents/ 目录
-/agent                → 浏览并选择角色 (原生命令)
+/agent                → 浏览并选择角色（原生命令）
 /agent acceptor       → 切换到验收者
 /agent implementer    → 切换到实现者
-"查看 Agent 状态"      → 状态面板 (含阻塞任务提醒)
+"查看 Agent 状态"      → 状态面板（含阻塞任务提醒）
 "unblock T-003"       → 解除任务阻塞
 ```
 
-### Batch Processing Mode
-切换到任何 Agent 后说 **"处理任务"** / **"开始工作"**, Agent 自动:
+### 批处理模式
+切换到任何 Agent 后说 **"处理任务"** / **"开始工作"**，Agent 自动：
 1. 扫描任务表，找出分配给自己的所有待办任务
-2. 按优先级排序 (high > medium > low)
+2. 按优先级排序（high > medium > low）
 3. 逐个处理，处理完自动拿下一个
 4. 全部完成后输出处理摘要
 
-### Watch Mode (Tester ↔ Implementer)
+### 监控模式（测试者 ↔ 实现者）
 
-**测试者**:
+**测试者**：
 ```
-"监控实现者的修复"     → 自动验证 fixed issues, 全部通过则转 accepting
-```
-
-**实现者**:
-```
-"监控测试者的反馈"     → 自动修复 open/reopened issues, 等待验证
+"监控实现者的修复"     → 自动验证 fixed issues，全部通过则转 accepting
 ```
 
-两边全自动循环 — 无需手动 "check"。通过 auto-dispatch + inbox 实现自动重入。
+**实现者**：
+```
+"监控测试者的反馈"     → 自动修复 open/reopened issues，等待验证
+```
 
-## 11 Skills
+两边全自动循环 — 无需手动 check。通过自动调度 + 收件箱实现自动重入。
 
-| # | Skill | Description |
-|---|-------|-------------|
-| 1 | `agent-fsm` | FSM engine — 10 state transitions + guard rules |
-| 2 | `agent-task-board` | Task CRUD + goals + block/unblock + optimistic locking |
-| 3 | `agent-messaging` | Inter-agent inbox messaging |
-| 4 | `agent-init` | Project initialization + enhanced tech stack detection |
-| 5 | `agent-switch` | Role switching + status panel + batch processing |
-| 6 | `agent-acceptor` | Acceptor workflow |
-| 7 | `agent-designer` | Designer workflow |
-| 8 | `agent-implementer` | Implementer + TDD + watch mode |
-| 9 | `agent-reviewer` | Reviewer workflow |
-| 10 | `agent-tester` | Tester + issue JSON + watch mode |
-| 11 | `agent-events` | events.db query, analysis, cleanup, export |
+## 11 个 Skills
 
-## Issue Tracking (Tester ↔ Implementer)
+| # | Skill | 描述 |
+|---|-------|------|
+| 1 | `agent-fsm` | FSM 引擎 — 10 种状态转移 + Guard 规则 |
+| 2 | `agent-task-board` | 任务 CRUD + 功能目标 + 阻塞/解阻塞 + 乐观锁 |
+| 3 | `agent-messaging` | Agent 间收件箱消息 |
+| 4 | `agent-init` | 项目初始化 + 增强技术栈检测 |
+| 5 | `agent-switch` | 角色切换 + 状态面板 + 批处理模式 |
+| 6 | `agent-acceptor` | 验收者工作流 |
+| 7 | `agent-designer` | 设计者工作流 |
+| 8 | `agent-implementer` | 实现者 + TDD + 监控模式 |
+| 9 | `agent-reviewer` | 审查者工作流 |
+| 10 | `agent-tester` | 测试者 + Issue JSON + 监控模式 |
+| 11 | `agent-events` | events.db 查询、分析、清理、导出 |
 
-Structured JSON (`T-NNN-issues.json`) is the single source of truth:
+## 问题追踪（测试者 ↔ 实现者）
+
+结构化 JSON（`T-NNN-issues.json`）是唯一真相源：
 
 ```json
 {
@@ -175,79 +175,79 @@ Structured JSON (`T-NNN-issues.json`) is the single source of truth:
       "id": "ISS-001",
       "severity": "high",
       "status": "verified",
-      "title": "Login returns 500 on empty password",
-      "fix_note": "Added null check",
+      "title": "登录接口空密码返回 500",
+      "fix_note": "添加了空值检查",
       "fix_commit": "abc1234"
     }
   ]
 }
 ```
 
-**Issue status flow**: `open → fixed → verified ✅` (or `→ reopened → fixed → ...`)
+**Issue 状态流转**：`open → fixed → verified ✅`（或 `→ reopened → fixed → ...`）
 
-**Field ownership**:
-- Tester writes: issue details, status (open/verified/reopened)
-- Implementer writes: fix_note, fix_commit, status (fixed)
-- Markdown reports auto-generated (read-only)
+**字段归属**：
+- 测试者写：问题详情、状态（open/verified/reopened）
+- 实现者写：fix_note、fix_commit、状态（fixed）
+- Markdown 报告从 JSON 自动生成（只读）
 
-**Concurrency**: Optimistic locking (version field) + field isolation prevents conflicts.
+**并发安全**：乐观锁（version 字段）+ 字段隔离防止冲突。
 
-## Goals Checklist
+## 功能目标清单
 
-每个任务包含功能目标清单 (goals):
-- **Acceptor** 创建任务时定义 goals (每个 goal 是一个可独立验证的功能点)
-- **Implementer** 逐个实现 goals, 标记为 `done`, 全部 done 才能提交审查
-- **Acceptor** 验收时逐个验证 goals, 标记为 `verified`, 全部 verified 才能通过验收
+每个任务包含功能目标清单（goals）：
+- **验收者** 创建任务时定义 goals（每个 goal 是一个可独立验证的功能点）
+- **实现者** 逐个实现 goals，标记为 `done`，全部 done 才能提交审查
+- **验收者** 验收时逐个验证 goals，标记为 `verified`，全部 verified 才能通过验收
 
-## Hooks (4 Scripts)
+## Hooks（4 个脚本）
 
-| Hook | File | Function |
-|------|------|----------|
-| **session-start** | `agent-session-start.sh` | Initialize events.db, check pending messages/tasks |
-| **pre-tool-use** | `agent-pre-tool-use.sh` | Enforce agent boundaries — deny unauthorized edits |
-| **post-tool-use** | `agent-post-tool-use.sh` | Audit log + auto-dispatch to next agent |
-| **staleness-check** | `agent-staleness-check.sh` | Detect tasks idle >24h, warn user |
+| Hook | 文件 | 功能 |
+|------|------|------|
+| **session-start** | `agent-session-start.sh` | 初始化 events.db，检查待办消息/任务 |
+| **pre-tool-use** | `agent-pre-tool-use.sh` | 强制执行 Agent 边界 — 拒绝越权操作 |
+| **post-tool-use** | `agent-post-tool-use.sh` | 审计日志 + 自动调度到下一个 Agent |
+| **staleness-check** | `agent-staleness-check.sh` | 检测闲置超过 24 小时的任务，发出警告 |
 
-### Agent Boundary Rules (pre-tool-use)
+### Agent 边界规则（pre-tool-use）
 
-| Role | Can Edit | Cannot Edit |
-|------|----------|-------------|
-| 🎯 Acceptor | `.agents/` directory | Source code ⛔ |
-| 🏗️ Designer | `.agents/` directory | Source code ⛔ |
-| 💻 Implementer | Source code + own workspace | Other agents' workspace ⛔ |
-| 🔍 Reviewer | Review reports + task board | Source code ⛔ |
-| 🧪 Tester | Test files + own workspace | Source code ⛔ |
+| 角色 | 可编辑 | 不可编辑 |
+|------|--------|---------|
+| 🎯 验收者 | `.agents/` 目录 | 源代码 ⛔ |
+| 🏗️ 设计者 | `.agents/` 目录 | 源代码 ⛔ |
+| 💻 实现者 | 源代码 + 自己的工作区 | 其他 Agent 的工作区 ⛔ |
+| 🔍 审查者 | 审查报告 + 任务看板 | 源代码 ⛔ |
+| 🧪 测试者 | 测试文件 + 自己的工作区 | 源代码 ⛔ |
 
-### Auto-dispatch (post-tool-use)
+### 自动调度（post-tool-use）
 
-When `task-board.json` is written, the hook automatically:
-1. Detects the new task status
-2. Maps it to the responsible agent
-3. Writes a message to that agent's inbox
-4. Logs `auto_dispatch` event to events.db
+当 `task-board.json` 被写入时，Hook 自动：
+1. 检测新的任务状态
+2. 映射到负责的 Agent
+3. 写入该 Agent 的收件箱
+4. 记录 `auto_dispatch` 事件到 events.db
 
-## Audit Log (events.db)
+## 审计日志（events.db）
 
-All agent actions logged to `.agents/events.db` (SQLite):
+所有 Agent 操作记录到 `.agents/events.db`（SQLite）：
 
-| Column | Type | Description |
-|--------|------|-------------|
-| timestamp | INTEGER | Unix timestamp (ms) |
-| event_type | TEXT | session_start, tool_use, task_board_write, auto_dispatch |
-| agent | TEXT | Active agent name |
-| task_id | TEXT | Related task ID |
-| tool_name | TEXT | Tool used |
-| detail | TEXT | JSON detail string |
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| timestamp | INTEGER | Unix 时间戳（毫秒） |
+| event_type | TEXT | session_start、tool_use、task_board_write、auto_dispatch |
+| agent | TEXT | 当前活跃 Agent |
+| task_id | TEXT | 关联任务 ID |
+| tool_name | TEXT | 使用的工具 |
+| detail | TEXT | JSON 详情字符串 |
 
-Query with the `agent-events` skill or directly:
+通过 `agent-events` Skill 或直接查询：
 ```bash
 sqlite3 .agents/events.db "SELECT * FROM events ORDER BY id DESC LIMIT 20;"
 ```
 
-## File Structure
+## 文件结构
 
 ```
-~/.copilot/                            # 全局层 (安装后)
+~/.copilot/                            # 全局层（安装后）
 ├── hooks/
 │   ├── hooks.json                     # Hook 配置
 │   ├── agent-session-start.sh         # 初始化 events.db
@@ -255,43 +255,43 @@ sqlite3 .agents/events.db "SELECT * FROM events ORDER BY id DESC LIMIT 20;"
 │   ├── agent-post-tool-use.sh         # 审计日志 + 自动调度
 │   └── agent-staleness-check.sh       # 超时检测
 ├── skills/
-│   └── agent-*/SKILL.md               # 11 个 skill 目录
+│   └── agent-*/SKILL.md               # 11 个 Skill 目录
 └── agents/
-    └── *.agent.md                     # 5 个角色 profile
+    └── *.agent.md                     # 5 个角色 Profile
 
-<project>/.agents/                     # 项目层 (初始化后)
+<项目>/.agents/                        # 项目层（初始化后）
 ├── events.db                          # SQLite 审计日志
-├── skills/project-*/SKILL.md          # 6 个 AI 生成的项目级 skill
+├── skills/project-*/SKILL.md          # 6 个 AI 生成的项目级 Skill
 ├── task-board.json / .md              # 任务表
-├── tasks/T-NNN.json                   # 任务详情 + goals
+├── tasks/T-NNN.json                   # 任务详情 + 功能目标
 └── runtime/
-    ├── active-agent                   # 当前活跃 agent
-    └── <role>/
+    ├── active-agent                   # 当前活跃 Agent
+    └── <角色>/
         ├── state.json / inbox.json
         └── workspace/                 # 工作产出物
             └── issues/T-NNN-issues.json  # 结构化问题追踪
 ```
 
-## Design Inspirations
+## 设计灵感
 
-| Project | Stars | Key Insight Adopted |
-|---------|-------|-------------------|
-| [MetaGPT](https://github.com/geekan/MetaGPT) | 66K | `Code = SOP(Team)` — Embed standard processes into agents |
-| [NTCoding/autonomous-claude-agent-team](https://github.com/NTCoding/autonomous-claude-agent-team) | 36 | Hook enforcement, RESPAWN pattern, event sourcing |
-| [dragonghy/agents](https://github.com/dragonghy/agents) | — | YAML config, MCP messaging, staleness detection |
-| [TaskGuild](https://github.com/kazz187/taskguild) | 3 | Status-driven agent triggering, Kanban automation |
+| 项目 | Stars | 采纳的关键思想 |
+|------|-------|-------------|
+| [MetaGPT](https://github.com/geekan/MetaGPT) | 66K | `Code = SOP(Team)` — 将标准流程嵌入 Agent |
+| [NTCoding/autonomous-claude-agent-team](https://github.com/NTCoding/autonomous-claude-agent-team) | 36 | Hook 强制执行、RESPAWN 模式、事件溯源 |
+| [dragonghy/agents](https://github.com/dragonghy/agents) | — | YAML 配置、MCP 通信、超时检测 |
+| [TaskGuild](https://github.com/kazz187/taskguild) | 3 | 状态驱动 Agent 触发、看板自动化 |
 
-## Roadmap
+## 路线图
 
-- **Phase 1** ✅ Manual role switching + FSM + task board + goals
-- **Phase 2** ✅ Hooks (boundary enforcement) + events.db (audit log)
-- **Phase 3** ✅ Auto-dispatch + staleness detection + batch processing + watch mode
-- **Phase 4** — External scheduler (cron-based autonomous agent loop)
-- **Phase 5** — Claude Code Agent Teams integration (parallel multi-agent)
+- **Phase 1** ✅ 手动角色切换 + FSM + 任务看板 + 功能目标
+- **Phase 2** ✅ Hooks（边界执行）+ events.db（审计日志）
+- **Phase 3** ✅ 自动调度 + 超时检测 + 批处理模式 + 监控模式
+- **Phase 4** — 外部调度器（基于 cron 的自主 Agent 循环）
+- **Phase 5** — Claude Code Agent Teams 集成（并行多 Agent）
 
 ---
 
-## Why This Framework? — A Vibe Coding Story
+## 为什么需要这个框架？
 
 ### 从编译器到 Agent：不变的本质
 
@@ -348,6 +348,6 @@ Agent: (又一通操作)
 
 > 这可能就是 Vibe Coding 的最终形态 —— 不是一个人和一个 Agent 反复拉扯，而是一个 **Agent 团队**各司其职，像真正的软件开发团队一样协作。而有意思的是，连这个框架本身，也是由 Agent 写的。
 
-## License
+## 许可证
 
 MIT
