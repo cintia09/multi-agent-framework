@@ -289,6 +289,65 @@ sqlite3 .agents/events.db "SELECT * FROM events ORDER BY id DESC LIMIT 20;"
 - **Phase 4** — External scheduler (cron-based autonomous agent loop)
 - **Phase 5** — Claude Code Agent Teams integration (parallel multi-agent)
 
+---
+
+## Why This Framework? — A Vibe Coding Story
+
+### 从编译器到 Agent：不变的本质
+
+Vibe Coding 其实就是自然语言编程。
+
+传统编程中，我们使用专用语言 —— Java、C++、Python —— 来描述功能，然后通过编译器将其转换为 CPU 可执行的代码。
+
+Vibe Coding 也是同一件事：用自然语言描述功能，由 AI Agent 将其转换为 CPU 可执行的代码。
+
+**不变的是**：不管你用自然语言还是 Java，它们都只是描述"我需要实现什么功能"的工具。
+
+**变的是**：因为 Agent 足够智能，自然语言描述不必像传统语言那样精确，你也不必学习那些晦涩难懂的编程知识。这极大地拉低了编程的门槛。
+
+但 —— **软件工程的本质没有变化**。如果你想构建一个足够好的应用，你仍然需要理解需求分析、架构设计、代码审查、测试验证这些环节。
+
+### 一段痛苦的 Vibe Coding 经历
+
+这个结论来自真实的痛苦经历：
+
+```
+我: "帮我实现用户登录功能"
+Agent: (一通操作，代码写好了)
+我: (手动测试)...不行，登录后页面空白
+我: "登录后页面空白，帮我修"
+Agent: (又一通操作)
+我: (手动测试)...这次登录行了，但注册不行了
+我: "注册怎么又坏了？"
+...重复 N 次...
+```
+
+你要一直坐在电脑前，不停地和 Agent 交流、打字、手动验证、反复返工。**很痛苦。**
+
+问题不是 Agent 不够聪明，而是整个过程缺乏**流程**：没有设计、没有自动化测试、没有代码审查、没有结构化的问题追踪。
+
+![传统 Vibe Coding vs Multi-Agent Framework](blog/images/comparison.png)
+
+这些不就是传统软件工程早已解决的问题吗？
+
+### 解决方案：Agent 团队协作
+
+于是我做了这个框架。核心理念 —— 既然 Vibe Coding 是"自然语言编程"，那整个软件开发流程也应该能用自然语言来定义和执行。
+
+![Multi-Agent Framework 系统架构](blog/images/architecture.png)
+
+**全程你只需要做两件事：创建任务 + 最终验收。** 中间的设计、实现、审查、测试、修复，全部由 Agent 自动完成。
+
+### 好处
+
+1. **不再人肉验证循环** — 测试者 Agent 自动运行测试、报告 Bug、验证修复
+2. **质量由流程保证** — 不取决于"Agent 今天状态好不好"
+3. **Bug 修复有追踪** — 结构化 JSON 记录，不在聊天记录里翻找
+4. **流程不可绕过** — Shell Hook 强制执行规则，不靠 AI 的"自觉"
+5. **随时可接手** — 所有状态在文件里，CLI 崩溃也能继续
+
+> 这可能就是 Vibe Coding 的最终形态 —— 不是一个人和一个 Agent 反复拉扯，而是一个 **Agent 团队**各司其职，像真正的软件开发团队一样协作。而有意思的是，连这个框架本身，也是由 Agent 写的。
+
 ## License
 
 MIT
