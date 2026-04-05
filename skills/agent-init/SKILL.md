@@ -19,7 +19,9 @@ ls .agents/task-board.json 2>/dev/null
 - **如果已存在**: 输出 "⚠️ Agent 系统已初始化, 跳过。" + 当前状态摘要。**不覆盖任何文件**。
 - **如果不存在**: 执行全新初始化 (Step 1-7)。
 
-### 1. 检测项目信息
+### 1. 收集上下文信息
+
+#### 1a. 检测项目技术栈
 ```bash
 # 语言/框架
 ls package.json Cargo.toml requirements.txt go.mod pom.xml 2>/dev/null
@@ -30,7 +32,22 @@ ls .github/workflows/*.yml .gitlab-ci.yml 2>/dev/null
 # 部署
 ls Dockerfile docker-compose* k8s/ 2>/dev/null
 ```
-将检测结果记录下来, 用于后续定制化。
+
+#### 1b. 读取项目级 instructions (如果存在)
+```bash
+cat .github/copilot-instructions.md 2>/dev/null
+```
+项目级 instructions 包含项目特定的规范、约定和偏好, 这些信息会融入到生成的 skill 中。
+
+#### 1c. 读取全局 agent profiles
+```bash
+cat ~/.copilot/agents/acceptor.agent.md
+cat ~/.copilot/agents/designer.agent.md
+cat ~/.copilot/agents/implementer.agent.md
+cat ~/.copilot/agents/reviewer.agent.md
+cat ~/.copilot/agents/tester.agent.md
+```
+全局 agent profiles 定义了每个角色的通用行为, 项目级 skill 在此基础上添加项目特定信息。
 
 ### 2. 创建目录结构
 
@@ -97,9 +114,10 @@ mkdir -p .agents/runtime/tester/workspace/{test-cases,test-screenshots}
 _暂无任务_
 ```
 
-### 5. 创建项目级 Skills
+### 5. 生成项目级 Skills (AI 定制化, 非拷贝!)
 
-基于 Step 1 检测到的项目信息, 创建 **6 个项目级 skill**:
+> ⚠️ 以下 skill 由 AI 基于 **Step 1 收集的上下文** 生成, 不是从全局模板拷贝。
+> 输入源: 全局 agent profile + 项目 instructions + 检测到的技术栈信息。
 
 #### 5a. `skills/project-agents-context/SKILL.md` — 项目上下文
 ```yaml

@@ -65,10 +65,10 @@ The assistant will read the AGENTS.md in the repo and automatically:
 
 在任何项目目录中, 对 Copilot 说 **"初始化 Agent 系统"**, 它会调用 `agent-init` skill 自动:
 
-1. 检测项目技术栈 (语言、框架、测试、CI、部署)
+1. **收集上下文**: 检测项目技术栈 + 读取 `.github/copilot-instructions.md` (如果存在) + 读取全局 agent profiles
 2. 创建 `.agents/runtime/` 运行时目录 (state.json, inbox.json)
 3. 创建 `.agents/task-board.json` 空任务表
-4. **在 `.agents/skills/` 下创建 6 个项目级 skill**:
+4. **AI 生成 6 个项目级 skill** (基于上下文, 非拷贝!):
    - `project-agents-context` — 项目技术栈、构建命令、部署方式
    - `project-acceptor` — 验收标准、业务背景
    - `project-designer` — 架构约束、技术选型
