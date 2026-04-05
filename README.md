@@ -20,10 +20,15 @@ A zero-dependency, file-based multi-agent collaboration framework for GitHub Cop
 - **File-based persistence** — All state in Git-trackable files
 - **FSM-enforced workflow** — Illegal state transitions are rejected
 - **Role isolation** — Each agent only operates within its scope
+- **Hook enforcement** — Agent boundaries enforced by shell hooks, not LLM self-discipline
 - **Inbox messaging** — Agents communicate via `inbox.json` files
 - **Goals checklist** — Each task has verifiable feature goals
-- **Hook enforcement** — Agent boundaries enforced by shell hooks, not LLM self-discipline
-- **SQLite audit log** — Every tool use logged to events.db for debugging and analysis
+- **Auto-dispatch** — Task status changes automatically notify the next agent
+- **Batch processing** — Agents process all pending tasks in a single loop
+- **Watch mode** — Tester↔Implementer automatic fix-verify cycle
+- **Issue tracking** — Structured JSON with optimistic locking for concurrent safety
+- **SQLite audit log** — Every tool use logged to events.db
+- **Staleness detection** — Warns about tasks idle for too long
 
 ## Task Lifecycle
 
@@ -31,7 +36,12 @@ A zero-dependency, file-based multi-agent collaboration framework for GitHub Cop
 created → designing → implementing → reviewing → testing → accepting → accepted ✅
                          ▲                          ▲  │
                          └── reviewing (reject) ────┘  └── fixing ──┘
+                                                              ↕
+                                                     (tester↔implementer
+                                                      auto fix-verify cycle)
 ```
+
+Any task can also transition to `blocked` (human intervention required) via `/unblock`.
 
 ## Installation
 
@@ -41,11 +51,16 @@ Tell your AI assistant (Copilot CLI, Claude Code, etc.):
 
 The assistant will read the AGENTS.md in the repo and automatically:
 1. Clone 仓库到临时目录
-2. 复制 10 个 skill 文件到 `~/.copilot/skills/`
-3. 复制 5 个 `.agent.md` 文件到 `~/.copilot/agents/` (Copilot 原生 custom agent 格式)
-4. 复制 3 个 hook 脚本 + hooks.json 到 `~/.copilot/hooks/`
+2. 复制 11 个 skill 目录到 `~/.copilot/skills/`
+3. 复制 5 个 `.agent.md` 文件到 `~/.copilot/agents/`
+4. 复制 4 个 hook 脚本 + hooks.json 到 `~/.copilot/hooks/`
 5. 追加协作规则到 `~/.copilot/copilot-instructions.md` (幂等)
 6. 清理临时目录
+
+Verify with the included script:
+```bash
+bash /tmp/multi-agent-framework/scripts/verify-install.sh
+```
 
 安装完成后, `~/.copilot/` 将包含:
 ```
@@ -55,9 +70,10 @@ The assistant will read the AGENTS.md in the repo and automatically:
 │   ├── hooks.json                # Hook 配置
 │   ├── agent-session-start.sh    # 初始化 events.db, 检查待办
 │   ├── agent-pre-tool-use.sh     # Agent 边界执行
-│   └── agent-post-tool-use.sh    # 审计日志
+│   ├── agent-post-tool-use.sh    # 审计日志 + 自动调度
+│   └── agent-staleness-check.sh  # 超时任务检测
 ├── skills/
-│   └── agent-*/SKILL.md          # 10 个 skill 目录 (每个含 SKILL.md)
+│   └── agent-*/SKILL.md          # 11 个 skill 目录 (每个含 SKILL.md)
 └── agents/
     ├── acceptor.agent.md         # 验收者 (原生 agent profile)
     ├── designer.agent.md         # 设计者
@@ -74,33 +90,107 @@ The assistant will read the AGENTS.md in the repo and automatically:
 在任何项目目录中, 对 Copilot 说 **"初始化 Agent 系统"**, 它会调用 `agent-init` skill 自动:
 
 1. **收集上下文** (4 个来源):
-   - 检测项目技术栈 (语言、框架、测试、CI、部署)
+   - 检测项目技术栈 (语言、框架、测试、CI、部署、monorepo)
    - 读取 `.github/copilot-instructions.md` (项目规范, 如果存在)
    - 读取全局 agent profiles (`~/.copilot/agents/*.agent.md`, 角色定义)
    - 读取全局 skills (`~/.copilot/skills/agent-*/SKILL.md`, 工作流定义)
 2. 创建 `.agents/runtime/` 运行时目录 (state.json, inbox.json)
-3. 创建 `.agents/task-board.json` 空任务表
-4. **AI 生成 6 个项目级 skill** (基于上下文, 非拷贝!):
+3. 初始化 `events.db` (SQLite 审计日志)
+4. 创建 `.agents/task-board.json` 空任务表
+5. **AI 生成 6 个项目级 skill** (基于上下文, 非拷贝!):
    - `project-agents-context` — 项目技术栈、构建命令、部署方式
    - `project-acceptor` — 验收标准、业务背景
    - `project-designer` — 架构约束、技术选型
    - `project-implementer` — 编码规范、开发命令
    - `project-reviewer` — 审查标准、质量要求
    - `project-tester` — 测试框架、覆盖率要求
-5. 创建 `.agents/.gitignore` (排除运行时状态)
+6. (可选) 生成项目级 hooks (`.agents/hooks/`)
+7. 创建 `.agents/.gitignore` (排除运行时状态)
 
-所有文件统一在 `.agents/` 目录下, 项目级 skill 由 Copilot 自动发现和加载。
+Verify with:
+```bash
+bash /tmp/multi-agent-framework/scripts/verify-init.sh
+```
 
 ## Usage
 
+### Basic Commands
 ```
 "初始化 Agent 系统"    → 在当前项目中初始化 .agents/ 目录
 /agent                → 浏览并选择角色 (原生命令)
 /agent acceptor       → 切换到验收者
 /agent implementer    → 切换到实现者
-"使用验收者 agent"     → Copilot 自动推断并委派
-"查看 Agent 状态"      → 状态面板
+"查看 Agent 状态"      → 状态面板 (含阻塞任务提醒)
+"unblock T-003"       → 解除任务阻塞
 ```
+
+### Batch Processing Mode
+切换到任何 Agent 后说 **"处理任务"** / **"开始工作"**, Agent 自动:
+1. 扫描任务表，找出分配给自己的所有待办任务
+2. 按优先级排序 (high > medium > low)
+3. 逐个处理，处理完自动拿下一个
+4. 全部完成后输出处理摘要
+
+### Watch Mode (Tester ↔ Implementer)
+
+**测试者**:
+```
+"监控实现者的修复"     → 自动验证 fixed issues, 全部通过则转 accepting
+```
+
+**实现者**:
+```
+"监控测试者的反馈"     → 自动修复 open/reopened issues, 等待验证
+```
+
+两边全自动循环 — 无需手动 "check"。通过 auto-dispatch + inbox 实现自动重入。
+
+## 11 Skills
+
+| # | Skill | Description |
+|---|-------|-------------|
+| 1 | `agent-fsm` | FSM engine — 10 state transitions + guard rules |
+| 2 | `agent-task-board` | Task CRUD + goals + block/unblock + optimistic locking |
+| 3 | `agent-messaging` | Inter-agent inbox messaging |
+| 4 | `agent-init` | Project initialization + enhanced tech stack detection |
+| 5 | `agent-switch` | Role switching + status panel + batch processing |
+| 6 | `agent-acceptor` | Acceptor workflow |
+| 7 | `agent-designer` | Designer workflow |
+| 8 | `agent-implementer` | Implementer + TDD + watch mode |
+| 9 | `agent-reviewer` | Reviewer workflow |
+| 10 | `agent-tester` | Tester + issue JSON + watch mode |
+| 11 | `agent-events` | events.db query, analysis, cleanup, export |
+
+## Issue Tracking (Tester ↔ Implementer)
+
+Structured JSON (`T-NNN-issues.json`) is the single source of truth:
+
+```json
+{
+  "task_id": "T-003",
+  "version": 5,
+  "round": 2,
+  "issues": [
+    {
+      "id": "ISS-001",
+      "severity": "high",
+      "status": "verified",
+      "title": "Login returns 500 on empty password",
+      "fix_note": "Added null check",
+      "fix_commit": "abc1234"
+    }
+  ]
+}
+```
+
+**Issue status flow**: `open → fixed → verified ✅` (or `→ reopened → fixed → ...`)
+
+**Field ownership**:
+- Tester writes: issue details, status (open/verified/reopened)
+- Implementer writes: fix_note, fix_commit, status (fixed)
+- Markdown reports auto-generated (read-only)
+
+**Concurrency**: Optimistic locking (version field) + field isolation prevents conflicts.
 
 ## Goals Checklist
 
@@ -109,19 +199,16 @@ The assistant will read the AGENTS.md in the repo and automatically:
 - **Implementer** 逐个实现 goals, 标记为 `done`, 全部 done 才能提交审查
 - **Acceptor** 验收时逐个验证 goals, 标记为 `verified`, 全部 verified 才能通过验收
 
-## Hooks (Agent Boundary Enforcement)
-
-The framework uses Copilot CLI's native hook system to enforce agent boundaries and maintain an audit trail.
-
-### 3 Hook Types
+## Hooks (4 Scripts)
 
 | Hook | File | Function |
 |------|------|----------|
 | **session-start** | `agent-session-start.sh` | Initialize events.db, check pending messages/tasks |
 | **pre-tool-use** | `agent-pre-tool-use.sh` | Enforce agent boundaries — deny unauthorized edits |
-| **post-tool-use** | `agent-post-tool-use.sh` | Audit log all tool usage to events.db |
+| **post-tool-use** | `agent-post-tool-use.sh` | Audit log + auto-dispatch to next agent |
+| **staleness-check** | `agent-staleness-check.sh` | Detect tasks idle >24h, warn user |
 
-### Agent Boundary Rules
+### Agent Boundary Rules (pre-tool-use)
 
 | Role | Can Edit | Cannot Edit |
 |------|----------|-------------|
@@ -131,78 +218,58 @@ The framework uses Copilot CLI's native hook system to enforce agent boundaries 
 | 🔍 Reviewer | Review reports + task board | Source code ⛔ |
 | 🧪 Tester | Test files + own workspace | Source code ⛔ |
 
-The `pre-tool-use` hook reads `.agents/runtime/active-agent` to determine the current role, then enforces the boundary rules above. Violations are denied with a descriptive error message.
+### Auto-dispatch (post-tool-use)
+
+When `task-board.json` is written, the hook automatically:
+1. Detects the new task status
+2. Maps it to the responsible agent
+3. Writes a message to that agent's inbox
+4. Logs `auto_dispatch` event to events.db
 
 ## Audit Log (events.db)
 
-All agent actions are logged to `.agents/events.db` (SQLite) for debugging and analysis.
-
-### Schema
+All agent actions logged to `.agents/events.db` (SQLite):
 
 | Column | Type | Description |
 |--------|------|-------------|
-| id | INTEGER | Auto-increment primary key |
 | timestamp | INTEGER | Unix timestamp (ms) |
-| event_type | TEXT | session_start, tool_use, task_board_write, state_change |
+| event_type | TEXT | session_start, tool_use, task_board_write, auto_dispatch |
 | agent | TEXT | Active agent name |
-| task_id | TEXT | Related task ID (if applicable) |
-| tool_name | TEXT | Tool used (bash, edit, create, etc.) |
+| task_id | TEXT | Related task ID |
+| tool_name | TEXT | Tool used |
 | detail | TEXT | JSON detail string |
 
-### Querying
-
+Query with the `agent-events` skill or directly:
 ```bash
-# Recent events
 sqlite3 .agents/events.db "SELECT * FROM events ORDER BY id DESC LIMIT 20;"
-
-# Events by agent
-sqlite3 .agents/events.db "SELECT * FROM events WHERE agent='implementer';"
-
-# Task board changes
-sqlite3 .agents/events.db "SELECT * FROM events WHERE event_type='task_board_write';"
 ```
 
 ## File Structure
 
 ```
 ~/.copilot/                            # 全局层 (安装后)
-├── copilot-instructions.md            # 含 Agent 协作规则
 ├── hooks/
 │   ├── hooks.json                     # Hook 配置
 │   ├── agent-session-start.sh         # 初始化 events.db
 │   ├── agent-pre-tool-use.sh          # 边界执行
-│   └── agent-post-tool-use.sh         # 审计日志
+│   ├── agent-post-tool-use.sh         # 审计日志 + 自动调度
+│   └── agent-staleness-check.sh       # 超时检测
 ├── skills/
-│   ├── agent-fsm/SKILL.md            # FSM 引擎
-│   ├── agent-task-board/SKILL.md     # 任务表操作
-│   ├── agent-messaging/SKILL.md      # 消息系统
-│   ├── agent-init/SKILL.md           # 项目初始化
-│   ├── agent-switch/SKILL.md         # 角色切换
-│   └── agent-{role}/SKILL.md         # 5 个角色 skill
+│   └── agent-*/SKILL.md               # 11 个 skill 目录
 └── agents/
-    ├── acceptor.agent.md              # 验收者 (原生 agent profile)
-    ├── designer.agent.md              # 设计者
-    ├── implementer.agent.md           # 实现者
-    ├── reviewer.agent.md              # 审查者
-    └── tester.agent.md               # 测试者
+    └── *.agent.md                     # 5 个角色 profile
 
-<project>/                             # 项目层 (初始化后)
-└── .agents/                           # 统一目录
-    ├── events.db                      # SQLite 审计日志
-    ├── skills/                        # 项目级 skill (Copilot 自动发现)
-    │   ├── project-agents-context/SKILL.md  # 技术栈、命令、部署
-    │   ├── project-acceptor/SKILL.md  # 验收标准
-    │   ├── project-designer/SKILL.md  # 架构约束
-    │   ├── project-implementer/SKILL.md # 编码规范
-    │   ├── project-reviewer/SKILL.md  # 审查标准
-    │   └── project-tester/SKILL.md    # 测试策略
-    ├── task-board.json / .md          # 任务表
-    ├── tasks/T-NNN.json               # 任务详情
-    └── runtime/
-        ├── active-agent               # 当前活跃 agent (供 hooks 读取)
-        └── <role>/                    # Agent 运行时
-            ├── state.json / inbox.json
-            └── workspace/             # 工作产出物
+<project>/.agents/                     # 项目层 (初始化后)
+├── events.db                          # SQLite 审计日志
+├── skills/project-*/SKILL.md          # 6 个 AI 生成的项目级 skill
+├── task-board.json / .md              # 任务表
+├── tasks/T-NNN.json                   # 任务详情 + goals
+└── runtime/
+    ├── active-agent                   # 当前活跃 agent
+    └── <role>/
+        ├── state.json / inbox.json
+        └── workspace/                 # 工作产出物
+            └── issues/T-NNN-issues.json  # 结构化问题追踪
 ```
 
 ## Design Inspirations
@@ -218,7 +285,9 @@ sqlite3 .agents/events.db "SELECT * FROM events WHERE event_type='task_board_wri
 
 - **Phase 1** ✅ Manual role switching + FSM + task board + goals
 - **Phase 2** ✅ Hooks (boundary enforcement) + events.db (audit log)
-- **Phase 3** — Auto-dispatch, staleness detection, scheduled prompts
+- **Phase 3** ✅ Auto-dispatch + staleness detection + batch processing + watch mode
+- **Phase 4** — External scheduler (cron-based autonomous agent loop)
+- **Phase 5** — Claude Code Agent Teams integration (parallel multi-agent)
 
 ## License
 
