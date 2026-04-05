@@ -12,8 +12,14 @@
     "preToolUse": [
       {
         "type": "command",
+        "bash": "~/.copilot/hooks/security-scan.sh",
+        "comment": "Security: scan staged files for secrets before git commit/push (always active)",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
         "bash": "~/.copilot/hooks/agent-pre-tool-use.sh",
-        "comment": "Multi-Agent Framework: enforce agent boundaries and log tool usage",
+        "comment": "Multi-Agent Framework: enforce agent boundaries (only when agent system active)",
         "timeoutSec": 5
       }
     ],

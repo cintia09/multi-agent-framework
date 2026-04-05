@@ -67,7 +67,7 @@ echo "hooks.json:" && [ -f ~/.copilot/hooks/hooks.json ] && echo "✅" || echo "
 ━━━━━━━━━━━━━━━━━━━━━━━
 Skills:  12 个已安装到 ~/.copilot/skills/
 Agents:  5 个已安装到 ~/.copilot/agents/
-Hooks:   4 个已安装到 ~/.copilot/hooks/ (boundary enforcement + audit log + staleness)
+Hooks:   5 个已安装到 ~/.copilot/hooks/ (boundary enforcement + audit log + staleness)
 Rules:   已追加到 ~/.copilot/copilot-instructions.md
 ━━━━━━━━━━━━━━━━━━━━━━━
 使用方式:

@@ -69,8 +69,8 @@ done
 
 # Hooks
 echo ""
-echo "🪝 Hooks (expect 4 scripts + hooks.json):"
-for script in agent-session-start.sh agent-pre-tool-use.sh agent-post-tool-use.sh agent-staleness-check.sh; do
+echo "🪝 Hooks (expect 5 scripts + hooks.json):"
+for script in security-scan.sh agent-session-start.sh agent-pre-tool-use.sh agent-post-tool-use.sh agent-staleness-check.sh; do
   if [ -f ~/.copilot/hooks/$script ]; then
     if [ -x ~/.copilot/hooks/$script ]; then
       check "$script (executable)" "pass"
