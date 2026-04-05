@@ -64,11 +64,19 @@ The assistant will read the AGENTS.md in the repo and automatically:
 ## Project Initialization
 
 在任何项目目录中, 对 Copilot 说 **"初始化 Agent 系统"**, 它会调用 `agent-init` skill 自动:
-- 检测项目技术栈 (语言、框架、测试、CI、部署)
-- 创建 `.copilot/agents/` 目录 (5 个角色, 含 workspace)
-- 初始化 `state.json`, `inbox.json`, `task-board.json`
-- 基于全局模板 + 项目特征生成定制化 instructions
-- 创建 `.copilot/.gitignore` (排除运行时状态文件)
+
+1. 检测项目技术栈 (语言、框架、测试、CI、部署)
+2. 创建 `.copilot/` 运行时目录 (state.json, inbox.json, task-board.json)
+3. **在 `.github/skills/` 下创建 6 个项目级 skill**:
+   - `project-agents-context` — 项目技术栈、构建命令、部署方式
+   - `project-acceptor` — 验收标准、业务背景
+   - `project-designer` — 架构约束、技术选型
+   - `project-implementer` — 编码规范、开发命令
+   - `project-reviewer` — 审查标准、质量要求
+   - `project-tester` — 测试框架、覆盖率要求
+4. 创建 `.copilot/.gitignore` (排除运行时状态)
+
+项目级 skill 由 Copilot 自动发现和加载, 各 agent 工作时自动获得项目上下文。
 
 ## Usage
 
@@ -107,14 +115,20 @@ The assistant will read the AGENTS.md in the repo and automatically:
     ├── reviewer.agent.md              # 审查者
     └── tester.agent.md               # 测试者
 
-<project>/                             # 项目层 (/init 生成)
-├── AGENTS.md                          # Copilot 自动读取的 Agent 指引
-└── .copilot/
+<project>/                             # 项目层 (初始化后)
+├── .github/
+│   └── skills/                        # 项目级 skill (Copilot 自动发现)
+│       ├── project-agents-context/SKILL.md  # 技术栈、命令、部署
+│       ├── project-acceptor/SKILL.md  # 验收标准
+│       ├── project-designer/SKILL.md  # 架构约束
+│       ├── project-implementer/SKILL.md # 编码规范
+│       ├── project-reviewer/SKILL.md  # 审查标准
+│       └── project-tester/SKILL.md    # 测试策略
+└── .copilot/                          # 运行时数据
     ├── task-board.json / .md
     ├── tasks/T-NNN.json
     └── agents/<role>/
         ├── state.json / inbox.json
-        ├── instructions.md            # 定制化版本
         └── workspace/                 # 工作产出物
 ```
 
