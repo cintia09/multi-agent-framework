@@ -53,6 +53,30 @@ T-002   designing      设计者    P1      题库展示模块
 ### 更新任务状态
 调用 agent-fsm skill 的状态转移逻辑。
 
+### 阻塞任务 (block)
+任何 Agent 遇到无法解决的问题时:
+1. 将任务 status 设为 `blocked`
+2. 在任务中记录 `blocked_reason` 和 `blocked_from` (之前的状态)
+3. 发送消息到 acceptor 的 inbox: "⚠️ T-NNN blocked: <reason>"
+
+### 解除阻塞 (unblock)
+用户说 "unblock T-NNN" 或 "解除 T-NNN 阻塞" 时:
+1. 读取任务的 `blocked_from` 字段获取之前的状态
+2. 将 status 恢复为 `blocked_from` 的值
+3. 清除 `blocked_reason` 和 `blocked_from`
+4. 发送消息到原负责 Agent 的 inbox: "✅ T-NNN unblocked, 恢复到 <status>"
+
+```json
+// blocked 任务示例
+{
+  "id": "T-003",
+  "status": "blocked",
+  "blocked_from": "implementing",
+  "blocked_reason": "依赖的 API 尚未就绪",
+  "assigned_to": "implementer"
+}
+```
+
 ### 同步 Markdown
 每次修改 task-board.json 后, 自动生成对应的 task-board.md。
 
