@@ -63,15 +63,17 @@ The assistant will read the AGENTS.md in the repo and automatically:
 
 ## Project Initialization
 
-在任何项目目录中执行 `/init`, Copilot 会读取 `agent-init` skill 并自动:
+在任何项目目录中, 对 Copilot 说 **"初始化 Agent 系统"**, 它会调用 `agent-init` skill 自动:
+- 检测项目技术栈 (语言、框架、测试、CI、部署)
 - 创建 `.copilot/agents/` 目录 (5 个角色, 含 workspace)
 - 初始化 `state.json`, `inbox.json`, `task-board.json`
-- **在项目 git root 创建 `AGENTS.md`** (Copilot 自动读取此文件)
-- 继承全局模板并根据项目技术栈定制化
+- 基于全局模板 + 项目特征生成定制化 instructions
+- 创建 `.copilot/.gitignore` (排除运行时状态文件)
 
 ## Usage
 
 ```
+"初始化 Agent 系统"    → 在当前项目中初始化 .copilot/ 目录
 /agent                → 浏览并选择角色 (原生命令)
 /agent acceptor       → 切换到验收者
 /agent implementer    → 切换到实现者
