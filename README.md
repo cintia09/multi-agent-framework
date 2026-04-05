@@ -75,14 +75,14 @@ The assistant will read the AGENTS.md in the repo and automatically:
    - `project-implementer` — 编码规范、开发命令
    - `project-reviewer` — 审查标准、质量要求
    - `project-tester` — 测试框架、覆盖率要求
-10. 创建 `.agents/.gitignore` (排除运行时状态)
+5. 创建 `.agents/.gitignore` (排除运行时状态)
 
 所有文件统一在 `.agents/` 目录下, 项目级 skill 由 Copilot 自动发现和加载。
 
 ## Usage
 
 ```
-"初始化 Agent 系统"    → 在当前项目中初始化 .copilot/ 目录
+"初始化 Agent 系统"    → 在当前项目中初始化 .agents/ 目录
 /agent                → 浏览并选择角色 (原生命令)
 /agent acceptor       → 切换到验收者
 /agent implementer    → 切换到实现者
