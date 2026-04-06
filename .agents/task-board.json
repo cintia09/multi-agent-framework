@@ -460,7 +460,7 @@
       "id": "T-015",
       "title": "Project-level living documents maintained by each agent",
       "description": "项目级活文档体系：docs/ 下维护 6 个项目级文档（需求/设计/测试/实现/审阅/验收），每个 Agent 在完成任务后更新自己负责的文档，追加本次任务的内容，反映项目整体最新状态。",
-      "status": "created",
+      "status": "designing",
       "priority": "high",
       "assigned_to": "designer",
       "created_at": "2026-04-06T15:13:39Z",
@@ -490,6 +490,12 @@
           "id": "G5",
           "description": "agent-init creates initial empty doc templates in docs/ during project initialization",
           "met": false
+        }
+      ],
+      "artifacts": [
+        {
+          "type": "design-doc",
+          "path": ".agents/runtime/designer/workspace/design-docs/T-015-living-documents.md"
         }
       ]
     }
