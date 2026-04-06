@@ -240,3 +240,205 @@ sqlite3 .agents/events.db "DELETE FROM events; DELETE FROM sqlite_sequence WHERE
 | `/agent reviewer` | 审查者 | 🔍 |
 | `/agent tester` | 测试者 | 🧪 |
 | `/agent status` | 状态面板 | 🤖 |
+
+---
+
+## 周期时间追踪 (Cycle Time Tracking)
+
+### 概述
+
+记录每个任务在各 FSM 阶段的进入/离开时间戳, 计算每阶段耗时, 识别瓶颈和超时任务。
+
+### 时间戳记录
+
+每次 FSM 状态转移时, 在任务元数据 (`tasks/T-NNN.json`) 中记录时间戳:
+
+```json
+{
+  "id": "T-001",
+  "title": "用户认证系统",
+  "status": "reviewing",
+  "cycle_time": {
+    "created_at": "2026-04-05T08:00:00Z",
+    "stages": {
+      "designing": {
+        "entered_at": "2026-04-05T08:30:00Z",
+        "exited_at": "2026-04-05T10:00:00Z",
+        "duration_minutes": 90
+      },
+      "implementing": {
+        "entered_at": "2026-04-05T10:30:00Z",
+        "exited_at": "2026-04-05T14:00:00Z",
+        "duration_minutes": 210
+      },
+      "reviewing": {
+        "entered_at": "2026-04-05T14:30:00Z",
+        "exited_at": null,
+        "duration_minutes": null
+      }
+    },
+    "total_elapsed_minutes": null
+  }
+}
+```
+
+### 记录规则
+
+1. **进入阶段**: FSM 转移到新状态时, 写入 `stages.<new_status>.entered_at = now()`
+2. **离开阶段**: FSM 转移离开当前状态时, 写入 `stages.<old_status>.exited_at = now()` 并计算 `duration_minutes`
+3. **重入处理**: 如果阶段被重复进入 (如多次 fixing → reviewing), 追加 round:
+   ```json
+   "implementing": {
+     "entered_at": "2026-04-05T10:30:00Z",
+     "exited_at": "2026-04-05T14:00:00Z",
+     "duration_minutes": 210,
+     "rounds": [
+       {"entered_at": "2026-04-05T16:00:00Z", "exited_at": "2026-04-05T17:00:00Z", "duration_minutes": 60}
+     ]
+   }
+   ```
+4. **完成任务**: 当状态变为 `accepted` 时, 计算 `total_elapsed_minutes` = 从 `created_at` 到当前时间
+5. **阻塞扣除**: `blocked` 期间的时间**不计入**当前阶段的 `duration_minutes`, 在 cycle_time 中单独记录:
+   ```json
+   "blocked_time": [
+     {"from": "2026-04-05T12:00:00Z", "to": "2026-04-05T13:00:00Z", "duration_minutes": 60, "reason": "等待 API 文档"}
+   ]
+   ```
+
+### 实现步骤 (集成到 FSM 转移)
+
+在每次 `agent-fsm` 状态转移成功后, **额外执行**:
+
+```
+FSM 验证通过
+  → 记录旧状态的 exited_at + duration_minutes
+  → 记录新状态的 entered_at
+  → 写入 tasks/T-NNN.json
+  → 继续原有流程 (task-board 更新 → 记忆保存 → 通知)
+```
+
+### 每阶段耗时计算
+
+```bash
+# 计算方式: exited_at - entered_at (如阶段已结束)
+#          now() - entered_at      (如阶段进行中)
+# 如有 rounds, 累加所有 round 的 duration_minutes
+
+# 示例: 读取 T-001 的 cycle_time
+TASK_FILE="<project>/.agents/tasks/T-001.json"
+jq '.cycle_time.stages | to_entries[] | "\(.key): \(.value.duration_minutes // "进行中") 分钟"' "$TASK_FILE"
+```
+
+---
+
+## 停滞阈值 (Staleness Thresholds)
+
+### 每阶段超时阈值
+
+| 阶段 | 阈值 | 说明 |
+|------|------|------|
+| `designing` | **2 小时** (120 min) | 设计不应过度纠结, 超时应简化或拆分 |
+| `implementing` | **4 小时** (240 min) | 最长阶段, 超时应检查范围是否过大 |
+| `reviewing` | **1 小时** (60 min) | 审查应快速, 超时说明问题太多或审查者阻塞 |
+| `testing` | **2 小时** (120 min) | 包含手动+自动测试, 超时应检查测试策略 |
+| `accepting` | **1 小时** (60 min) | 验收应基于测试报告快速决策 |
+
+### 停滞检测逻辑
+
+在以下时机检测停滞:
+1. **`/agent status`** 面板刷新时
+2. **agent-switch** 切换角色时
+3. **批处理循环** 扫描任务时
+
+```bash
+# 检测逻辑伪代码
+for each task in task-board where status != "accepted" and status != "blocked":
+    current_stage = task.status
+    entered_at = task.cycle_time.stages[current_stage].entered_at
+    elapsed = now() - entered_at
+    threshold = THRESHOLDS[current_stage]
+
+    if elapsed > threshold:
+        emit_staleness_warning(task, current_stage, elapsed, threshold)
+```
+
+### 停滞警告格式
+
+```
+⏰ 停滞警告
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ T-003 在 implementing 已停留 5h 12m (阈值: 4h)
+   → 建议: 检查任务范围是否过大, 考虑拆分
+⚠️ T-007 在 reviewing 已停留 1h 30m (阈值: 1h)
+   → 建议: 切换到 reviewer 处理, 或检查是否需要 escalation
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### 停滞自动响应
+
+| 超时等级 | 条件 | 动作 |
+|---------|------|------|
+| ⚠️ 警告 | 超过阈值 1x | 在状态面板显示黄色警告 |
+| 🔴 严重 | 超过阈值 2x | 自动发送 `escalation` 消息给 acceptor |
+| ⛔ 阻塞 | 超过阈值 3x | 建议将任务标记为 `blocked`, 等待人工介入 |
+
+---
+
+## 周期时间摘要面板 (Cycle Time Summary)
+
+### 在 `/agent status` 中显示
+
+在现有状态面板的**任务流水线**区域下方, 追加周期时间摘要:
+
+```
+🤖 Agent 状态面板
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+... (现有角色状态表和任务流水线) ...
+
+⏱️ 周期时间摘要
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+任务      设计     实现      审查    测试    验收    总耗时    状态
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+T-001    1.5h    3.5h     0.5h   1.0h    —      6.5h+   ⏳ testing
+T-002    0.8h    2.0h     0.3h   0.5h   0.2h    3.8h    ✅ accepted
+T-003    1.0h    ⚠️5.2h    —      —      —      6.2h+   ⏳ implementing
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+平均      1.1h    3.6h     0.4h   0.8h   0.2h    —
+最慢      T-001   T-003    T-001  T-001   —      —
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏰ 停滞警告:
+  ⚠️ T-003 implementing 已超时 (5.2h / 阈值 4h)
+```
+
+### 摘要面板渲染逻辑
+
+1. 读取所有非 `accepted` 任务的 `tasks/T-NNN.json`
+2. 提取 `cycle_time.stages` 数据
+3. 对已完成的阶段显示实际耗时 (小时, 1 位小数)
+4. 对进行中的阶段显示 `now() - entered_at`
+5. 超过阈值的阶段用 ⚠️ 标记
+6. 计算**每列平均值**和**每列最慢任务**
+7. 底部列出所有停滞警告
+
+### 单任务周期时间查看
+
+用户说 `/task T-001 --cycle` 或 "查看 T-001 耗时" 时, 显示该任务的详细周期时间:
+
+```
+⏱️ T-001 周期时间详情
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+阶段          进入时间      耗时     阈值    状态
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+designing     08:30        1.5h    2h     ✅ 正常
+implementing  10:00        3.5h    4h     ✅ 正常
+  → fixing    14:30        1.0h    —      (退回修复)
+reviewing     16:00        0.5h    1h     ✅ 正常
+testing       16:30        ⏳ 0.3h  2h     进行中
+accepting     —            —       1h     未到达
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+总耗时: 6.8h (含 blocked 0h)
+阻塞次数: 0
+退回次数: 1 (reviewing → implementing)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```

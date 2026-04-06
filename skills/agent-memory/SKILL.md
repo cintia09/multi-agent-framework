@@ -417,3 +417,398 @@ Agent 读取匹配文件后, 按以下规则排序结果:
 # 生成并保存
 cat .agents/memory/PROJECT-SUMMARY.md
 ```
+
+---
+
+## 项目记忆 (Project Memory)
+
+### 概述
+
+项目记忆是**跨任务**的持久化知识库, 记录整个项目的技术栈、架构决策、经验教训和高频修改文件。区别于**任务记忆** (per-task), 项目记忆是**全局共享**的项目级知识。
+
+### 文件位置
+
+```
+<project>/.agents/memory/project-memory.json
+```
+
+### project-memory.json Schema
+
+```json
+{
+  "version": 1,
+  "last_updated": "2026-04-10T15:00:00Z",
+
+  "tech_stack": {
+    "language": "TypeScript",
+    "runtime": "Node.js 20",
+    "framework": "Express.js",
+    "database": "PostgreSQL + Prisma ORM",
+    "cache": "Redis (ioredis)",
+    "testing": "Vitest + Playwright",
+    "deployment": "Docker + Caddy",
+    "ci_cd": "GitHub Actions",
+    "other": ["pnpm", "ESLint", "Prettier"]
+  },
+
+  "architecture_decisions": [
+    {
+      "id": "ADR-001",
+      "title": "选择 cookie session 而非 JWT",
+      "date": "2026-04-05",
+      "status": "accepted",
+      "context": "纯 Web 应用, 不需要移动端支持",
+      "decision": "使用 express-session + connect-redis 的 cookie session 方案",
+      "consequences": "服务端需维护 session 存储; 需配置 Redis; 不适合未来移动端",
+      "source_task": "T-001",
+      "superseded_by": null
+    },
+    {
+      "id": "ADR-002",
+      "title": "数据库迁移使用 Prisma",
+      "date": "2026-04-06",
+      "status": "accepted",
+      "context": "需要类型安全的数据库访问和自动迁移",
+      "decision": "使用 Prisma ORM 管理数据库 schema 和迁移",
+      "consequences": "强依赖 Prisma 生态; 复杂查询可能需要 raw SQL",
+      "source_task": "T-005",
+      "superseded_by": null
+    }
+  ],
+
+  "lessons_learned": [
+    {
+      "id": "LL-001",
+      "date": "2026-04-05",
+      "category": "dependency",
+      "title": "connect-redis v7 API 变更",
+      "description": "connect-redis v7 的 API 变了, 需要用 new RedisStore({client}) 而非 new RedisStore(client)",
+      "impact": "high",
+      "source_task": "T-001",
+      "tags": ["redis", "session", "breaking-change"]
+    },
+    {
+      "id": "LL-002",
+      "date": "2026-04-06",
+      "category": "testing",
+      "title": "Playwright CI 需要 xvfb",
+      "description": "Playwright 截图在 CI 中需要 xvfb, 否则报 headless 错误",
+      "impact": "medium",
+      "source_task": "T-002",
+      "tags": ["playwright", "ci", "headless"]
+    }
+  ],
+
+  "hot_files": [
+    {
+      "path": "src/routes/auth.ts",
+      "modification_count": 5,
+      "last_modified_by": "T-004",
+      "last_modified_at": "2026-04-08T14:00:00Z",
+      "risk_level": "high",
+      "note": "认证核心路由, 修改需完整回归测试"
+    },
+    {
+      "path": "src/middleware/session.ts",
+      "modification_count": 3,
+      "last_modified_by": "T-003",
+      "last_modified_at": "2026-04-07T10:00:00Z",
+      "risk_level": "medium",
+      "note": "session 中间件, 与 Redis 耦合"
+    }
+  ]
+}
+```
+
+### 字段说明
+
+#### tech_stack
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `language` | string | 主要编程语言 |
+| `runtime` | string | 运行时及版本 |
+| `framework` | string | Web 框架 |
+| `database` | string | 数据库及 ORM |
+| `cache` | string | 缓存层 |
+| `testing` | string | 测试框架 |
+| `deployment` | string | 部署方案 |
+| `ci_cd` | string | CI/CD 工具 |
+| `other` | string[] | 其他工具和库 |
+
+#### architecture_decisions (ADR)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | string | `ADR-NNN` 格式, 自增 |
+| `title` | string | 决策标题 |
+| `date` | string | 决策日期 (YYYY-MM-DD) |
+| `status` | enum | `proposed` / `accepted` / `deprecated` / `superseded` |
+| `context` | string | 为什么需要做这个决策 |
+| `decision` | string | 做了什么决策 |
+| `consequences` | string | 决策的后果和影响 |
+| `source_task` | string | 产生此决策的任务 ID |
+| `superseded_by` | string\|null | 如果被替代, 指向新的 ADR ID |
+
+#### lessons_learned
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | string | `LL-NNN` 格式, 自增 |
+| `date` | string | 记录日期 |
+| `category` | enum | `dependency` / `testing` / `deployment` / `architecture` / `performance` / `security` / `other` |
+| `title` | string | 简短标题 |
+| `description` | string | 详细描述 (包含解决方案) |
+| `impact` | enum | `high` / `medium` / `low` |
+| `source_task` | string | 来源任务 ID |
+| `tags` | string[] | 关键词标签, 用于搜索 |
+
+#### hot_files
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `path` | string | 文件路径 (项目根目录相对路径) |
+| `modification_count` | number | 跨任务被修改的次数 |
+| `last_modified_by` | string | 最后修改此文件的任务 ID |
+| `last_modified_at` | ISO 8601 | 最后修改时间 |
+| `risk_level` | enum | `high` / `medium` / `low` — 根据修改频率自动计算 |
+| `note` | string | 关于此文件的备注 (如: 为什么经常被改) |
+
+---
+
+## 项目记忆自动更新 (Auto-Update on Task Acceptance)
+
+### 触发时机
+
+当任务状态变为 `accepted` 时, acceptor **必须**执行项目记忆更新。
+
+### 更新流程
+
+```
+任务 accepted
+  → 读取 project-memory.json (不存在则创建空结构)
+  → 读取 tasks/T-NNN.json (goals, history)
+  → 读取 .agents/memory/T-NNN-memory.json (所有阶段记忆)
+  → 提取并更新以下内容:
+     1. architecture_decisions — 从 designing 阶段的 decisions 提取
+     2. lessons_learned — 从所有阶段的 issues_encountered 提取
+     3. hot_files — 从所有阶段的 files_modified 聚合更新
+     4. tech_stack — 从 decisions 中检测新技术引入
+  → 写入 project-memory.json (version + 1)
+```
+
+### 提取规则
+
+#### 1. 架构决策提取
+
+从 `T-NNN-memory.json` 的 `stages.designing.decisions` 中提取**架构级**决策:
+
+```
+判断标准:
+  - 涉及技术选型 (如 "选择 X 而非 Y")
+  - 涉及架构模式 (如 "采用微服务 / 单体 / 事件驱动")
+  - 涉及数据存储策略 (如 "缓存使用 Redis")
+  - 不提取实现细节决策 (如 "变量命名用 camelCase")
+```
+
+对每个提取的决策:
+1. 检查 `architecture_decisions` 中是否已有**相同主题**的 ADR
+2. 如有且结论一致 → 跳过 (不重复记录)
+3. 如有且结论不同 → 创建新 ADR, 将旧 ADR 状态改为 `superseded`, 设置 `superseded_by`
+4. 如没有 → 创建新 ADR, 分配新 `id`
+
+#### 2. 经验教训提取
+
+从所有阶段的 `issues_encountered` 中提取:
+
+```
+判断标准:
+  - 有明确的问题描述和解决方案
+  - 可能在未来任务中复现的问题
+  - 不提取一次性的配置问题 (如 "忘记 git add")
+```
+
+对每个提取的教训:
+1. 检查是否与已有 `lessons_learned` 重复 (按 tags 和 description 相似度判断)
+2. 不重复 → 添加新条目
+3. 重复 → 更新 `impact` (如果新实例更严重) 或追加 `source_task`
+
+#### 3. 热点文件更新
+
+从所有阶段的 `files_modified` 聚合:
+
+```bash
+# 对每个修改的文件:
+for file in files_modified:
+    if file in hot_files:
+        hot_files[file].modification_count += 1
+        hot_files[file].last_modified_by = task_id
+        hot_files[file].last_modified_at = now()
+    else:
+        hot_files.append({path: file, modification_count: 1, ...})
+
+# 重新计算 risk_level:
+if modification_count >= 5: risk_level = "high"
+elif modification_count >= 3: risk_level = "medium"
+else: risk_level = "low"
+```
+
+#### 4. 技术栈检测
+
+从 decisions 中扫描技术关键词, 如果检测到新技术引入, 更新 `tech_stack`:
+
+```
+扫描模式: "使用 X", "引入 X", "选择 X", "采用 X", "迁移到 X"
+如检测到 tech_stack 中未记录的技术:
+  → 提示 acceptor 确认是否添加到 tech_stack
+  → 确认后写入对应字段
+```
+
+---
+
+## 项目记忆加载 (Load on Agent Init)
+
+### 触发时机
+
+**agent-init** 或 **agent-switch** 初始化 Agent 时, 自动加载项目记忆。
+
+### 加载流程
+
+```
+Agent 初始化
+  → 读取 .agents/memory/project-memory.json
+  → 如文件存在:
+     → 根据当前角色选择性加载 (见下表)
+     → 格式化为可读文本
+     → 作为项目上下文提供给 Agent
+  → 如文件不存在:
+     → 跳过 (首次运行, 无项目记忆)
+```
+
+### 按角色差异化加载
+
+| 角色 | 加载内容 | 省略内容 | 理由 |
+|------|---------|---------|------|
+| 🎯 acceptor | tech_stack, architecture_decisions (全部), hot_files | lessons_learned (详情) | 验收需全局视角, 不需实现细节 |
+| 🏗️ designer | tech_stack, architecture_decisions (全部), lessons_learned (architecture 类) | hot_files | 设计需理解技术栈和过往架构决策 |
+| 💻 implementer | tech_stack, architecture_decisions (accepted), lessons_learned (全部), hot_files | deprecated ADRs | 实现需知道用什么技术、踩过什么坑、哪些文件敏感 |
+| 🔍 reviewer | tech_stack, architecture_decisions (accepted), hot_files, lessons_learned (全部) | deprecated ADRs | 审查需知道标准和高风险文件 |
+| 🧪 tester | tech_stack (testing 字段), lessons_learned (testing 类), hot_files | architecture_decisions | 测试关注测试工具和高风险文件 |
+
+### 加载输出格式
+
+```
+🧠 项目记忆
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 技术栈: TypeScript / Node.js 20 / Express.js / PostgreSQL + Prisma
+   测试: Vitest + Playwright | 部署: Docker + Caddy
+
+📐 架构决策 (3 条):
+  ADR-001: cookie session 而非 JWT (T-001)
+  ADR-002: Prisma ORM 管理数据库 (T-005)
+  ADR-003: Redis 缓存 + ioredis (T-003)
+
+⚠️ 经验教训 (与当前角色相关, 2 条):
+  LL-001: connect-redis v7 API 变更 [redis, breaking-change]
+  LL-003: Prisma 迁移需要 DATABASE_URL 环境变量 [prisma, env]
+
+🔥 热点文件 (修改 ≥ 3 次):
+  src/routes/auth.ts (5 次修改, 高风险)
+  src/middleware/session.ts (3 次修改, 中风险)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### 集成到 agent-switch / agent-init
+
+在现有流程中插入项目记忆加载步骤:
+
+```
+切换角色
+  → 检查 inbox
+  → 扫描任务
+  → 📝 加载任务记忆 (已有)
+  → 🧠 加载项目记忆 (新增)
+  → 开始工作
+```
+
+---
+
+## 项目记忆搜索 (Memory Search)
+
+### 触发方式
+
+用户说 `/memory search <keyword>` 或 "搜索项目记忆 <关键词>" 时执行。
+
+### 搜索范围
+
+在 `project-memory.json` 的以下字段中搜索:
+
+| 字段 | 搜索内容 | 权重 |
+|------|---------|------|
+| `architecture_decisions` | title, context, decision, consequences | ⭐⭐⭐ |
+| `lessons_learned` | title, description, tags | ⭐⭐⭐ |
+| `tech_stack` | 所有值 | ⭐⭐ |
+| `hot_files` | path, note | ⭐ |
+
+### 搜索算法
+
+```bash
+# 1. 在 project-memory.json 中搜索
+PROJECT_MEMORY="<project>/.agents/memory/project-memory.json"
+
+# 2. 搜索 architecture_decisions
+jq --arg kw "$KEYWORD" '.architecture_decisions[] | select(
+  (.title | ascii_downcase | contains($kw | ascii_downcase)) or
+  (.decision | ascii_downcase | contains($kw | ascii_downcase)) or
+  (.context | ascii_downcase | contains($kw | ascii_downcase))
+)' "$PROJECT_MEMORY"
+
+# 3. 搜索 lessons_learned
+jq --arg kw "$KEYWORD" '.lessons_learned[] | select(
+  (.title | ascii_downcase | contains($kw | ascii_downcase)) or
+  (.description | ascii_downcase | contains($kw | ascii_downcase)) or
+  (.tags[] | ascii_downcase | contains($kw | ascii_downcase))
+)' "$PROJECT_MEMORY"
+```
+
+### 输出格式
+
+```
+🔍 项目记忆搜索: "redis"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📐 架构决策:
+  [ADR-003] Redis 缓存 + ioredis (T-003)
+    决策: 使用 ioredis 而非 node-redis, 更好的 cluster 支持
+    影响: 需要配置 Redis 集群连接
+
+⚠️ 经验教训:
+  [LL-001] connect-redis v7 API 变更 (T-001) [HIGH]
+    需要用 new RedisStore({client}) 而非 new RedisStore(client)
+
+🔥 相关文件:
+  src/lib/redis.ts (2 次修改, 中风险)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+共 3 条匹配
+```
+
+### 与任务记忆搜索的区别
+
+| | 任务记忆搜索 (`搜索记忆`) | 项目记忆搜索 (`/memory search`) |
+|---|---|---|
+| 搜索范围 | `.agents/memory/T-NNN-memory.json` (所有任务) | `.agents/memory/project-memory.json` (项目级) |
+| 内容类型 | 原始阶段快照 (summary, decisions, issues...) | 提炼后的知识 (ADR, lessons, hot_files) |
+| 适用场景 | 查找具体任务的细节和上下文 | 查找项目级的决策和经验 |
+| 数据更新 | 每次阶段转移自动写入 | 每次任务 accepted 时提炼写入 |
+
+### 联合搜索
+
+用户说 "搜索所有记忆 <关键词>" 时, 同时搜索**项目记忆**和**任务记忆**, 合并结果:
+
+1. 先搜索 `project-memory.json` (高层知识)
+2. 再搜索所有 `T-NNN-memory.json` (详细上下文)
+3. 合并去重, 按权重排序
+4. 输出时分为 "📐 项目级" 和 "📋 任务级" 两个区域
