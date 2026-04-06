@@ -21,7 +21,7 @@
 
 ### 项目初始化
 - 使用 `agent-init` skill 在项目中初始化 Agent 系统
-- 初始化后生成 `<project>/.copilot/` 目录结构
+- 初始化后生成 `<project>/.claude/` 目录结构
 
 ### 任务流转规则
 任务必须按照状态机定义的路径流转:

@@ -86,7 +86,7 @@ cat ~/.claude/skills/agent-task-board/SKILL.md
 所有 Agent 系统文件统一放在 `.agents/` 目录下:
 
 ```bash
-# 项目级 skill (Copilot 自动发现 .agents/skills/)
+# 项目级 skill (AI 助手自动发现 .agents/skills/)
 mkdir -p .agents/skills/project-agents-context
 mkdir -p .agents/skills/project-acceptor
 mkdir -p .agents/skills/project-designer

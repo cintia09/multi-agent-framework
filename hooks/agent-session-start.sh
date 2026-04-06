@@ -1,7 +1,7 @@
 #!/bin/bash
 # Multi-Agent Framework: Session Start Hook
 # Checks agent state and pending items when a session begins.
-# Output is ignored by Copilot — we only log to events.db.
+# Output is ignored by the AI tool — we only log to events.db.
 
 set -e
 INPUT=$(cat)
@@ -57,7 +57,7 @@ if [ -f "$AGENTS_DIR/task-board.json" ]; then
   ACTIVE_TASKS=$(jq '[.tasks[] | select(.status != "accepted" and .status != "blocked")] | length' "$AGENTS_DIR/task-board.json" 2>/dev/null || echo 0)
 fi
 
-# Log summary (stderr goes to Copilot's log, not to LLM)
+# Log summary (stderr goes to the tool log, not to LLM)
 if [ "$TOTAL_MSGS" -gt 0 ] || [ "$ACTIVE_TASKS" -gt 0 ]; then
   echo "Agent Framework: ${TOTAL_MSGS} pending messages, ${ACTIVE_TASKS} active tasks" >&2
 fi

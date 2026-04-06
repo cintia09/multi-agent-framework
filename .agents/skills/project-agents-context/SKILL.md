@@ -17,7 +17,7 @@ description: "Multi-Agent Framework 项目上下文。所有 agent 工作时自�
 
 ## 目录结构
 ```
-agents/          # 5 个 .agent.md (Copilot 原生 agent profile)
+agents/          # 5 个 .agent.md (Agent profile)
 skills/          # 10 个 skill 目录 (每个含 SKILL.md)
 hooks/           # 4 个 shell 脚本 (session-start, pre/post-tool-use, staleness)
 docs/            # agent-rules.md (协作规则)
