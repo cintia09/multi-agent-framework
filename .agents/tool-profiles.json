@@ -1,0 +1,44 @@
+{
+  "profiles": {
+    "acceptor": {
+      "description": "Read-only: view code, run tests, verify goals",
+      "allow": ["Read", "Bash", "Grep", "Glob", "View"],
+      "deny": ["Write", "Edit", "Create"],
+      "bash_restrictions": {
+        "allow_patterns": ["cat ", "ls ", "grep ", "find ", "bash tests/", "git log", "git diff", "python3 -c"],
+        "deny_patterns": ["rm ", "mv ", "cp ", "> ", ">> "]
+      }
+    },
+    "designer": {
+      "description": "Write docs only: design documents, test specs, ADRs",
+      "allow": ["Read", "Write", "Edit", "Create", "Bash", "Grep", "Glob", "View"],
+      "path_restrictions": {
+        "writable": [".agents/runtime/designer/", "docs/design.md", "docs/requirement.md"],
+        "readonly": ["skills/", "hooks/", "scripts/", "tests/"]
+      }
+    },
+    "implementer": {
+      "description": "Full coding: read/write all source, run tests",
+      "allow": ["Read", "Write", "Edit", "Create", "Bash", "Grep", "Glob", "View"],
+      "path_restrictions": {
+        "readonly": [".agents/task-board.json"]
+      }
+    },
+    "reviewer": {
+      "description": "Read code + write reviews: no source modification",
+      "allow": ["Read", "Bash", "Grep", "Glob", "View", "Write", "Edit", "Create"],
+      "path_restrictions": {
+        "writable": [".agents/runtime/reviewer/", "docs/review.md"],
+        "readonly": ["skills/", "hooks/", "scripts/", "agents/"]
+      }
+    },
+    "tester": {
+      "description": "Read code + write tests + execute: no non-test source edits",
+      "allow": ["Read", "Write", "Edit", "Create", "Bash", "Grep", "Glob", "View"],
+      "path_restrictions": {
+        "writable": ["tests/", ".agents/runtime/tester/", "docs/test-spec.md"],
+        "readonly": ["skills/", "hooks/", "agents/"]
+      }
+    }
+  }
+}

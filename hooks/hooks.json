@@ -40,6 +40,88 @@
           }
         ]
       }
+    ],
+    "AgentSwitch": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hooks/agent-before-switch.sh",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "hooks/agent-after-switch.sh",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "TaskCreate": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hooks/agent-before-task-create.sh",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "TaskStatusChange": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hooks/agent-after-task-status.sh",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "MemoryWrite": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hooks/agent-before-memory-write.sh",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "hooks/agent-after-memory-write.sh",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "Compaction": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hooks/agent-before-compaction.sh",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "GoalVerified": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hooks/agent-on-goal-verified.sh",
+            "timeout": 5000
+          }
+        ]
+      }
     ]
   }
 }
