@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 8,
   "tasks": [
     {
       "id": "T-001",
@@ -126,12 +126,13 @@
           "status": "failed"
         }
       ],
-      "status": "accept_fail",
-      "assigned_to": "designer",
+      "status": "implemented",
+      "assigned_to": "implementer",
       "artifacts": {},
       "created_at": "2026-04-05T09:25:23Z",
-      "updated_at": "2026-04-06T12:17:26Z",
-      "accept_fail_reason": "G3: AGENTS.md 未引用 verify-install.sh 和 verify-init.sh 脚本"
+      "updated_at": "2026-04-06T12:25:54Z",
+      "accept_fail_reason": "G3: AGENTS.md 未引用 verify-install.sh 和 verify-init.sh 脚本",
+      "design_doc": ".agents/runtime/designer/workspace/design-docs/T-004-fix-design.md"
     },
     {
       "id": "T-005",
@@ -213,12 +214,13 @@
           "status": "failed"
         }
       ],
-      "status": "accept_fail",
-      "assigned_to": "designer",
+      "status": "implemented",
+      "assigned_to": "implementer",
       "artifacts": {},
       "created_at": "2026-04-05T09:25:23Z",
-      "updated_at": "2026-04-06T12:17:26Z",
-      "accept_fail_reason": "G2: agent-switch 状态面板缺少事件摘要集成; G3: 清理命令未在 agent-switch 中暴露"
+      "updated_at": "2026-04-06T12:25:54Z",
+      "accept_fail_reason": "G2: agent-switch 状态面板缺少事件摘要集成; G3: 清理命令未在 agent-switch 中暴露",
+      "design_doc": ".agents/runtime/designer/workspace/design-docs/T-007-fix-design.md"
     }
   ]
 }

@@ -22,6 +22,9 @@ description: "Agent 状态面板: 查看所有 Agent 的状态、任务分配和
 
 📋 任务表摘要: 3 个任务 (1 完成, 1 进行中, 1 待处理)
 
+📊 近 24h 活动 (来自 events.db):
+  💻 实现者: 42 次操作 | 🔍 审查者: 15 次 | 🧪 测试者: 8 次
+
 🚨 阻塞任务 (如有):
   ⛔ T-004: blocked — "依赖的 API 尚未就绪" (来自 implementing)
   → 说 "unblock T-004" 解除
@@ -37,6 +40,12 @@ for agent in acceptor designer implementer reviewer tester; do
 done
 
 cat "$AGENTS_DIR/task-board.json"
+
+# 事件摘要 (如果 events.db 存在)
+if [ -f "$AGENTS_DIR/events.db" ]; then
+  sqlite3 "$AGENTS_DIR/events.db" \
+    "SELECT agent, count(*) as actions FROM events WHERE created_at > datetime('now', '-24 hours') GROUP BY agent ORDER BY actions DESC;"
+fi
 ```
 
 ## 切换角色 (/agent <name>)
@@ -154,6 +163,26 @@ rm -f <project>/.agents/runtime/active-agent
 - **失败不阻塞**: 如果某个任务处理失败或需要 block，标记 blocked 后继续处理下一个
 - **乐观锁保护**: 每次读写 task-board 都检查 version
 - **自动通知**: 每处理完一个任务，自动写入下游 Agent 的 inbox
+
+## 事件管理
+
+### 查看活动摘要
+```bash
+AGENTS_DIR="$(git rev-parse --show-toplevel 2>/dev/null)/.agents"
+[ -d "$AGENTS_DIR" ] || AGENTS_DIR="./.agents"
+sqlite3 "$AGENTS_DIR/events.db" "SELECT agent, count(*) as actions FROM events WHERE created_at > datetime('now', '-24 hours') GROUP BY agent ORDER BY actions DESC;"
+```
+
+### 清理旧事件
+```bash
+# 清理 30 天前的事件
+sqlite3 .agents/events.db "DELETE FROM events WHERE created_at < datetime('now', '-30 days');"
+
+# 清理所有事件（重置）
+sqlite3 .agents/events.db "DELETE FROM events; DELETE FROM sqlite_sequence WHERE name='events';"
+```
+
+> 参考 `agent-events` skill 了解更多查询方式（按 Agent、按任务、工具使用统计等）。
 
 ## 可用角色
 | 命令 | 角色 | Emoji |
