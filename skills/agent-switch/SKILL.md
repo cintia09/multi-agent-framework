@@ -442,3 +442,147 @@ accepting     —            —       1h     未到达
 退回次数: 1 (reviewing → implementing)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+---
+
+## Cron Scheduling
+
+#### Cron Scheduling
+
+External cron setup (add to system crontab):
+```
+*/5 * * * * cd /path/to/project && bash scripts/cron-scheduler.sh --run
+```
+
+Jobs configuration: `.agents/jobs.json`
+- **staleness-check**: every 30 min, checks stale tasks
+- **daily-summary**: 9 AM daily, generates progress report
+- **memory-index**: every 2 hours, rebuilds FTS5 index
+
+Manage jobs:
+```bash
+bash scripts/cron-scheduler.sh --check   # List all jobs
+bash scripts/cron-scheduler.sh --run     # Execute due jobs
+```
+
+---
+
+## Webhook Integration
+
+#### Webhook Integration
+
+External triggers for automated agent switching:
+
+GitHub webhook (post-receive hook):
+```bash
+bash scripts/webhook-handler.sh github-push '{"branch":"main","commit":"abc123"}'
+```
+
+GitHub PR webhook:
+```bash
+bash scripts/webhook-handler.sh github-pr '{"pr":42,"action":"opened"}'
+```
+
+CI result callback:
+```bash
+bash scripts/webhook-handler.sh ci-success '{"build":123}'
+bash scripts/webhook-handler.sh ci-failure '{"build":123,"error":"test failed"}'
+```
+
+Generic wake signal:
+```bash
+bash scripts/webhook-handler.sh wake '{"reason":"manual trigger"}'
+```
+
+Webhook endpoint spec (for HTTP server integration):
+```
+POST /hooks/wake
+Authorization: Bearer <token>
+Content-Type: application/json
+{"event": "github-push", "payload": {...}}
+```
+
+---
+
+## FSM Auto-Advance
+
+#### FSM Auto-Advance
+
+When an agent completes its work on a task, the system can automatically advance to the next agent:
+
+**Auto-Advance Flow:**
+```
+designing → implementing:  Designer completes design → auto-switch to Implementer
+implementing → reviewing:  Implementer completes code → auto-switch to Reviewer
+reviewing → testing:       Reviewer approves → auto-switch to Tester
+testing → accepting:       Tester verifies → auto-switch to Acceptor
+```
+
+**Trigger Conditions:**
+- Task status changes to next FSM state
+- `after-task-status-change` hook detects transition
+- Auto-executes agent-switch to appropriate role
+
+**Blocking Detection:**
+If an agent produces no output within threshold:
+
+| Stage | Threshold | Action |
+|-------|-----------|--------|
+| designing | 2 hours | Notify, suggest simplification |
+| implementing | 4 hours | Notify, suggest decomposition |
+| reviewing | 1 hour | Notify, auto-approve if minor |
+| testing | 2 hours | Notify, flag for manual check |
+| accepting | 1 hour | Notify, auto-accept if all goals met |
+
+**Heartbeat Check:**
+Background process periodically verifies agent health:
+- Check active-agent file exists
+- Check last_activity timestamp in state.json
+- If stale beyond threshold → trigger staleness hook
+- Recommended: run via cron every 5 minutes
+
+**Override:**
+- Set `"auto_advance": false` in task to disable for specific tasks
+- Use `/agent <role>` to manually override auto-advance
+
+---
+
+## Role Bootstrap Protocol
+
+#### Role Bootstrap Protocol
+
+When switching to a new agent role, automatically inject:
+
+**Bootstrap Injection Order:**
+1. **Global Skill**: `~/.claude/skills/agent-{role}/SKILL.md` (role workflow)
+2. **Project Skill**: `.agents/skills/project-{role}/SKILL.md` (project-specific)
+3. **Current Task**: goals, status, design doc (if exists)
+4. **Memory Top-6**: `bash scripts/memory-search.sh "<task title>" --role {role} --limit 6`
+5. **Upstream Handoff**: message from previous agent in inbox
+6. **Project Context**: `.agents/skills/project-agents-context/SKILL.md`
+
+**Dynamic System Prompt:**
+Adapts based on current task phase:
+
+| Phase | Additional Context |
+|-------|-------------------|
+| designing | Architecture constraints, ADR template, existing design patterns |
+| implementing | Coding standards, TDD workflow, build commands |
+| reviewing | Review checklist, severity levels, quality thresholds |
+| testing | Test commands, coverage requirements, test patterns |
+| accepting | Acceptance criteria, quality red lines, sign-off process |
+
+**Upstream Handoff Message Format:**
+```json
+{
+  "from": "designer",
+  "to": "implementer",
+  "task_id": "T-024",
+  "type": "handoff",
+  "summary": "Design complete. Key files: skills/agent-memory/SKILL.md. See design doc at .agents/runtime/designer/workspace/design-docs/T-024.md",
+  "artifacts": [
+    ".agents/runtime/designer/workspace/design-docs/T-024.md",
+    ".agents/runtime/designer/workspace/test-specs/T-024-test-spec.md"
+  ]
+}
+```

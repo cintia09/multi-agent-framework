@@ -815,6 +815,44 @@ jq --arg kw "$KEYWORD" '.lessons_learned[] | select(
 
 ---
 
+## Context Budget Management
+
+#### Context Budget Management
+
+Total context budget allocation by role:
+
+| Source | Acceptor | Designer | Implementer | Reviewer | Tester |
+|--------|----------|----------|-------------|----------|--------|
+| System prompt | 5k | 5k | 5k | 5k | 5k |
+| Project context | 10k | 15k | 10k | 10k | 10k |
+| Task context | 10k | 20k | 15k | 20k | 15k |
+| Memory (Top-6) | 5k | 10k | 5k | 10k | 5k |
+| Code context | 5k | 10k | 40k | 50k | 20k |
+| Conversation | 145k | 120k | 105k | 85k | 125k |
+
+**Priority when budget is tight:**
+1. System prompt (never cut)
+2. Current task goals and status
+3. Memory search results (most relevant)
+4. Code context (most relevant files)
+5. Project context (trim to essentials)
+6. Conversation history (oldest first)
+
+**Role-Aware Context Injection:**
+- **Reviewer**: Heavy code context (50k) — needs to see full files for review
+- **Designer**: Heavy task context (20k) — needs requirements and architecture
+- **Implementer**: Heavy code context (40k) + large conversation (105k) — needs iteration space
+- **Tester**: Balanced — needs requirements + test specs + some code
+
+**Smart Compression:**
+When approaching budget limit:
+1. Preserve all decisions, ADRs, and code changes
+2. Compress "discussion" turns to summaries
+3. Keep most recent 10 turns verbatim
+4. Older turns → one-line summaries
+
+---
+
 ## Memory System 2.0 — Three-Layer Architecture
 
 ### Overview
