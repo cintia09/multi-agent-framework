@@ -1,5 +1,5 @@
 {
-  "version": 25,
+  "version": 26,
   "tasks": [
     {
       "id": "T-001",
@@ -772,6 +772,325 @@
           "met": true
         }
       ]
+    },
+    {
+      "id": "T-024",
+      "title": "Three-layer memory architecture",
+      "status": "implementing",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "MEMORY.md long-term memory file per agent role defined in agent-memory SKILL.md",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "memory/YYYY-MM-DD.md diary format with 30-90 day lifecycle defined",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "PROJECT_MEMORY.md cross-role shared memory schema defined",
+          "met": false
+        },
+        {
+          "id": "G4",
+          "description": "Memory directory structure (.agents/memory/{role}/) documented",
+          "met": false
+        }
+      ],
+      "created": "2026-04-07T07:45:33.412282"
+    },
+    {
+      "id": "T-025",
+      "title": "SQLite FTS5 memory index engine",
+      "status": "implementing",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "scripts/memory-index.sh created: indexes all .md memory files into SQLite FTS5",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "Index auto-rebuilds on file change (1.5s debounce documented)",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "Chinese text support via unicode61 tokenizer",
+          "met": false
+        }
+      ],
+      "created": "2026-04-07T07:45:33.412288"
+    },
+    {
+      "id": "T-026",
+      "title": "Hybrid memory search",
+      "status": "implementing",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "scripts/memory-search.sh created: keyword search with Top-6 results",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "Citation format: [file:line] context snippet",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "Optional vector search documented (70/30 keyword/vector weight)",
+          "met": false
+        }
+      ],
+      "created": "2026-04-07T07:45:33.412290"
+    },
+    {
+      "id": "T-027",
+      "title": "Memory lifecycle management",
+      "status": "implementing",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "Auto-flush before compaction documented in agent-memory SKILL.md",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "Temporal decay: 30-day half-life scoring algorithm defined",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "Auto-promotion: 6-signal scoring (frequency/relevance/diversity/recency/consolidation/richness)",
+          "met": false
+        },
+        {
+          "id": "G4",
+          "description": "Promotion threshold: minScore>=0.8, minRecallCount>=3, minUniqueQueries>=3",
+          "met": false
+        }
+      ],
+      "created": "2026-04-07T07:45:33.412291"
+    },
+    {
+      "id": "T-028",
+      "title": "New hook points (8 hooks)",
+      "status": "implementing",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "hooks/agent-before-switch.sh and hooks/agent-after-switch.sh created",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "hooks/agent-before-task-create.sh and hooks/agent-after-task-status.sh created",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "hooks/agent-before-memory-write.sh and hooks/agent-after-memory-write.sh created",
+          "met": false
+        },
+        {
+          "id": "G4",
+          "description": "hooks/agent-before-compaction.sh and hooks/agent-on-goal-verified.sh created",
+          "met": false
+        }
+      ],
+      "created": "2026-04-07T07:45:33.412292"
+    },
+    {
+      "id": "T-029",
+      "title": "Hook control semantics",
+      "status": "implementing",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "Block semantics: hook returns {block:true,reason:...} to stop operation",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "Approval semantics: hook returns {requireApproval:true} to pause for confirmation",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "Priority chain: hooks execute by priority field, terminal on block",
+          "met": false
+        }
+      ],
+      "created": "2026-04-07T07:45:33.412292"
+    },
+    {
+      "id": "T-030",
+      "title": "Role tool profiles",
+      "status": "implementing",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "Tool profiles defined: coding/review/testing/accept with allow/deny lists",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "Per-role restrictions: Reviewer read-only, Tester no src/ edit, etc.",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "hooks.json updated with new hook entries",
+          "met": false
+        }
+      ],
+      "created": "2026-04-07T07:45:33.412293"
+    },
+    {
+      "id": "T-031",
+      "title": "Cron scheduler engine",
+      "status": "implementing",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "scripts/cron-scheduler.sh created with crontab-style scheduling",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": ".agents/jobs.json schema defined with schedule/action/description",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "Staleness auto-wake: checks stale tasks and activates corresponding agent",
+          "met": false
+        },
+        {
+          "id": "G4",
+          "description": "Daily summary generation job defined",
+          "met": false
+        }
+      ],
+      "created": "2026-04-07T07:45:33.412294"
+    },
+    {
+      "id": "T-032",
+      "title": "Webhook and external triggers",
+      "status": "implementing",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "Webhook endpoint spec documented: POST /hooks/wake with bearer auth",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "GitHub webhook integration: push/PR events trigger Reviewer",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "CI callback: build/test results trigger Tester or Implementer",
+          "met": false
+        }
+      ],
+      "created": "2026-04-07T07:45:33.412295"
+    },
+    {
+      "id": "T-033",
+      "title": "FSM auto-advance",
+      "status": "implementing",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "agent-switch SKILL.md defines auto-advance: agent completes → auto switch to next role",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "Blocking detection: threshold timeout triggers escalation or skip",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "Heartbeat check: periodic agent health verification documented",
+          "met": false
+        }
+      ],
+      "created": "2026-04-07T07:45:33.412295"
+    },
+    {
+      "id": "T-034",
+      "title": "Context budget management",
+      "status": "implementing",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "Token budget allocation per source defined in agent-memory SKILL.md",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "Role-aware injection: different agents get different context mix",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "Smart compression: preserve decisions, compress discussions",
+          "met": false
+        }
+      ],
+      "created": "2026-04-07T07:45:33.412296"
+    },
+    {
+      "id": "T-035",
+      "title": "Role bootstrap enhancement",
+      "status": "implementing",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "Agent switch auto-injects: global SKILL + project SKILL + task goals + memory Top-6",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "Dynamic system prompt: adapts based on current task phase",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "Upstream handoff message included in bootstrap",
+          "met": false
+        }
+      ],
+      "created": "2026-04-07T07:45:33.412297"
+    },
+    {
+      "id": "T-036",
+      "title": "Agent Teams parallel execution",
+      "status": "implementing",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "Subagent spawn documented: fork sub-agent for parallel tasks",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "Multi-implementer: different tasks assigned to different sub-agents",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "Parallel review: multiple reviewers on different files",
+          "met": false
+        }
+      ],
+      "created": "2026-04-07T07:45:33.412298"
     }
   ],
   "updated_at": "2026-04-06T16:07:35Z"

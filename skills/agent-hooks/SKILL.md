@@ -1,3 +1,8 @@
+---
+name: agent-hooks
+description: "Hook lifecycle management. Shell scripts triggered at lifecycle points to enforce boundaries, validate operations, and coordinate agents."
+---
+
 # Skill: Agent Hooks
 
 ## Description
