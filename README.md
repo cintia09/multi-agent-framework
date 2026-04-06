@@ -392,9 +392,10 @@ sqlite3 .agents/events.db "SELECT * FROM events ORDER BY id DESC LIMIT 20;"
 - **Phase 3** ✅ 自动调度 + 超时检测 + 批处理模式 + 监控模式
 - **Phase 4** ✅ 记忆系统（自动沉淀 + 智能加载）+ 流水线可视化 + 项目级活文档
 - **Phase 5** ✅ ECC 最佳实践融合（TDD 纪律 + 安全审查 + 覆盖率分析 + ADR）
-- **Phase 6** — 结构化消息 + Cycle Time 度量 + 看板增强
-- **Phase 7** — 外部调度器（基于 cron 的自主 Agent 循环）
-- **Phase 8** — Claude Code Agent Teams 集成（并行多 Agent）
+- **Phase 6** ✅ 结构化消息 + Cycle Time 度量 + 看板增强 + 项目级记忆
+- **Phase 7** ✅ 基础设施（一键安装 + 版本管理 + 社区模板 + 测试套件）
+- **Phase 8** — 外部调度器（基于 cron 的自主 Agent 循环）
+- **Phase 9** — Claude Code Agent Teams 集成（并行多 Agent）
 
 ---
 
