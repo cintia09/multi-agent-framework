@@ -1,5 +1,5 @@
 {
-  "version": 23,
+  "version": 24,
   "tasks": [
     {
       "id": "T-001",
@@ -559,6 +559,217 @@
           "by": "reviewer",
           "at": "2026-04-06T16:07:35Z",
           "note": "Code review passed"
+        }
+      ]
+    },
+    {
+      "id": "T-016",
+      "title": "Structured messaging with types, replay, and priority",
+      "description": "MSG-1+MSG-2+MSG-3: 结构化消息类型(type/severity/file/line) + 消息链路回放(/inbox --history) + 优先级(urgent/normal/info)",
+      "status": "implementing",
+      "priority": "high",
+      "assigned_to": "implementer",
+      "created_at": "2026-04-06T16:33:32Z",
+      "updated_at": "2026-04-06T16:33:32Z",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "agent-messaging SKILL.md defines structured message schema with type, severity, file, line, related_goal fields and 6 message type enums",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "agent-messaging SKILL.md adds message replay feature: /inbox --history T-NNN shows chronological collaboration timeline with emoji+timestamp",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "agent-messaging SKILL.md adds priority levels (urgent/normal/info) with sorting behavior",
+          "met": false
+        }
+      ]
+    },
+    {
+      "id": "T-017",
+      "title": "Cycle time metrics and enhanced staleness detection",
+      "description": "F-2+F-3: 每阶段停留时间 + 平均 cycle time + 按阶段差异化超时提醒",
+      "status": "implementing",
+      "priority": "high",
+      "assigned_to": "implementer",
+      "created_at": "2026-04-06T16:33:32Z",
+      "updated_at": "2026-04-06T16:33:32Z",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "agent-switch status panel includes cycle time per task: time spent in each stage (from memory timestamps)",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "agent-switch status panel shows average cycle time across completed tasks",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "agent-staleness-check or agent-switch documents per-stage timeout thresholds: designing>1h, implementing>4h, reviewing>2h, testing>2h",
+          "met": false
+        }
+      ]
+    },
+    {
+      "id": "T-018",
+      "title": "Enhanced task board with grouping, stats, and progress",
+      "description": "B-1+B-2+B-3: 看板分组视图 + 项目统计面板 + 任务进度追踪",
+      "status": "implementing",
+      "priority": "high",
+      "assigned_to": "implementer",
+      "created_at": "2026-04-06T16:33:32Z",
+      "updated_at": "2026-04-06T16:33:32Z",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "agent-task-board SKILL.md defines grouped view output: blocked/in-progress/completed sections with emoji headers",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "agent-task-board SKILL.md adds project stats panel: total tasks, completion rate, average cycle time, slowest stage, weekly throughput",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "agent-task-board SKILL.md adds progress tracking: auto-calculate percentage from goals done count (3/5 = 60%) with progress bar",
+          "met": false
+        }
+      ]
+    },
+    {
+      "id": "T-019",
+      "title": "Project-level memory for cross-task knowledge",
+      "description": "M-3: 项目级记忆 — project-memory.json 存储跨任务的技术栈决策和架构约定",
+      "status": "implementing",
+      "priority": "medium",
+      "assigned_to": "implementer",
+      "created_at": "2026-04-06T16:33:32Z",
+      "updated_at": "2026-04-06T16:33:32Z",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "agent-memory SKILL.md defines project-memory.json format: tech_stack, architecture_decisions, lessons_learned, hot_files sections",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "agent-memory SKILL.md documents how project memory is updated (append after each task completion) and loaded (summary on agent startup)",
+          "met": false
+        }
+      ]
+    },
+    {
+      "id": "T-020",
+      "title": "One-line install script with conflict detection",
+      "description": "I-1: curl | bash 安装脚本，检测冲突+备份+安装后验证",
+      "status": "implementing",
+      "priority": "high",
+      "assigned_to": "implementer",
+      "created_at": "2026-04-06T16:33:32Z",
+      "updated_at": "2026-04-06T16:33:32Z",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "install.sh script created: clone repo, detect existing config, backup, copy skills/agents/hooks, verify, cleanup",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "install.sh supports flags: --full, --check, --uninstall, --dry-run",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "README updated with curl one-liner install command",
+          "met": false
+        }
+      ]
+    },
+    {
+      "id": "T-021",
+      "title": "Version management with CHANGELOG",
+      "description": "I-2: VERSION 文件 + CHANGELOG.md + 当前 v1.0.0",
+      "status": "implementing",
+      "priority": "medium",
+      "assigned_to": "implementer",
+      "created_at": "2026-04-06T16:33:32Z",
+      "updated_at": "2026-04-06T16:33:32Z",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "VERSION file created with v1.0.0",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "CHANGELOG.md created documenting Phase 1-5 features",
+          "met": false
+        }
+      ]
+    },
+    {
+      "id": "T-022",
+      "title": "Community contribution guides",
+      "description": "I-3: CONTRIBUTING.md + PR/Issue 模板",
+      "status": "implementing",
+      "priority": "medium",
+      "assigned_to": "implementer",
+      "created_at": "2026-04-06T16:33:32Z",
+      "updated_at": "2026-04-06T16:33:32Z",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "CONTRIBUTING.md created explaining how to contribute agents, skills, hooks, and rules",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": ".github/ISSUE_TEMPLATE/ with bug report and feature request templates",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": ".github/PULL_REQUEST_TEMPLATE.md created",
+          "met": false
+        }
+      ]
+    },
+    {
+      "id": "T-023",
+      "title": "Core pipeline test suite",
+      "description": "I-4: 测试套件 — FSM 转移、看板 CRUD、消息投递、记忆快照",
+      "status": "implementing",
+      "priority": "medium",
+      "assigned_to": "implementer",
+      "created_at": "2026-04-06T16:33:32Z",
+      "updated_at": "2026-04-06T16:33:32Z",
+      "goals": [
+        {
+          "id": "G1",
+          "description": "tests/run-all.sh created as test runner",
+          "met": false
+        },
+        {
+          "id": "G2",
+          "description": "tests/test-skills.sh validates all 12 SKILL.md files have correct YAML frontmatter (name + description)",
+          "met": false
+        },
+        {
+          "id": "G3",
+          "description": "tests/test-agents.sh validates all 5 agent.md files exist and have frontmatter",
+          "met": false
+        },
+        {
+          "id": "G4",
+          "description": "tests/test-hooks.sh validates all hook scripts are executable and have correct shebang",
+          "met": false
         }
       ]
     }
