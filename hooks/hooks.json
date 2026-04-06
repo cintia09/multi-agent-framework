@@ -1,34 +1,44 @@
 {
-  "version": 1,
   "hooks": {
-    "sessionStart": [
+    "SessionStart": [
       {
-        "type": "command",
-        "bash": "~/.copilot/hooks/agent-session-start.sh",
-        "comment": "Multi-Agent Framework: check agent state and pending items on session start",
-        "timeoutSec": 10
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/agent-session-start.sh",
+            "timeout": 10000
+          }
+        ]
       }
     ],
-    "preToolUse": [
+    "PreToolUse": [
       {
-        "type": "command",
-        "bash": "~/.copilot/hooks/security-scan.sh",
-        "comment": "Security: scan staged files for secrets before git commit/push (always active)",
-        "timeoutSec": 10
-      },
-      {
-        "type": "command",
-        "bash": "~/.copilot/hooks/agent-pre-tool-use.sh",
-        "comment": "Multi-Agent Framework: enforce agent boundaries (only when agent system active)",
-        "timeoutSec": 5
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/security-scan.sh",
+            "timeout": 10000
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/agent-pre-tool-use.sh",
+            "timeout": 5000
+          }
+        ]
       }
     ],
-    "postToolUse": [
+    "PostToolUse": [
       {
-        "type": "command",
-        "bash": "~/.copilot/hooks/agent-post-tool-use.sh",
-        "comment": "Multi-Agent Framework: audit log tool results to events.db",
-        "timeoutSec": 5
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/agent-post-tool-use.sh",
+            "timeout": 5000
+          }
+        ]
       }
     ]
   }

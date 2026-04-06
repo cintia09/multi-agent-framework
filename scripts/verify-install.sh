@@ -27,15 +27,15 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # Skills
 echo ""
 echo "📦 Skills (expect 12):"
-SKILL_COUNT=$(ls -d ~/.copilot/skills/agent-*/ 2>/dev/null | wc -l | tr -d ' ')
+SKILL_COUNT=$(ls -d ~/.claude/skills/agent-*/ 2>/dev/null | wc -l | tr -d ' ')
 check "Skill directories: $SKILL_COUNT/12" "$([ "$SKILL_COUNT" -eq 12 ] && echo pass || echo fail)"
 
 for name in agent-acceptor agent-designer agent-events agent-fsm agent-implementer agent-init agent-memory agent-messaging agent-reviewer agent-switch agent-task-board agent-tester; do
-  if [ -f ~/.copilot/skills/$name/SKILL.md ]; then
+  if [ -f ~/.claude/skills/$name/SKILL.md ]; then
     # Check YAML frontmatter
-    if head -1 ~/.copilot/skills/$name/SKILL.md | grep -q "^---"; then
-      HAS_NAME=$(grep -c "^name:" ~/.copilot/skills/$name/SKILL.md)
-      HAS_DESC=$(grep -c "^description:" ~/.copilot/skills/$name/SKILL.md)
+    if head -1 ~/.claude/skills/$name/SKILL.md | grep -q "^---"; then
+      HAS_NAME=$(grep -c "^name:" ~/.claude/skills/$name/SKILL.md)
+      HAS_DESC=$(grep -c "^description:" ~/.claude/skills/$name/SKILL.md)
       if [ "$HAS_NAME" -gt 0 ] && [ "$HAS_DESC" -gt 0 ]; then
         check "$name/SKILL.md (frontmatter OK)" "pass"
       else
@@ -52,12 +52,12 @@ done
 # Agents
 echo ""
 echo "🤖 Agents (expect 5):"
-AGENT_COUNT=$(ls ~/.copilot/agents/*.agent.md 2>/dev/null | wc -l | tr -d ' ')
+AGENT_COUNT=$(ls ~/.claude/agents/*.agent.md 2>/dev/null | wc -l | tr -d ' ')
 check "Agent profiles: $AGENT_COUNT/5" "$([ "$AGENT_COUNT" -eq 5 ] && echo pass || echo fail)"
 
 for name in acceptor designer implementer reviewer tester; do
-  if [ -f ~/.copilot/agents/$name.agent.md ]; then
-    if head -1 ~/.copilot/agents/$name.agent.md | grep -q "^---"; then
+  if [ -f ~/.claude/agents/$name.agent.md ]; then
+    if head -1 ~/.claude/agents/$name.agent.md | grep -q "^---"; then
       check "$name.agent.md (frontmatter OK)" "pass"
     else
       check "$name.agent.md (no YAML frontmatter)" "fail"
@@ -71,8 +71,8 @@ done
 echo ""
 echo "🪝 Hooks (expect 5 scripts + hooks.json):"
 for script in security-scan.sh agent-session-start.sh agent-pre-tool-use.sh agent-post-tool-use.sh agent-staleness-check.sh; do
-  if [ -f ~/.copilot/hooks/$script ]; then
-    if [ -x ~/.copilot/hooks/$script ]; then
+  if [ -f ~/.claude/hooks/$script ]; then
+    if [ -x ~/.claude/hooks/$script ]; then
       check "$script (executable)" "pass"
     else
       check "$script (NOT executable)" "fail"
@@ -82,8 +82,8 @@ for script in security-scan.sh agent-session-start.sh agent-pre-tool-use.sh agen
   fi
 done
 
-if [ -f ~/.copilot/hooks/hooks.json ]; then
-  if python3 -c "import json; json.load(open('$HOME/.copilot/hooks/hooks.json'))" 2>/dev/null; then
+if [ -f ~/.claude/hooks/hooks.json ]; then
+  if python3 -c "import json; json.load(open('$HOME/.claude/hooks/hooks.json'))" 2>/dev/null; then
     check "hooks.json (valid JSON)" "pass"
   else
     check "hooks.json (invalid JSON)" "fail"
@@ -95,10 +95,10 @@ fi
 # Rules
 echo ""
 echo "📋 Collaboration Rules:"
-if grep -q "## Agent Collaboration Rules" ~/.copilot/copilot-instructions.md 2>/dev/null; then
-  check "Rules in copilot-instructions.md" "pass"
+if grep -q "## Agent Collaboration Rules" ~/.claude/CLAUDE.md 2>/dev/null; then
+  check "Rules in CLAUDE.md" "pass"
 else
-  check "Rules in copilot-instructions.md" "warn"
+  check "Rules in CLAUDE.md" "warn"
 fi
 
 # Summary
