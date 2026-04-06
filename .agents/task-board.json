@@ -1,5 +1,5 @@
 {
-  "version": 22,
+  "version": 23,
   "tasks": [
     {
       "id": "T-001",
@@ -230,7 +230,7 @@
       "id": "T-008",
       "title": "Automatic memory capture on stage transitions",
       "description": "Agent 完成阶段(FSM 状态转移)时自动保存记忆快照，无需手动调用。从本轮工作中提取：关键决策、修改的文件、遇到的问题、交接要点。",
-      "status": "accepted",
+      "status": "reviewing",
       "priority": "high",
       "assigned_to": null,
       "created_at": "2026-04-06T14:45:36Z",
@@ -265,11 +265,11 @@
       "id": "T-009",
       "title": "Smart memory loading by downstream agent role",
       "description": "下游 Agent 启动时只加载它需要的记忆字段，按角色差异化。减少 token 消耗，增加有效信息密度。",
-      "status": "accepted",
+      "status": "testing",
       "priority": "high",
       "assigned_to": null,
       "created_at": "2026-04-06T14:45:36Z",
-      "updated_at": "2026-04-06T16:04:45Z",
+      "updated_at": "2026-04-06T16:07:35Z",
       "goals": [
         {
           "id": "G1",
@@ -294,17 +294,26 @@
       ],
       "artifacts": {
         "design_doc": ".agents/runtime/designer/workspace/design-docs/T-009-smart-memory-loading.md"
-      }
+      },
+      "history": [
+        {
+          "from": "accepted",
+          "to": "testing",
+          "by": "reviewer",
+          "at": "2026-04-06T16:07:35Z",
+          "note": "Code review passed"
+        }
+      ]
     },
     {
       "id": "T-010",
       "title": "ASCII pipeline visualization in agent status",
       "description": "/agent status 输出包含 ASCII 流水线图，展示每个任务当前在哪个阶段，哪些已完成。",
-      "status": "accepted",
+      "status": "testing",
       "priority": "high",
       "assigned_to": null,
       "created_at": "2026-04-06T14:45:36Z",
-      "updated_at": "2026-04-06T16:04:45Z",
+      "updated_at": "2026-04-06T16:07:35Z",
       "goals": [
         {
           "id": "G1",
@@ -329,17 +338,26 @@
       ],
       "artifacts": {
         "design_doc": ".agents/runtime/designer/workspace/design-docs/T-010-ascii-pipeline.md"
-      }
+      },
+      "history": [
+        {
+          "from": "accepted",
+          "to": "testing",
+          "by": "reviewer",
+          "at": "2026-04-06T16:07:35Z",
+          "note": "Code review passed"
+        }
+      ]
     },
     {
       "id": "T-011",
       "title": "Enhance implementer with TDD discipline and verification loop",
       "description": "融合 ECC 最佳实践到 agent-implementer：严格 TDD 红绿重构 + git checkpoint + 80% 覆盖率门槛 + 构建增量修复 + 提交前 verification loop",
-      "status": "accepted",
+      "status": "testing",
       "priority": "high",
       "assigned_to": null,
       "created_at": "2026-04-06T14:59:58Z",
-      "updated_at": "2026-04-06T16:04:45Z",
+      "updated_at": "2026-04-06T16:07:35Z",
       "goals": [
         {
           "id": "G1",
@@ -359,17 +377,26 @@
       ],
       "artifacts": {
         "design_doc": ".agents/runtime/designer/workspace/design-docs/T-011-implementer-tdd.md"
-      }
+      },
+      "history": [
+        {
+          "from": "accepted",
+          "to": "testing",
+          "by": "reviewer",
+          "at": "2026-04-06T16:07:35Z",
+          "note": "Code review passed"
+        }
+      ]
     },
     {
       "id": "T-012",
       "title": "Enhance reviewer with structured severity and security checklist",
       "description": "融合 ECC 审查实践到 agent-reviewer：置信度过滤 + CRITICAL/HIGH/MEDIUM/LOW 严重级别 + OWASP Top 10 安全清单 + 代码质量阈值",
-      "status": "accepted",
+      "status": "testing",
       "priority": "high",
       "assigned_to": null,
       "created_at": "2026-04-06T14:59:58Z",
-      "updated_at": "2026-04-06T16:04:45Z",
+      "updated_at": "2026-04-06T16:07:35Z",
       "goals": [
         {
           "id": "G1",
@@ -394,17 +421,26 @@
       ],
       "artifacts": {
         "design_doc": ".agents/runtime/designer/workspace/design-docs/T-012-reviewer-severity.md"
-      }
+      },
+      "history": [
+        {
+          "from": "accepted",
+          "to": "testing",
+          "by": "reviewer",
+          "at": "2026-04-06T16:07:35Z",
+          "note": "Code review passed"
+        }
+      ]
     },
     {
       "id": "T-013",
       "title": "Enhance tester with coverage analysis and flaky detection",
       "description": "融合 ECC 测试实践到 agent-tester：覆盖率分析 + flaky 检测隔离 + E2E POM 模式 + 失败截图",
-      "status": "accepted",
+      "status": "testing",
       "priority": "high",
       "assigned_to": null,
       "created_at": "2026-04-06T14:59:58Z",
-      "updated_at": "2026-04-06T16:04:45Z",
+      "updated_at": "2026-04-06T16:07:35Z",
       "goals": [
         {
           "id": "G1",
@@ -424,17 +460,26 @@
       ],
       "artifacts": {
         "design_doc": ".agents/runtime/designer/workspace/design-docs/T-013-tester-coverage.md"
-      }
+      },
+      "history": [
+        {
+          "from": "accepted",
+          "to": "testing",
+          "by": "reviewer",
+          "at": "2026-04-06T16:07:35Z",
+          "note": "Code review passed"
+        }
+      ]
     },
     {
       "id": "T-014",
       "title": "Add ADR format to designer and user story format to acceptor",
       "description": "设计者增加 ADR 格式（决策+替代方案+理由），验收者增加用户旅程格式（As a... I want... so that...）",
-      "status": "accepted",
+      "status": "testing",
       "priority": "medium",
       "assigned_to": null,
       "created_at": "2026-04-06T14:59:58Z",
-      "updated_at": "2026-04-06T16:04:45Z",
+      "updated_at": "2026-04-06T16:07:35Z",
       "goals": [
         {
           "id": "G1",
@@ -454,17 +499,26 @@
       ],
       "artifacts": {
         "design_doc": ".agents/runtime/designer/workspace/design-docs/T-014-adr-userstory.md"
-      }
+      },
+      "history": [
+        {
+          "from": "accepted",
+          "to": "testing",
+          "by": "reviewer",
+          "at": "2026-04-06T16:07:35Z",
+          "note": "Code review passed"
+        }
+      ]
     },
     {
       "id": "T-015",
       "title": "Project-level living documents maintained by each agent",
       "description": "项目级活文档体系：docs/ 下维护 6 个项目级文档（需求/设计/测试/实现/审阅/验收），每个 Agent 在完成任务后更新自己负责的文档，追加本次任务的内容，反映项目整体最新状态。",
-      "status": "accepted",
+      "status": "testing",
       "priority": "high",
       "assigned_to": null,
       "created_at": "2026-04-06T15:13:39Z",
-      "updated_at": "2026-04-06T16:04:45Z",
+      "updated_at": "2026-04-06T16:07:35Z",
       "goals": [
         {
           "id": "G1",
@@ -497,7 +551,17 @@
           "type": "design-doc",
           "path": ".agents/runtime/designer/workspace/design-docs/T-015-living-documents.md"
         }
+      ],
+      "history": [
+        {
+          "from": "accepted",
+          "to": "testing",
+          "by": "reviewer",
+          "at": "2026-04-06T16:07:35Z",
+          "note": "Code review passed"
+        }
       ]
     }
-  ]
+  ],
+  "updated_at": "2026-04-06T16:07:35Z"
 }
