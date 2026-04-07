@@ -26,11 +26,11 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 # Skills
 echo ""
-echo "📦 Skills (expect 12):"
+echo "📦 Skills (expect 14):"
 SKILL_COUNT=$(ls -d ~/.claude/skills/agent-*/ 2>/dev/null | wc -l | tr -d ' ')
-check "Skill directories: $SKILL_COUNT/12" "$([ "$SKILL_COUNT" -eq 12 ] && echo pass || echo fail)"
+check "Skill directories: $SKILL_COUNT/14" "$([ "$SKILL_COUNT" -eq 14 ] && echo pass || echo fail)"
 
-for name in agent-acceptor agent-designer agent-events agent-fsm agent-implementer agent-init agent-memory agent-messaging agent-reviewer agent-switch agent-task-board agent-tester; do
+for name in agent-acceptor agent-designer agent-events agent-fsm agent-hooks agent-implementer agent-init agent-memory agent-messaging agent-reviewer agent-switch agent-task-board agent-teams agent-tester; do
   if [ -f ~/.claude/skills/$name/SKILL.md ]; then
     # Check YAML frontmatter
     if head -1 ~/.claude/skills/$name/SKILL.md | grep -q "^---"; then
@@ -69,8 +69,8 @@ done
 
 # Hooks
 echo ""
-echo "🪝 Hooks (expect 5 scripts + hooks.json):"
-for script in security-scan.sh agent-session-start.sh agent-pre-tool-use.sh agent-post-tool-use.sh agent-staleness-check.sh; do
+echo "🪝 Hooks (expect 13 scripts + hooks.json):"
+for script in security-scan.sh agent-session-start.sh agent-pre-tool-use.sh agent-post-tool-use.sh agent-staleness-check.sh agent-before-switch.sh agent-after-switch.sh agent-before-task-create.sh agent-after-task-status.sh agent-before-memory-write.sh agent-after-memory-write.sh agent-before-compaction.sh agent-on-goal-verified.sh; do
   if [ -f ~/.claude/hooks/$script ]; then
     if [ -x ~/.claude/hooks/$script ]; then
       check "$script (executable)" "pass"

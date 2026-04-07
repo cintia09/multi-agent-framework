@@ -14,7 +14,7 @@ Manages the hook lifecycle for the multi-agent framework. Hooks are shell script
 
 ## Hook Inventory
 
-### Existing Hooks (5)
+### Existing Hooks (5 — v1.0 Core)
 | Hook | File | Event | Purpose |
 |------|------|-------|---------|
 | Security Scan | `security-scan.sh` | PreToolUse | Block secrets from being committed |
@@ -23,7 +23,7 @@ Manages the hook lifecycle for the multi-agent framework. Hooks are shell script
 | Post-Tool-Use | `agent-post-tool-use.sh` | PostToolUse | Audit logging, auto-dispatch |
 | Staleness Check | `agent-staleness-check.sh` | SessionStart | Warn about inactive tasks/agents |
 
-### New Hooks (8)
+### New Hooks (8 — v2.0 Lifecycle)
 | Hook | File | Event | Purpose |
 |------|------|-------|---------|
 | Before Switch | `agent-before-switch.sh` | AgentSwitch | Validate agent role switch is allowed |

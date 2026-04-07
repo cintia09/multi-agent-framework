@@ -54,7 +54,7 @@ echo "Agents:" && ls ~/.claude/agents/*.agent.md | wc -l
 echo "Hooks:" && ls ~/.claude/hooks/agent-*.sh | wc -l
 echo "hooks.json:" && [ -f ~/.claude/hooks/hooks.json ] && echo "✅" || echo "❌"
 ```
-预期: Skills 14 个目录, Agents 5 个文件, Hooks 12 个脚本, hooks.json 存在。
+预期: Skills 14 个目录, Agents 5 个文件, Hooks 13 个脚本, hooks.json 存在。
 
 ### Step 7: 深度验证 (可选)
 如果需要更完整的验证（检查 Skill 格式、YAML frontmatter、文件权限等），可以运行验证脚本：
