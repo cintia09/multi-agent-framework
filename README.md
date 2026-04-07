@@ -206,7 +206,7 @@ bash /tmp/multi-agent-framework/scripts/verify-install.sh
 │   ├── agent-on-goal-verified.sh    # 目标验证进度更新
 │   └── security-scan.sh          # 🔒 密钥扫描（独立于 Agent 系统）
 ├── skills/
-│   └── agent-*/SKILL.md          # 14 个 Skill 目录（每个含 SKILL.md）
+│   └── agent-*/SKILL.md          # 15 个 Skill 目录（每个含 SKILL.md）
 └── agents/
     ├── acceptor.agent.md         # 验收者（原生 Agent Profile）
     ├── designer.agent.md         # 设计者

@@ -26,11 +26,11 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 # Skills
 echo ""
-echo "📦 Skills (expect 14):"
+echo "📦 Skills (expect 15):"
 SKILL_COUNT=$(ls -d ~/.claude/skills/agent-*/ 2>/dev/null | wc -l | tr -d ' ')
-check "Skill directories: $SKILL_COUNT/14" "$([ "$SKILL_COUNT" -eq 14 ] && echo pass || echo fail)"
+check "Skill directories: $SKILL_COUNT/15" "$([ "$SKILL_COUNT" -eq 15 ] && echo pass || echo fail)"
 
-for name in agent-acceptor agent-designer agent-events agent-fsm agent-hooks agent-implementer agent-init agent-memory agent-messaging agent-reviewer agent-switch agent-task-board agent-teams agent-tester; do
+for name in agent-acceptor agent-designer agent-events agent-fsm agent-hooks agent-implementer agent-init agent-memory agent-messaging agent-orchestrator agent-reviewer agent-switch agent-task-board agent-teams agent-tester; do
   if [ -f ~/.claude/skills/$name/SKILL.md ]; then
     # Check YAML frontmatter
     if head -1 ~/.claude/skills/$name/SKILL.md | grep -q "^---"; then
