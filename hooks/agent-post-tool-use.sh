@@ -42,13 +42,17 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
         STATUS=$(echo "$TASK" | jq -r '.status')
         TITLE=$(echo "$TASK" | jq -r '.title')
 
-        # Map status to target agent (only dispatch on "arrival" statuses)
+        # Map status to target agent (dispatch on all FSM "arrival" statuses)
         case "$STATUS" in
-          created)    TARGET="designer" ;;
-          reviewing)  TARGET="reviewer" ;;
-          testing)    TARGET="tester" ;;
-          accepting)  TARGET="acceptor" ;;
-          *)          TARGET="" ;;
+          created)        TARGET="designer" ;;
+          designing)      TARGET="designer" ;;
+          implementing)   TARGET="implementer" ;;
+          reviewing)      TARGET="reviewer" ;;
+          testing)        TARGET="tester" ;;
+          fixing)         TARGET="implementer" ;;
+          accepting)      TARGET="acceptor" ;;
+          accept_fail)    TARGET="designer" ;;
+          *)              TARGET="" ;;
         esac
 
         [ -z "$TARGET" ] && continue
