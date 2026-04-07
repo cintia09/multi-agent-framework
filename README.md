@@ -12,7 +12,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Agents-5-6366f1?style=flat-square" alt="5 Agents">
-  <img src="https://img.shields.io/badge/Skills-12-10b981?style=flat-square" alt="12 Skills">
+  <img src="https://img.shields.io/badge/Skills-14-10b981?style=flat-square" alt="14 Skills">
   <img src="https://img.shields.io/badge/Hooks-4-f59e0b?style=flat-square" alt="4 Hooks">
   <img src="https://img.shields.io/badge/FSM_States-10-ef4444?style=flat-square" alt="10 FSM States">
   <img src="https://img.shields.io/badge/Zero_Dependencies-✓-8b5cf6?style=flat-square" alt="Zero Dependencies">
@@ -25,7 +25,7 @@
 <p align="center">
   <a href="#安装">安装</a> ·
   <a href="#使用方式">使用</a> ·
-  <a href="#12-个-skills">12 Skills</a> ·
+  <a href="#14-个-skills">14 Skills</a> ·
   <a href="#为什么需要这个框架">为什么</a> ·
   <a href="blog/vibe-coding-and-multi-agent.md">博客</a>
 </p>
@@ -97,7 +97,7 @@ curl -sL https://raw.githubusercontent.com/cintia09/multi-agent-framework/main/i
 
 助手会读取仓库中的 AGENTS.md 并自动：
 1. 克隆仓库到临时目录
-2. 复制 12 个 Skill 目录到 `~/.claude/skills/`
+2. 复制 14 个 Skill 目录到 `~/.claude/skills/`
 3. 复制 5 个 `.agent.md` 文件到 `~/.claude/agents/`
 4. 复制 5 个 Hook 脚本 + hooks.json 到 `~/.claude/hooks/`
 5. 追加协作规则到 `~/.claude/CLAUDE.md`（幂等）
@@ -119,7 +119,7 @@ bash /tmp/multi-agent-framework/scripts/verify-install.sh
 │   ├── agent-post-tool-use.sh    # 审计日志 + 自动调度
 │   └── agent-staleness-check.sh  # 超时任务检测
 ├── skills/
-│   └── agent-*/SKILL.md          # 12 个 Skill 目录（每个含 SKILL.md）
+│   └── agent-*/SKILL.md          # 14 个 Skill 目录（每个含 SKILL.md）
 └── agents/
     ├── acceptor.agent.md         # 验收者（原生 Agent Profile）
     ├── designer.agent.md         # 设计者
@@ -191,22 +191,24 @@ bash /tmp/multi-agent-framework/scripts/verify-init.sh
 
 两边全自动循环 — 无需手动 check。通过自动调度 + 收件箱实现自动重入。
 
-## 12 个 Skills
+## 14 个 Skills
 
 | # | Skill | 描述 |
 |---|-------|------|
 | 1 | `agent-fsm` | FSM 引擎 — 10 种状态转移 + Guard 规则 |
 | 2 | `agent-task-board` | 任务 CRUD + 功能目标 + 阻塞/解阻塞 + 乐观锁 |
-| 3 | `agent-messaging` | Agent 间收件箱消息 |
+| 3 | `agent-messaging` | Agent 间收件箱消息 + 结构化类型 + 回放 + 优先级 |
 | 4 | `agent-init` | 项目初始化 + 技术栈检测 + docs/ 文档模板 |
-| 5 | `agent-switch` | 角色切换 + 状态面板 + 流水线可视化 + 事件摘要 + 批处理模式 |
-| 6 | `agent-memory` | 任务记忆 — 自动沉淀 + 按角色智能加载 |
+| 5 | `agent-switch` | 角色切换 + 状态面板 + 流水线可视化 + 自动流转 + Cron + Webhook |
+| 6 | `agent-memory` | 三层记忆（长期/日记/项目）+ FTS5 索引 + 混合检索 + 自动晋升 + Context Engine |
 | 7 | `agent-acceptor` | 验收者工作流 + 用户故事格式 + 活文档维护 |
 | 8 | `agent-designer` | 设计者工作流 + ADR 格式 + Goal 覆盖自查 + 活文档维护 |
 | 9 | `agent-implementer` | TDD 纪律 + 构建修复 + 提交前验证 + 监控模式 + 活文档维护 |
 | 10 | `agent-reviewer` | 设计+代码审查 + OWASP 安全 + 严重级别 + 置信度过滤 + 活文档维护 |
 | 11 | `agent-tester` | 覆盖率分析 + Flaky 检测 + E2E Playwright + Issue JSON + 活文档维护 |
 | 12 | `agent-events` | events.db 查询、分析、清理、导出 |
+| 13 | `agent-hooks` | 15+ Hook 生命周期管理 + Block/Approval 语义 + 优先级链 + 工具 Profile |
+| 14 | `agent-teams` | Agent Teams 并行执行 — Subagent 派生 + 多实现者 + 并行审查 |
 
 ## 问题追踪（测试者 ↔ 实现者）
 

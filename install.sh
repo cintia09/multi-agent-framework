@@ -37,11 +37,11 @@ check_install() {
     local skills=$(ls -d "${CLAUDE_DIR}/skills/agent-"* 2>/dev/null | wc -l | tr -d ' ')
     local agents=$(ls "${CLAUDE_DIR}/agents/"*.agent.md 2>/dev/null | wc -l | tr -d ' ')
     local hooks=$(ls "${CLAUDE_DIR}/hooks/agent-"*.sh 2>/dev/null | wc -l | tr -d ' ')
-    echo "  Skills: ${skills}/12"
+    echo "  Skills: ${skills}/14"
     echo "  Agents: ${agents}/5"
     echo "  Hooks:  ${hooks}/5"
     echo "  hooks.json: $([ -f "${CLAUDE_DIR}/hooks/hooks.json" ] && echo '✅' || echo '❌')"
-    if [ "$skills" -ge 12 ] && [ "$agents" -ge 5 ] && [ "$hooks" -ge 4 ]; then
+    if [ "$skills" -ge 14 ] && [ "$agents" -ge 5 ] && [ "$hooks" -ge 4 ]; then
         info "Installation complete ✅"
     else
         warn "Installation incomplete"
@@ -94,7 +94,7 @@ install() {
     else
         mkdir -p "${CLAUDE_DIR}/skills"
         cp -r "${TMP_DIR}/skills/agent-"* "${CLAUDE_DIR}/skills/"
-        info "12 Skills installed"
+        info "14 Skills installed"
     fi
     
     # Step 4: Install Agents
