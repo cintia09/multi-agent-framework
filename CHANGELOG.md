@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0] - 2026-04-12
+
+### 🚀 Major Release — 3-Phase Engineering Closed Loop
+
+#### Phase 13: 3-Phase Engineering Closed Loop
+- **Dual-mode FSM**: Tasks now support `workflow_mode: "simple"` (default, backward compatible) or `"3phase"` (new)
+- **18 new FSM states** across 3 phases for the 3-Phase workflow:
+  - Phase 1 — Design: requirements → architecture → tdd_design → dfmea → design_review
+  - Phase 2 — Implementation: implementing + test_scripting (parallel) → code_reviewing → ci_monitoring/ci_fixing → device_baseline
+  - Phase 3 — Testing & Verification: deploying → regression_testing → feature_testing → log_analysis → documentation
+- **Orchestrator daemon**: Background shell script that autonomously drives 3-Phase tasks end-to-end
+- **Parallel tracks**: Phase 2 runs 3 concurrent tracks (implementer, tester, reviewer) with convergence gate
+- **Feedback loops**: Phase 3 → Phase 2 (test failure), Phase 2 → Phase 1 (design gap), with MAX_FEEDBACK_LOOPS=10 safety limit
+- **Pluggable external systems**: CI (GitHub Actions/Jenkins/GitLab CI), Code Review (GitHub PR/Gerrit/GitLab MR), Device/Test environment — all configurable via `{PLACEHOLDER}` tokens
+- **16 prompt templates**: Step-specific prompts for autonomous agent invocation, generated during project init
+- **Convergence gate**: All parallel tracks must complete before device_baseline
+- **Feedback safety**: Auto-block tasks that exceed 10 feedback loops
+- **New skill**: `agent-orchestrator` (3-Phase daemon management + prompt templates)
+- Extended `agent-fsm` with 3-Phase state definitions, transitions, and guard rules
+- Extended `agent-hooks` with 3-Phase dispatch logic, convergence validation, feedback counting
+- Extended `agent-init` with workflow mode selection and 3-Phase initialization (orchestrator + prompts)
+- Extended `agent-teams` with Phase 2 parallel track documentation
+- Extended `agent-post-tool-use.sh` with dual-mode FSM validation (simple + 3-phase)
+- Extended `task-board.json` schema with `workflow_mode`, `phase`, `step`, `parallel_tracks`, `feedback_loops`, `feedback_history` fields
+
+### 📊 Stats
+- Skills: 14 → **15** (+agent-orchestrator)
+- FSM States: 10 (simple) + **18** (3-phase)
+- Prompt Templates: **16** (generated per project)
+- Workflow Modes: **2** (simple + 3-phase)
+- Feedback Safety Limit: 10 loops per task
+
 ## [2.0.0] - 2026-04-07
 
 ### 🚀 Major Release — 5 New Phases

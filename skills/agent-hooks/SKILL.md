@@ -118,3 +118,179 @@ All hooks are registered in `hooks/hooks.json`. Each entry specifies:
 3. The runtime calls hooks at the appropriate lifecycle point
 4. `before-*` hooks can block operations; `after-*` hooks are informational
 5. Tool profiles in `.agents/tool-profiles.json` define per-role boundaries
+
+---
+
+## 3-Phase Dispatch Logic
+
+When `workflow_mode` is `"3phase"`, the hook system extends its dispatch and validation to cover all 18 states and parallel tracks.
+
+### Step → Agent Mapping (3-Phase)
+
+| Step | Primary Agent | Secondary Agent | Phase |
+|------|--------------|-----------------|-------|
+| `requirements` | acceptor | — | 1 |
+| `architecture` | designer | — | 1 |
+| `tdd_design` | designer | tester | 1 |
+| `dfmea` | designer | — | 1 |
+| `design_review` | reviewer | — | 1 |
+| `implementing` | implementer | — | 2 |
+| `test_scripting` | tester | — | 2 |
+| `code_reviewing` | reviewer | — | 2 |
+| `ci_monitoring` | implementer | — | 2 |
+| `ci_fixing` | implementer | — | 2 |
+| `device_baseline` | implementer | — | 2 |
+| `deploying` | implementer | — | 3 |
+| `regression_testing` | tester | — | 3 |
+| `feature_testing` | tester | — | 3 |
+| `log_analysis` | tester | designer | 3 |
+| `documentation` | designer | — | 3 |
+
+### Parallel Dispatch (Dual-Agent Steps)
+
+For steps with a secondary agent (`tdd_design`, `log_analysis`), the dispatch logic sends messages to both agents:
+
+```bash
+dispatch_3phase_step() {
+  local task_id="$1" step="$2"
+  local primary secondary
+
+  case "$step" in
+    tdd_design)    primary="designer";  secondary="tester" ;;
+    log_analysis)  primary="tester";    secondary="designer" ;;
+    *)             primary=$(get_agent_for_step "$step"); secondary="" ;;
+  esac
+
+  # Dispatch to primary agent inbox
+  send_inbox_message "$primary" "$task_id" "Execute step: $step"
+
+  # Dispatch to secondary agent inbox (if any)
+  if [ -n "$secondary" ]; then
+    send_inbox_message "$secondary" "$task_id" "Assist with step: $step (secondary role)"
+  fi
+}
+```
+
+### FSM Validation (Dual-Mode)
+
+The `agent-post-tool-use.sh` hook validates transitions based on the task's `workflow_mode`:
+
+```bash
+validate_transition() {
+  local task_id="$1" old_status="$2" new_status="$3"
+
+  # Read workflow mode
+  local mode
+  mode=$(jq -r --arg tid "$task_id" \
+    '.tasks[] | select(.id == $tid) | .workflow_mode // "simple"' \
+    "$AGENTS_DIR/task-board.json")
+
+  if [ "$mode" = "3phase" ]; then
+    validate_3phase_transition "$old_status" "$new_status"
+  else
+    validate_simple_transition "$old_status" "$new_status"
+  fi
+}
+
+validate_3phase_transition() {
+  local from="$1" to="$2"
+  local LEGAL=false
+
+  case "${from}→${to}" in
+    # Phase 1: Design
+    "created→requirements")          LEGAL=true ;;
+    "requirements→architecture")     LEGAL=true ;;
+    "architecture→tdd_design")       LEGAL=true ;;
+    "tdd_design→dfmea")              LEGAL=true ;;
+    "dfmea→design_review")           LEGAL=true ;;
+    "design_review→implementing")    LEGAL=true ;;
+    "design_review→architecture")    LEGAL=true ;;  # feedback
+
+    # Phase 2: Implementation
+    "implementing→code_reviewing")   LEGAL=true ;;
+    "implementing→ci_monitoring")    LEGAL=true ;;
+    "test_scripting→code_reviewing") LEGAL=true ;;
+    "code_reviewing→implementing")   LEGAL=true ;;  # rejection
+    "code_reviewing→ci_monitoring")  LEGAL=true ;;
+    "ci_monitoring→ci_fixing")       LEGAL=true ;;
+    "ci_monitoring→device_baseline") LEGAL=true ;;
+    "ci_fixing→ci_monitoring")       LEGAL=true ;;
+    "device_baseline→deploying")     LEGAL=true ;;
+    "device_baseline→implementing")  LEGAL=true ;;  # feedback
+
+    # Phase 3: Testing & Verification
+    "deploying→regression_testing")      LEGAL=true ;;
+    "regression_testing→feature_testing") LEGAL=true ;;
+    "regression_testing→implementing")   LEGAL=true ;;  # feedback
+    "feature_testing→log_analysis")      LEGAL=true ;;
+    "feature_testing→tdd_design")        LEGAL=true ;;  # feedback
+    "log_analysis→documentation")        LEGAL=true ;;
+    "log_analysis→ci_fixing")            LEGAL=true ;;  # feedback
+    "documentation→accepted")            LEGAL=true ;;
+
+    # Universal
+    *→blocked)                           LEGAL=true ;;
+    "blocked→"*)                         LEGAL=true ;;
+  esac
+
+  echo "$LEGAL"
+}
+```
+
+### Convergence Gate Validation
+
+Before allowing transition to `device_baseline`, the hook validates all parallel tracks are complete:
+
+```bash
+check_convergence_gate() {
+  local task_id="$1"
+  local tracks
+  tracks=$(jq -r --arg tid "$task_id" \
+    '.tasks[] | select(.id == $tid) | .parallel_tracks // {}' \
+    "$AGENTS_DIR/task-board.json")
+
+  local impl=$(echo "$tracks" | jq -r '.implementing // "pending"')
+  local test_s=$(echo "$tracks" | jq -r '.test_scripting // "pending"')
+  local code_r=$(echo "$tracks" | jq -r '.code_reviewing // "pending"')
+  local ci_m=$(echo "$tracks" | jq -r '.ci_monitoring // "pending"')
+
+  if [ "$impl" != "complete" ] || [ "$test_s" != "complete" ] || \
+     [ "$code_r" != "complete" ] || [ "$ci_m" != "green" ]; then
+    echo '{"block": true, "reason": "Convergence gate: not all parallel tracks complete (impl='$impl', test='$test_s', review='$code_r', ci='$ci_m')"}'
+    return 1
+  fi
+  return 0
+}
+```
+
+### Feedback Loop Counting & Safety
+
+The hook enforces the MAX_FEEDBACK_LOOPS=10 safety limit:
+
+```bash
+check_feedback_safety() {
+  local task_id="$1" from="$2" to="$3"
+
+  # Only check for feedback transitions
+  local is_feedback=false
+  case "${from}→${to}" in
+    "regression_testing→implementing"|"feature_testing→tdd_design"|\
+    "log_analysis→ci_fixing"|"device_baseline→implementing"|\
+    "design_review→architecture"|"code_reviewing→implementing")
+      is_feedback=true ;;
+  esac
+
+  if [ "$is_feedback" = true ]; then
+    local count
+    count=$(jq -r --arg tid "$task_id" \
+      '.tasks[] | select(.id == $tid) | .feedback_loops // 0' \
+      "$AGENTS_DIR/task-board.json")
+
+    if [ "$count" -ge 10 ]; then
+      echo '{"block": true, "reason": "Feedback loop safety limit reached (10/10). Task must be manually reviewed and unblocked."}'
+      return 1
+    fi
+  fi
+  return 0
+}
+```

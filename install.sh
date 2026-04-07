@@ -4,7 +4,7 @@ set -euo pipefail
 # Multi-Agent Framework Installer
 # Usage: curl -sL https://raw.githubusercontent.com/cintia09/multi-agent-framework/main/install.sh | bash
 
-VERSION="1.0.0"
+VERSION="3.0.0"
 REPO="https://github.com/cintia09/multi-agent-framework.git"
 TMP_DIR="/tmp/multi-agent-framework"
 CLAUDE_DIR="${HOME}/.claude"
@@ -37,11 +37,11 @@ check_install() {
     local skills=$(ls -d "${CLAUDE_DIR}/skills/agent-"* 2>/dev/null | wc -l | tr -d ' ')
     local agents=$(ls "${CLAUDE_DIR}/agents/"*.agent.md 2>/dev/null | wc -l | tr -d ' ')
     local hooks=$(ls "${CLAUDE_DIR}/hooks/agent-"*.sh 2>/dev/null | wc -l | tr -d ' ')
-    echo "  Skills: ${skills}/14"
+    echo "  Skills: ${skills}/15"
     echo "  Agents: ${agents}/5"
     echo "  Hooks:  ${hooks}/12"
     echo "  hooks.json: $([ -f "${CLAUDE_DIR}/hooks/hooks.json" ] && echo '✅' || echo '❌')"
-    if [ "$skills" -ge 14 ] && [ "$agents" -ge 5 ] && [ "$hooks" -ge 12 ]; then
+    if [ "$skills" -ge 15 ] && [ "$agents" -ge 5 ] && [ "$hooks" -ge 12 ]; then
         info "Installation complete ✅"
     else
         warn "Installation incomplete"
@@ -94,7 +94,7 @@ install() {
     else
         mkdir -p "${CLAUDE_DIR}/skills"
         cp -r "${TMP_DIR}/skills/agent-"* "${CLAUDE_DIR}/skills/"
-        info "14 Skills installed"
+        info "15 Skills installed (includes orchestrator template)"
     fi
     
     # Step 4: Install Agents

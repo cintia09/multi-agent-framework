@@ -88,20 +88,93 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
 
         # Define legal transitions (from agent-fsm/SKILL.md)
         LEGAL=false
-        case "${OLD_STATUS}→${NEW_STATUS}" in
-          "created→designing")       LEGAL=true ;;
-          "designing→implementing")  LEGAL=true ;;
-          "implementing→reviewing")  LEGAL=true ;;
-          "reviewing→implementing")  LEGAL=true ;;  # review rejection
-          "reviewing→testing")       LEGAL=true ;;
-          "testing→fixing")          LEGAL=true ;;
-          "testing→accepting")       LEGAL=true ;;
-          "fixing→testing")          LEGAL=true ;;  # fix retest
-          "accepting→accepted")      LEGAL=true ;;
-          "accept_fail→designing")   LEGAL=true ;;
-          *→blocked)                 LEGAL=true ;;  # anything can be blocked
-          "blocked→"*)               LEGAL=true ;;  # unblock to any
-        esac
+
+        # Read workflow mode for this task
+        WORKFLOW_MODE=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .workflow_mode // "simple"' "$AGENTS_DIR/task-board.json" 2>/dev/null || echo "simple")
+
+        if [ "$WORKFLOW_MODE" = "3phase" ]; then
+          # 3-Phase Engineering Closed Loop transitions
+          case "${OLD_STATUS}→${NEW_STATUS}" in
+            # Phase 1: Design
+            "created→requirements")          LEGAL=true ;;
+            "requirements→architecture")     LEGAL=true ;;
+            "architecture→tdd_design")       LEGAL=true ;;
+            "tdd_design→dfmea")              LEGAL=true ;;
+            "dfmea→design_review")           LEGAL=true ;;
+            "design_review→implementing")    LEGAL=true ;;
+            "design_review→architecture")    LEGAL=true ;;
+
+            # Phase 2: Implementation
+            "implementing→code_reviewing")   LEGAL=true ;;
+            "implementing→ci_monitoring")    LEGAL=true ;;
+            "test_scripting→code_reviewing") LEGAL=true ;;
+            "code_reviewing→implementing")   LEGAL=true ;;
+            "code_reviewing→ci_monitoring")  LEGAL=true ;;
+            "ci_monitoring→ci_fixing")       LEGAL=true ;;
+            "ci_monitoring→device_baseline") LEGAL=true ;;
+            "ci_fixing→ci_monitoring")       LEGAL=true ;;
+            "device_baseline→deploying")     LEGAL=true ;;
+            "device_baseline→implementing")  LEGAL=true ;;
+
+            # Phase 3: Testing & Verification
+            "deploying→regression_testing")       LEGAL=true ;;
+            "regression_testing→feature_testing") LEGAL=true ;;
+            "regression_testing→implementing")    LEGAL=true ;;
+            "feature_testing→log_analysis")       LEGAL=true ;;
+            "feature_testing→tdd_design")         LEGAL=true ;;
+            "log_analysis→documentation")         LEGAL=true ;;
+            "log_analysis→ci_fixing")             LEGAL=true ;;
+            "documentation→accepted")             LEGAL=true ;;
+
+            # Universal
+            *→blocked)                            LEGAL=true ;;
+            "blocked→"*)                          LEGAL=true ;;
+          esac
+
+          # Feedback loop safety check for 3-Phase
+          if [ "$LEGAL" = true ]; then
+            case "${OLD_STATUS}→${NEW_STATUS}" in
+              "regression_testing→implementing"|"feature_testing→tdd_design"|\
+              "log_analysis→ci_fixing"|"device_baseline→implementing"|\
+              "design_review→architecture"|"code_reviewing→implementing")
+                FEEDBACK_COUNT=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .feedback_loops // 0' "$AGENTS_DIR/task-board.json" 2>/dev/null || echo 0)
+                if [ "$FEEDBACK_COUNT" -ge 10 ]; then
+                  echo "⛔ [FSM] FEEDBACK SAFETY LIMIT: Task $TASK_ID has reached 10 feedback loops. Transition $OLD_STATUS → $NEW_STATUS blocked. Manual intervention required."
+                  sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'fsm_feedback_limit', '$ACTIVE_AGENT', '$TASK_ID', '{\"from\":\"$OLD_STATUS\",\"to\":\"$NEW_STATUS\",\"loops\":$FEEDBACK_COUNT}');" 2>/dev/null || true
+                  LEGAL=false
+                fi
+                ;;
+            esac
+          fi
+
+          # Convergence gate check for device_baseline
+          if [ "$LEGAL" = true ] && [ "$NEW_STATUS" = "device_baseline" ]; then
+            IMPL_STATUS=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .parallel_tracks.implementing // "pending"' "$AGENTS_DIR/task-board.json" 2>/dev/null || echo "pending")
+            TEST_STATUS=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .parallel_tracks.test_scripting // "pending"' "$AGENTS_DIR/task-board.json" 2>/dev/null || echo "pending")
+            REVIEW_STATUS=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .parallel_tracks.code_reviewing // "pending"' "$AGENTS_DIR/task-board.json" 2>/dev/null || echo "pending")
+            CI_STATUS=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .parallel_tracks.ci_monitoring // "pending"' "$AGENTS_DIR/task-board.json" 2>/dev/null || echo "pending")
+            if [ "$IMPL_STATUS" != "complete" ] || [ "$TEST_STATUS" != "complete" ] || [ "$REVIEW_STATUS" != "complete" ] || [ "$CI_STATUS" != "green" ]; then
+              echo "⛔ [FSM] CONVERGENCE GATE: Task $TASK_ID cannot enter device_baseline. Parallel tracks not converged (impl=$IMPL_STATUS, test=$TEST_STATUS, review=$REVIEW_STATUS, ci=$CI_STATUS)."
+              LEGAL=false
+            fi
+          fi
+        else
+          # Simple Linear FSM transitions
+          case "${OLD_STATUS}→${NEW_STATUS}" in
+            "created→designing")       LEGAL=true ;;
+            "designing→implementing")  LEGAL=true ;;
+            "implementing→reviewing")  LEGAL=true ;;
+            "reviewing→implementing")  LEGAL=true ;;  # review rejection
+            "reviewing→testing")       LEGAL=true ;;
+            "testing→fixing")          LEGAL=true ;;
+            "testing→accepting")       LEGAL=true ;;
+            "fixing→testing")          LEGAL=true ;;  # fix retest
+            "accepting→accepted")      LEGAL=true ;;
+            "accept_fail→designing")   LEGAL=true ;;
+            *→blocked)                 LEGAL=true ;;  # anything can be blocked
+            "blocked→"*)               LEGAL=true ;;  # unblock to any
+          esac
+        fi
 
         if [ "$LEGAL" = false ]; then
           echo "⛔ [FSM] ILLEGAL transition detected: $TASK_ID ($OLD_STATUS → $NEW_STATUS). Legal transitions from '$OLD_STATUS' do not include '$NEW_STATUS'. Please use agent-fsm to make valid transitions."

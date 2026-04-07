@@ -54,7 +54,7 @@ echo "Agents:" && ls ~/.claude/agents/*.agent.md | wc -l
 echo "Hooks:" && ls ~/.claude/hooks/agent-*.sh | wc -l
 echo "hooks.json:" && [ -f ~/.claude/hooks/hooks.json ] && echo "✅" || echo "❌"
 ```
-预期: Skills 14 个目录, Agents 5 个文件, Hooks 13 个脚本, hooks.json 存在。
+预期: Skills 15 个目录, Agents 5 个文件, Hooks 13 个脚本, hooks.json 存在。
 
 ### Step 7: 深度验证 (可选)
 如果需要更完整的验证（检查 Skill 格式、YAML frontmatter、文件权限等），可以运行验证脚本：
@@ -76,7 +76,7 @@ rm -rf /tmp/multi-agent-framework
 ```
 ✅ Multi-Agent Framework 安装完成
 ━━━━━━━━━━━━━━━━━━━━━━━
-Skills:  14 个已安装到 ~/.claude/skills/
+Skills:  15 个已安装到 ~/.claude/skills/
 Agents:  5 个已安装到 ~/.claude/agents/
 Hooks:   13 个已安装到 ~/.claude/hooks/ (boundary + audit + lifecycle + memory + scheduling)
 Rules:   已追加到 ~/.claude/CLAUDE.md

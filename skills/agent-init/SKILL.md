@@ -59,7 +59,28 @@ cat CLAUDE.md 2>/dev/null
 ```
 项目级 instructions 包含项目特定的规范、约定和偏好, 这些信息会融入到生成的 skill 中。
 
-#### 1c. 读取全局 agent profiles
+#### 1c. 选择工作流模式 (Workflow Mode Selection)
+
+询问用户选择工作流模式:
+
+```
+🔄 请选择工作流模式:
+
+  1. Simple (简单线性) — 标准 SDLC 流水线
+     适合: 常规功能、Bug 修复、小型改动
+     流程: created → designing → implementing → reviewing → testing → accepting → accepted
+
+  2. 3-Phase (三阶段工程闭环) — 严格工程流程
+     适合: 复杂功能、硬件/固件、安全关键、多团队协作
+     流程: 18 步 × 3 阶段 (设计 → 实现 → 测试验证)，含并行轨道和反馈环
+
+请选择 [1/2] (默认: 1):
+```
+
+- 选择 1 → `workflow_mode: "simple"` (默认, 后续步骤不变)
+- 选择 2 → `workflow_mode: "3phase"` (执行 Step 5h 的额外初始化)
+
+#### 1d. 读取全局 agent profiles
 ```bash
 cat ~/.claude/agents/acceptor.agent.md
 cat ~/.claude/agents/designer.agent.md
@@ -69,7 +90,7 @@ cat ~/.claude/agents/tester.agent.md
 ```
 全局 agent profiles 定义了每个角色的通用行为, 项目级 skill 在此基础上添加项目特定信息。
 
-#### 1d. 读取全局 skills
+#### 1e. 读取全局 skills
 ```bash
 cat ~/.claude/skills/agent-acceptor/SKILL.md
 cat ~/.claude/skills/agent-designer/SKILL.md
@@ -484,11 +505,124 @@ done
 
 > **注意**: 项目级 hooks 会与全局 hooks 同时执行。如果项目不需要额外的 hook 定制，跳过此步骤，全局 hooks 已足够。
 
+### 5h. 3-Phase 工程闭环初始化 (仅 workflow_mode = "3phase")
+
+> ⚠️ 此步骤仅在用户选择 3-Phase 模式时执行。Simple 模式跳过此步骤。
+
+#### 创建 3-Phase 目录结构
+```bash
+# Orchestrator daemon workspace
+mkdir -p .agents/orchestrator/logs
+
+# Prompt templates directory
+mkdir -p .agents/prompts
+```
+
+#### 生成 Prompt 模板 (16 files)
+
+基于 Step 1 收集的项目上下文, 为每个 3-Phase 步骤生成专用的 prompt 模板:
+
+```bash
+# Phase 1: Design
+.agents/prompts/phase1-requirements.txt
+.agents/prompts/phase1-architecture.txt
+.agents/prompts/phase1-tdd-design.txt
+.agents/prompts/phase1-dfmea.txt
+.agents/prompts/phase1-design-review.txt
+
+# Phase 2: Implementation
+.agents/prompts/phase2-implementing.txt
+.agents/prompts/phase2-test-scripting.txt
+.agents/prompts/phase2-code-reviewing.txt
+.agents/prompts/phase2-ci-monitoring.txt
+.agents/prompts/phase2-ci-fixing.txt
+.agents/prompts/phase2-device-baseline.txt
+
+# Phase 3: Testing & Verification
+.agents/prompts/phase3-deploying.txt
+.agents/prompts/phase3-regression-testing.txt
+.agents/prompts/phase3-feature-testing.txt
+.agents/prompts/phase3-log-analysis.txt
+.agents/prompts/phase3-documentation.txt
+```
+
+每个 prompt 模板使用 `{PLACEHOLDER}` 格式, 在生成时替换为项目实际信息:
+- `{PROJECT_DIR}` → 项目根目录绝对路径
+- `{TASK_ID}` → 运行时由 orchestrator 替换
+- `{BUILD_CMD}` → 检测到的构建命令
+- `{TEST_CMD}` → 检测到的测试命令
+- `{LINT_CMD}` → 检测到的 lint 命令
+- `{CI_SYSTEM}`, `{CI_URL}` → 检测到的 CI 系统
+- `{REVIEW_SYSTEM}`, `{REVIEW_CMD}` → 检测到的代码审查系统
+- `{DEVICE_TYPE}`, `{DEPLOY_CMD}`, `{LOG_CMD}` → 检测到的部署目标
+
+模板参考: 全局 `agent-orchestrator` Skill 中的 "Sample Prompt Templates" 章节。
+
+#### 生成 Orchestrator Daemon 脚本
+
+从 `agent-orchestrator` Skill 中的 daemon 模板生成, 填入项目特定配置:
+
+```bash
+# 生成 orchestrator daemon
+cat > .agents/orchestrator/run.sh << 'DAEMON'
+# ... (从 agent-orchestrator/SKILL.md 模板生成, {PLACEHOLDER} 替换为实际值)
+DAEMON
+chmod +x .agents/orchestrator/run.sh
+```
+
+#### 设置 task-board.json 默认模式
+
+将 `workflow_mode` 注入 task-board.json 模式默认值:
+
+```json
+{"version": 0, "tasks": [], "default_workflow_mode": "3phase"}
+```
+
+#### task-board.json v2 Schema (3-Phase 扩展字段)
+
+3-Phase 模式的任务增加以下字段:
+
+```json
+{
+  "id": "T-001",
+  "title": "Complex Feature",
+  "workflow_mode": "3phase",
+  "status": "implementing",
+  "phase": "2",
+  "step": "implementing",
+  "parallel_tracks": {
+    "implementing": "complete",
+    "test_scripting": "in_progress",
+    "code_reviewing": "pending",
+    "ci_monitoring": "pending"
+  },
+  "feedback_loops": 1,
+  "feedback_history": [
+    {"from": "design_review", "to": "architecture", "at": "2026-04-10T14:00:00Z", "reason": "Missing error handling spec"}
+  ],
+  "goals": [...],
+  "history": [...]
+}
+```
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `workflow_mode` | `"simple" \| "3phase"` | 工作流模式 |
+| `phase` | `"1" \| "2" \| "3"` | 当前阶段 (仅 3phase) |
+| `step` | `string` | 当前步骤名 (仅 3phase) |
+| `parallel_tracks` | `object` | Phase 2 并行轨道状态 (仅 3phase) |
+| `feedback_loops` | `number` | 反馈环计数 (仅 3phase) |
+| `feedback_history` | `array` | 反馈环历史 (仅 3phase) |
+
 ### 6. 创建 .agents/.gitignore
 ```
 # Agent runtime state (不提交到 git)
 runtime/*/state.json
 runtime/*/inbox.json
+
+# Orchestrator runtime (不提交到 git)
+orchestrator/logs/
+orchestrator/daemon.pid
 
 # 保留目录结构
 !runtime/*/workspace/.gitkeep
@@ -501,11 +635,23 @@ runtime/*/inbox.json
 项目: <name>
 目录: <project>/.agents/
 技术栈: <detected>
+工作流: <Simple 或 3-Phase>
 ━━━━━━━━━━━━━━━━━━━━━━━
 Skills: .agents/skills/ (6 project skills)
 Runtime: .agents/runtime/ (5 agents, all idle)
 Memory: .agents/memory/ (空, 任务推进时自动填充)
 任务表: .agents/task-board.json (空)
 ━━━━━━━━━━━━━━━━━━━━━━━
-下一步: /agent acceptor → 开始创建需求
+
+# 如果是 3-Phase 模式, 额外输出:
+Orchestrator: .agents/orchestrator/run.sh (ready)
+Prompts: .agents/prompts/ (16 templates)
+CI: <detected CI system>
+Review: <detected review system>
+Device: <detected device type>
+━━━━━━━━━━━━━━━━━━━━━━━
+
+下一步:
+  Simple:  /agent acceptor → 开始创建需求
+  3-Phase: bash .agents/orchestrator/run.sh T-001 → 启动自动编排
 ```

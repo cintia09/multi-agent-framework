@@ -80,6 +80,82 @@ Coordinator (Reviewer)
 - Results are merged manually by coordinator
 - Not yet integrated with cron scheduler
 
+## 3-Phase Parallel Tracks
+
+In the 3-Phase Engineering Closed Loop workflow, Phase 2 (Implementation) uses a structured parallel execution model managed by the orchestrator daemon.
+
+### Track Layout
+
+```
+design_review (PASS)
+    │
+    ├─── Track A: implementing      (implementer)  — feature coding
+    ├─── Track B: test_scripting    (tester)       — test automation
+    └─── Track C: code_reviewing    (reviewer)     — continuous review
+                │
+                ▼
+         ┌─────────────────┐
+         │ Convergence Gate │  ← all 3 tracks + CI must be complete
+         └─────────────────┘
+                │
+                ▼
+         ci_monitoring → ci_fixing (loop) → device_baseline
+```
+
+### Track Responsibilities
+
+| Track | Agent | Input | Output | Completion Signal |
+|-------|-------|-------|--------|-------------------|
+| **A** | implementer | design doc, TDD plan | source code, unit tests | All goals marked `done` |
+| **B** | tester | test spec, TDD plan | test scripts, fixtures | Test suite runnable |
+| **C** | reviewer | code from A + B | review report | Review PASS (no CRITICAL) |
+
+### Convergence Gate at `device_baseline`
+
+The FSM will **not** allow transition to `device_baseline` unless all parallel tracks report complete. This is enforced by:
+
+1. **task-board.json** — each task has a `parallel_tracks` object:
+   ```json
+   {
+     "parallel_tracks": {
+       "implementing": "complete",
+       "test_scripting": "complete",
+       "code_reviewing": "complete",
+       "ci_monitoring": "green"
+     }
+   }
+   ```
+2. **Hook validation** — `agent-post-tool-use.sh` checks the convergence gate before allowing `ci_monitoring → device_baseline`
+3. **Orchestrator** — the daemon polls track status and only advances when all conditions are met
+
+### Orchestrator-Managed Parallel Spawning
+
+The orchestrator daemon handles the complexity of parallel agent invocation:
+
+1. **Launch Phase**: On entering `implementing` state, the orchestrator:
+   - Spawns Track A (implementer) as a background agent
+   - Spawns Track B (tester) as a background agent
+   - Waits for initial artifacts (configurable delay), then spawns Track C (reviewer)
+
+2. **Monitoring Phase**: The orchestrator:
+   - Polls `.agents/task-board.json` for track completion signals
+   - Monitors agent logs in `.agents/orchestrator/logs/`
+   - Handles early failures (if Track A fails, Track B/C may be suspended)
+
+3. **Convergence Phase**: When all tracks complete:
+   - Updates `parallel_tracks` status
+   - Triggers CI pipeline (`{CI_TRIGGER_CMD}`)
+   - Advances to `ci_monitoring`
+
+### Conflict Prevention in 3-Phase Parallel
+
+The same conflict prevention rules from simple parallel execution apply, with additional constraints:
+- Track A (implementer) owns source code files
+- Track B (tester) owns test files and fixtures
+- Track C (reviewer) is read-only (produces review reports only)
+- The orchestrator assigns file boundaries at launch
+- task-board.json modifications are orchestrator-only during Phase 2 parallel
+
 ## Future
 - Automatic task decomposition
 - Shared memory bus between sub-agents
