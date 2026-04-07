@@ -39,9 +39,9 @@ check_install() {
     local hooks=$(ls "${CLAUDE_DIR}/hooks/agent-"*.sh 2>/dev/null | wc -l | tr -d ' ')
     echo "  Skills: ${skills}/14"
     echo "  Agents: ${agents}/5"
-    echo "  Hooks:  ${hooks}/5"
+    echo "  Hooks:  ${hooks}/12"
     echo "  hooks.json: $([ -f "${CLAUDE_DIR}/hooks/hooks.json" ] && echo '✅' || echo '❌')"
-    if [ "$skills" -ge 14 ] && [ "$agents" -ge 5 ] && [ "$hooks" -ge 4 ]; then
+    if [ "$skills" -ge 14 ] && [ "$agents" -ge 5 ] && [ "$hooks" -ge 12 ]; then
         info "Installation complete ✅"
     else
         warn "Installation incomplete"

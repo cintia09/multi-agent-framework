@@ -13,7 +13,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Agents-5-6366f1?style=flat-square" alt="5 Agents">
   <img src="https://img.shields.io/badge/Skills-14-10b981?style=flat-square" alt="14 Skills">
-  <img src="https://img.shields.io/badge/Hooks-4-f59e0b?style=flat-square" alt="4 Hooks">
+  <img src="https://img.shields.io/badge/Hooks-13-f59e0b?style=flat-square" alt="13 Hooks">
   <img src="https://img.shields.io/badge/FSM_States-10-ef4444?style=flat-square" alt="10 FSM States">
   <img src="https://img.shields.io/badge/Zero_Dependencies-✓-8b5cf6?style=flat-square" alt="Zero Dependencies">
 </p>
@@ -99,7 +99,7 @@ curl -sL https://raw.githubusercontent.com/cintia09/multi-agent-framework/main/i
 1. 克隆仓库到临时目录
 2. 复制 14 个 Skill 目录到 `~/.claude/skills/`
 3. 复制 5 个 `.agent.md` 文件到 `~/.claude/agents/`
-4. 复制 5 个 Hook 脚本 + hooks.json 到 `~/.claude/hooks/`
+4. 复制 13 个 Hook 脚本 + hooks.json 到 `~/.claude/hooks/`
 5. 追加协作规则到 `~/.claude/CLAUDE.md`（幂等）
 6. 清理临时目录
 
@@ -113,11 +113,20 @@ bash /tmp/multi-agent-framework/scripts/verify-install.sh
 ~/.claude/
 ├── CLAUDE.md       # 含 Agent 协作规则
 ├── hooks/
-│   ├── hooks.json                # Hook 配置
+│   ├── hooks.json                # Hook 配置（9 种事件类型）
 │   ├── agent-session-start.sh    # 初始化 events.db，检查待办
 │   ├── agent-pre-tool-use.sh     # Agent 边界执行
 │   ├── agent-post-tool-use.sh    # 审计日志 + 自动调度
-│   └── agent-staleness-check.sh  # 超时任务检测
+│   ├── agent-staleness-check.sh  # 超时任务检测
+│   ├── agent-before-switch.sh    # 切换前验证（可阻止非法切换）
+│   ├── agent-after-switch.sh     # 切换后注入角色上下文
+│   ├── agent-before-task-create.sh  # 任务创建验证
+│   ├── agent-after-task-status.sh   # 状态变更通知 + 记忆沉淀
+│   ├── agent-before-memory-write.sh # 写记忆前去重验证
+│   ├── agent-after-memory-write.sh  # 写后索引更新
+│   ├── agent-before-compaction.sh   # 压缩前自动 flush 记忆
+│   ├── agent-on-goal-verified.sh    # 目标验证进度更新
+│   └── security-scan.sh          # 🔒 密钥扫描（独立于 Agent 系统）
 ├── skills/
 │   └── agent-*/SKILL.md          # 14 个 Skill 目录（每个含 SKILL.md）
 └── agents/
@@ -295,15 +304,30 @@ bash /tmp/multi-agent-framework/scripts/verify-init.sh
 - **实现者** 逐个实现 goals，标记为 `done`，全部 done 才能提交审查
 - **验收者** 验收时逐个验证 goals，标记为 `verified`，全部 verified 才能通过验收
 
-## Hooks（5 个脚本）
+## Hooks（13 个脚本 / 9 种事件）
 
-| Hook | 文件 | 功能 |
-|------|------|------|
-| **security-scan** | `security-scan.sh` | 🔒 提交前扫描 staged 文件中的密钥（独立于 Agent 系统，始终运行） |
-| **session-start** | `agent-session-start.sh` | 初始化 events.db，检查待办消息/任务 |
-| **pre-tool-use** | `agent-pre-tool-use.sh` | 强制执行 Agent 边界 — 拒绝越权操作 |
-| **post-tool-use** | `agent-post-tool-use.sh` | 审计日志 + 自动调度到下一个 Agent |
-| **staleness-check** | `agent-staleness-check.sh` | 检测闲置超过 24 小时的任务，发出警告 |
+### v1.0 核心 Hooks
+
+| Hook | 文件 | 触发事件 | 功能 |
+|------|------|---------|------|
+| **security-scan** | `security-scan.sh` | PreToolUse | 🔒 提交前扫描 staged 文件中的密钥（独立于 Agent 系统，始终运行） |
+| **session-start** | `agent-session-start.sh` | SessionStart | 初始化 events.db，检查待办消息/任务 |
+| **pre-tool-use** | `agent-pre-tool-use.sh` | PreToolUse | 强制执行 Agent 边界 — 拒绝越权操作 |
+| **post-tool-use** | `agent-post-tool-use.sh` | PostToolUse | 审计日志 + 自动调度到下一个 Agent |
+| **staleness-check** | `agent-staleness-check.sh` | PostToolUse | 检测闲置超过 24 小时的任务，发出警告 |
+
+### v2.0 生命周期 Hooks
+
+| Hook | 文件 | 触发事件 | 功能 |
+|------|------|---------|------|
+| **before-switch** | `agent-before-switch.sh` | AgentSwitch | 切换前验证 — 可阻止非法切换 |
+| **after-switch** | `agent-after-switch.sh` | AgentSwitch | 切换后注入角色上下文 |
+| **before-task-create** | `agent-before-task-create.sh` | TaskCreate | 任务创建验证（格式、重复检测） |
+| **after-task-status** | `agent-after-task-status.sh` | TaskStatusChange | 状态变更后通知 + 记忆沉淀 |
+| **before-memory-write** | `agent-before-memory-write.sh` | MemoryWrite | 写记忆前去重验证 |
+| **after-memory-write** | `agent-after-memory-write.sh` | MemoryWrite | 写后触发 FTS5 索引更新 |
+| **before-compaction** | `agent-before-compaction.sh` | Compaction | 压缩前自动 flush 记忆到文件 |
+| **on-goal-verified** | `agent-on-goal-verified.sh` | GoalVerified | 目标验证时更新进度 |
 
 ### Agent 边界规则（pre-tool-use）
 
@@ -346,13 +370,22 @@ sqlite3 .agents/events.db "SELECT * FROM events ORDER BY id DESC LIMIT 20;"
 ```
 ~/.claude/                            # 全局层（安装后）
 ├── hooks/
-│   ├── hooks.json                     # Hook 配置
+│   ├── hooks.json                     # Hook 配置（9 种事件类型）
 │   ├── agent-session-start.sh         # 初始化 events.db
 │   ├── agent-pre-tool-use.sh          # 边界执行
 │   ├── agent-post-tool-use.sh         # 审计日志 + 自动调度
-│   └── agent-staleness-check.sh       # 超时检测
+│   ├── agent-staleness-check.sh       # 超时检测
+│   ├── agent-before-switch.sh         # 切换前验证
+│   ├── agent-after-switch.sh          # 切换后上下文注入
+│   ├── agent-before-task-create.sh    # 任务创建验证
+│   ├── agent-after-task-status.sh     # 状态变更处理
+│   ├── agent-before-memory-write.sh   # 记忆写入验证
+│   ├── agent-after-memory-write.sh    # 索引更新
+│   ├── agent-before-compaction.sh     # 压缩前 flush
+│   ├── agent-on-goal-verified.sh      # 目标验证
+│   └── security-scan.sh              # 🔒 密钥扫描
 ├── skills/
-│   └── agent-*/SKILL.md               # 11 个 Skill 目录
+│   └── agent-*/SKILL.md               # 14 个 Skill 目录
 └── agents/
     └── *.agent.md                     # 5 个角色 Profile
 

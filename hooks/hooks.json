@@ -37,6 +37,11 @@
             "type": "command",
             "command": "~/.claude/hooks/agent-post-tool-use.sh",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/agent-staleness-check.sh",
+            "timeout": 5000
           }
         ]
       }
@@ -47,12 +52,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/agent-before-switch.sh",
+            "command": "~/.claude/hooks/agent-before-switch.sh",
             "timeout": 5000
           },
           {
             "type": "command",
-            "command": "hooks/agent-after-switch.sh",
+            "command": "~/.claude/hooks/agent-after-switch.sh",
             "timeout": 5000
           }
         ]
@@ -64,7 +69,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/agent-before-task-create.sh",
+            "command": "~/.claude/hooks/agent-before-task-create.sh",
             "timeout": 5000
           }
         ]
@@ -76,7 +81,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/agent-after-task-status.sh",
+            "command": "~/.claude/hooks/agent-after-task-status.sh",
             "timeout": 5000
           }
         ]
@@ -88,12 +93,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/agent-before-memory-write.sh",
+            "command": "~/.claude/hooks/agent-before-memory-write.sh",
             "timeout": 5000
           },
           {
             "type": "command",
-            "command": "hooks/agent-after-memory-write.sh",
+            "command": "~/.claude/hooks/agent-after-memory-write.sh",
             "timeout": 10000
           }
         ]
@@ -105,7 +110,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/agent-before-compaction.sh",
+            "command": "~/.claude/hooks/agent-before-compaction.sh",
             "timeout": 10000
           }
         ]
@@ -117,7 +122,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/agent-on-goal-verified.sh",
+            "command": "~/.claude/hooks/agent-on-goal-verified.sh",
             "timeout": 5000
           }
         ]
