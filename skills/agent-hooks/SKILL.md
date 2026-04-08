@@ -21,7 +21,7 @@ Manages the hook lifecycle for the multi-agent framework. Hooks are shell script
 | Session Start | `agent-session-start.sh` | SessionStart | Initialize events.db, check pending work |
 | Pre-Tool-Use | `agent-pre-tool-use.sh` | PreToolUse | Enforce agent role boundaries |
 | Post-Tool-Use | `agent-post-tool-use.sh` | PostToolUse | Audit logging, auto-dispatch |
-| Staleness Check | `agent-staleness-check.sh` | SessionStart | Warn about inactive tasks/agents |
+| Staleness Check | `agent-staleness-check.sh` | PostToolUse | Warn about inactive tasks/agents |
 
 ### New Hooks (8 — v2.0 Lifecycle)
 | Hook | File | Event | Purpose |

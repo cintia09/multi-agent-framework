@@ -13,7 +13,7 @@ fi
 
 # Check duplicate
 if [ -f ".agents/task-board.json" ]; then
-  EXISTS=$(python3 -c "import json; d=json.load(open('.agents/task-board.json')); print('yes' if any(t['id']=='$TASK_ID' for t in d['tasks']) else 'no')")
+  EXISTS=$(TASK_ID="$TASK_ID" python3 -c "import json,os; d=json.load(open('.agents/task-board.json')); print('yes' if any(t['id']==os.environ['TASK_ID'] for t in d['tasks']) else 'no')")
   if [ "$EXISTS" = "yes" ]; then
     echo "{\"block\": true, \"reason\": \"Task $TASK_ID already exists\"}"
     exit 0

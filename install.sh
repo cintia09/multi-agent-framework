@@ -4,7 +4,7 @@ set -euo pipefail
 # Multi-Agent Framework Installer
 # Usage: curl -sL https://raw.githubusercontent.com/cintia09/multi-agent-framework/main/install.sh | bash
 
-VERSION="3.0.0"
+VERSION="3.0.1"
 REPO="https://github.com/cintia09/multi-agent-framework.git"
 TMP_DIR="/tmp/multi-agent-framework"
 CLAUDE_DIR="${HOME}/.claude"
@@ -39,7 +39,7 @@ check_install() {
     local hooks=$(ls "${CLAUDE_DIR}/hooks/agent-"*.sh 2>/dev/null | wc -l | tr -d ' ')
     echo "  Skills: ${skills}/15"
     echo "  Agents: ${agents}/5"
-    echo "  Hooks:  ${hooks}/12"
+    echo "  Hooks:  ${hooks}/13"
     echo "  hooks.json: $([ -f "${CLAUDE_DIR}/hooks/hooks.json" ] && echo '✅' || echo '❌')"
     if [ "$skills" -ge 15 ] && [ "$agents" -ge 5 ] && [ "$hooks" -ge 12 ]; then
         info "Installation complete ✅"
@@ -146,17 +146,24 @@ install() {
         info "Hooks installed"
     fi
     
-    # Step 6: Append rules
-    echo "📝 Appending collaboration rules..."
+    # Step 6: Append rules to CLAUDE.md + install modular rules
+    echo "📝 Installing collaboration rules..."
     if [ "$dry_run" = true ]; then
-        echo "  [DRY RUN] Would append rules to ${CLAUDE_DIR}/CLAUDE.md"
+        echo "  [DRY RUN] Would install rules"
     else
+        # Append to CLAUDE.md (legacy, for backward compatibility)
         if ! grep -q "## Agent Collaboration Rules" "${CLAUDE_DIR}/CLAUDE.md" 2>/dev/null; then
             echo "" >> "${CLAUDE_DIR}/CLAUDE.md"
             cat "${TMP_DIR}/docs/agent-rules.md" >> "${CLAUDE_DIR}/CLAUDE.md"
             info "Rules appended to CLAUDE.md"
         else
             info "Rules already present in CLAUDE.md (skipped)"
+        fi
+        # Install modular rules (.claude/rules/ — Claude Code native)
+        if [ -d "${TMP_DIR}/rules" ]; then
+            mkdir -p "${CLAUDE_DIR}/rules"
+            cp "${TMP_DIR}/rules/"*.md "${CLAUDE_DIR}/rules/" 2>/dev/null || true
+            info "Modular rules installed to ${CLAUDE_DIR}/rules/"
         fi
     fi
     

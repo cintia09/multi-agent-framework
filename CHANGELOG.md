@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.1] - 2026-04-08
+
+### 🐛 Bug Fixes
+- **CRITICAL**: Fix missing `accepting→accept_fail` FSM transition in Simple mode validation — previously blocked all acceptance failure flows
+- **macOS compatibility**: Replace `grep -P` (GNU-only) with `sed` in agent-post-tool-use.sh — fixes silent failure on macOS
+- **Shell injection**: Fix unsanitized `$TASK_ID` in agent-before-task-create.sh — now passed via env var
+- **Broken paths**: Fix `scripts/memory-index.sh` references in hooks — now searches `.agents/scripts/` and `scripts/` with fallback
+- **3-Phase auto-dispatch**: Add all 15 3-Phase state→agent mappings to post-tool-use dispatch — previously only Simple mode states were dispatched
+
+### 📦 New Features
+- **Modular rules** (`rules/`): Leverage Claude Code's native `.claude/rules/` system with path-scoped rules
+  - `agent-workflow.md` — Role + FSM rules (scoped to `.agents/**`, `hooks/**`, `skills/**`)
+  - `security.md` — Secret scanning rules (scoped to code files)
+  - `commit-standards.md` — Conventional commit format
+- **Platform compatibility table**: Document Claude Code vs GitHub Copilot support matrix
+
+### 📝 Documentation
+- Fix README lifecycle diagram: add missing `accepting → accept_fail → designing` path
+- Fix duplicate "Claude Code、Claude Code" → "Claude Code、GitHub Copilot"
+- Fix "15+ Hook" → "13 Hook" in skills table and roadmap
+- Fix staleness-check event type: SessionStart → PostToolUse (matches hooks.json)
+- Update docs/agent-rules.md with 3-Phase workflow rules
+- Update install.sh to install modular rules to `~/.claude/rules/`
+- Update AGENTS.md: fix chmod for security-scan.sh, fix hook count verification
+- Add rules/ directory structure to README file tree
+
+### 🧪 Tests
+- Expand test-hooks.sh from 5 to 13 hooks (full v2.0 coverage)
+
 ## [3.0.0] - 2026-04-12
 
 ### 🚀 Major Release — 3-Phase Engineering Closed Loop

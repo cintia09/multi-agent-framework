@@ -100,6 +100,12 @@ if grep -q "## Agent Collaboration Rules" ~/.claude/CLAUDE.md 2>/dev/null; then
 else
   check "Rules in CLAUDE.md" "warn"
 fi
+if [ -d ~/.claude/rules ] && ls ~/.claude/rules/*.md >/dev/null 2>&1; then
+  RULE_COUNT=$(ls ~/.claude/rules/*.md 2>/dev/null | wc -l | tr -d ' ')
+  check "Modular rules: $RULE_COUNT files in ~/.claude/rules/" "pass"
+else
+  check "Modular rules (~/.claude/rules/)" "warn"
+fi
 
 # Summary
 echo ""

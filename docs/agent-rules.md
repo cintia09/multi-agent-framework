@@ -21,15 +21,29 @@
 
 ### 项目初始化
 - 使用 `agent-init` skill 在项目中初始化 Agent 系统
-- 初始化后生成 `<project>/.claude/` 目录结构
+- 初始化后生成 `<project>/.agents/` 目录结构
 
 ### 任务流转规则
+
+#### Simple 模式（默认）
 任务必须按照状态机定义的路径流转:
 ```
 created → designing → implementing → reviewing → testing → accepting → accepted
 ```
 不允许跳跃 (如 created 直接到 testing)。
-唯一的回路: reviewing → implementing (审查退回), testing → fixing → testing (修复循环), accepting → accept_fail → designing (验收失败)。
+回路: reviewing → implementing (审查退回), testing → fixing → testing (修复循环), accepting → accept_fail → designing (验收失败)。
+
+#### 3-Phase 模式（复杂功能）
+三阶段工程闭环，18 个状态:
+- **Phase 1 设计**: requirements → architecture → tdd_design → dfmea → design_review
+- **Phase 2 实现**: implementing + test_scripting + code_reviewing (并行) → ci_monitoring → ci_fixing → device_baseline
+- **Phase 3 测试**: deploying → regression_testing → feature_testing → log_analysis → documentation → accepted
+
+规则:
+- 并行轨道 (Phase 2) 必须全部完成才能进入 device_baseline（汇聚门）
+- 反馈环: Phase 3 → Phase 2 (测试失败), Phase 2 → Phase 1 (设计缺陷)
+- 每个任务最多 10 次反馈环，超限自动阻塞
+- 由 `agent-orchestrator` 编排器自动驱动
 
 ### 关键约束
 1. **角色隔离**: 每个 Agent 只做自己职责范围内的事

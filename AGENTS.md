@@ -28,6 +28,7 @@ cp /tmp/multi-agent-framework/agents/*.agent.md ~/.claude/agents/
 mkdir -p ~/.claude/hooks
 cp /tmp/multi-agent-framework/hooks/*.sh ~/.claude/hooks/
 chmod +x ~/.claude/hooks/agent-*.sh
+chmod +x ~/.claude/hooks/security-scan.sh
 ```
 
 如果 `~/.claude/hooks/hooks.json` 已存在, 需要**合并** hook 配置而非覆盖:
@@ -41,17 +42,22 @@ fi
 
 ### Step 5: 追加协作规则 (幂等)
 ```bash
+# Legacy: append to CLAUDE.md
 if ! grep -q "## Agent Collaboration Rules" ~/.claude/CLAUDE.md 2>/dev/null; then
   echo "" >> ~/.claude/CLAUDE.md
   cat /tmp/multi-agent-framework/docs/agent-rules.md >> ~/.claude/CLAUDE.md
 fi
+
+# Modular rules (.claude/rules/ — Claude Code native)
+mkdir -p ~/.claude/rules
+cp /tmp/multi-agent-framework/rules/*.md ~/.claude/rules/
 ```
 
 ### Step 6: 验证安装结果
 ```bash
 echo "Skills:" && ls -d ~/.claude/skills/agent-* | wc -l
 echo "Agents:" && ls ~/.claude/agents/*.agent.md | wc -l
-echo "Hooks:" && ls ~/.claude/hooks/agent-*.sh | wc -l
+echo "Hooks:" && ls ~/.claude/hooks/*.sh | wc -l
 echo "hooks.json:" && [ -f ~/.claude/hooks/hooks.json ] && echo "✅" || echo "❌"
 ```
 预期: Skills 15 个目录, Agents 5 个文件, Hooks 13 个脚本, hooks.json 存在。
@@ -79,7 +85,7 @@ rm -rf /tmp/multi-agent-framework
 Skills:  15 个已安装到 ~/.claude/skills/
 Agents:  5 个已安装到 ~/.claude/agents/
 Hooks:   13 个已安装到 ~/.claude/hooks/ (boundary + audit + lifecycle + memory + scheduling)
-Rules:   已追加到 ~/.claude/CLAUDE.md
+Rules:   已追加到 ~/.claude/CLAUDE.md + ~/.claude/rules/ (模块化规则)
 ━━━━━━━━━━━━━━━━━━━━━━━
 使用方式:
   /agent           → 选择角色

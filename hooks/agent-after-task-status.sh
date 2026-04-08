@@ -13,7 +13,11 @@ fi
 
 # Trigger memory capture on acceptance
 if [ "$NEW_STATUS" = "accepted" ]; then
-  bash scripts/memory-index.sh 2>/dev/null || true
+  if [ -f ".agents/scripts/memory-index.sh" ]; then
+    bash .agents/scripts/memory-index.sh 2>/dev/null || true
+  elif [ -f "scripts/memory-index.sh" ]; then
+    bash scripts/memory-index.sh 2>/dev/null || true
+  fi
 fi
 
 echo '{"status": "ok"}'

@@ -45,6 +45,7 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
 
         # Map status to target agent (dispatch on all FSM "arrival" statuses)
         case "$STATUS" in
+          # Simple mode statuses
           created)        TARGET="designer" ;;
           designing)      TARGET="designer" ;;
           implementing)   TARGET="implementer" ;;
@@ -53,6 +54,22 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
           fixing)         TARGET="implementer" ;;
           accepting)      TARGET="acceptor" ;;
           accept_fail)    TARGET="designer" ;;
+          # 3-Phase mode statuses
+          requirements)        TARGET="acceptor" ;;
+          architecture)        TARGET="designer" ;;
+          tdd_design)          TARGET="designer" ;;
+          dfmea)               TARGET="designer" ;;
+          design_review)       TARGET="reviewer" ;;
+          test_scripting)      TARGET="tester" ;;
+          code_reviewing)      TARGET="reviewer" ;;
+          ci_monitoring)       TARGET="tester" ;;
+          ci_fixing)           TARGET="implementer" ;;
+          device_baseline)     TARGET="tester" ;;
+          deploying)           TARGET="implementer" ;;
+          regression_testing)  TARGET="tester" ;;
+          feature_testing)     TARGET="tester" ;;
+          log_analysis)        TARGET="tester" ;;
+          documentation)       TARGET="designer" ;;
           *)              TARGET="" ;;
         esac
 
@@ -175,6 +192,7 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
             "testing→accepting")       LEGAL=true ;;
             "fixing→testing")          LEGAL=true ;;  # fix retest
             "accepting→accepted")      LEGAL=true ;;
+            "accepting→accept_fail")   LEGAL=true ;;  # acceptance failure
             "accept_fail→designing")   LEGAL=true ;;
             *→blocked)                 LEGAL=true ;;  # anything can be blocked
             "blocked→"*)               LEGAL=true ;;  # unblock to any
@@ -235,7 +253,7 @@ fi
 if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
   FILE_PATH=$(echo "$TOOL_ARGS" | jq -r '.path // empty' 2>/dev/null)
   if [[ "$FILE_PATH" =~ state\.json ]]; then
-    AGENT_FROM_PATH=$(echo "$FILE_PATH" | grep -oP 'runtime/\K[^/]+' || true)
+    AGENT_FROM_PATH=$(echo "$FILE_PATH" | sed -n 's|.*runtime/\([^/]*\).*|\1|p')
     sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, detail) VALUES ($TIMESTAMP, 'state_change', '${AGENT_FROM_PATH:-unknown}', '{\"tool\":\"$TOOL_NAME\"}');"
   fi
 fi

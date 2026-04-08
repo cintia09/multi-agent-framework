@@ -80,12 +80,13 @@
 
 ```
 created → designing → implementing → reviewing → testing → accepting → accepted ✅
-                         ▲                          ▲  │
-                         └── reviewing (退回) ───────┘  └── fixing ──┘
+                         ▲                          ▲  │          │
+                         └── reviewing (退回) ───────┘  └── fixing ┘
                                                               ↕
                                                      (测试者↔实现者
                                                       全自动修复-验证循环)
-```
+
+accepting → accept_fail → designing (验收失败，重新设计)
 
 任何任务都可以转为 `blocked` 状态（需要人工介入），通过 `unblock` 解除。
 
@@ -169,7 +170,7 @@ curl -sL https://raw.githubusercontent.com/cintia09/multi-agent-framework/main/i
 
 或手动安装：
 
-对你的 AI 助手（Claude Code、Claude Code 等）说：
+对你的 AI 助手（Claude Code、GitHub Copilot 等）说：
 
 > "根据 cintia09/multi-agent-framework 仓库里的指引, 将 agents 安装到我本地。"
 
@@ -190,6 +191,10 @@ bash /tmp/multi-agent-framework/scripts/verify-install.sh
 ```
 ~/.claude/
 ├── CLAUDE.md       # 含 Agent 协作规则
+├── rules/                               # 模块化规则（Claude Code 原生）
+│   ├── agent-workflow.md                # 角色 + FSM 规则（路径作用域）
+│   ├── security.md                      # 安全规则（路径作用域）
+│   └── commit-standards.md              # 提交规范
 ├── hooks/
 │   ├── hooks.json                # Hook 配置（9 种事件类型）
 │   ├── agent-session-start.sh    # 初始化 events.db，检查待办
@@ -216,7 +221,21 @@ bash /tmp/multi-agent-framework/scripts/verify-install.sh
 ```
 
 **原生集成**：`/agent` 命令可直接列出并切换到这 5 个角色。
+**模块化规则**：`~/.claude/rules/` 中的规则支持路径作用域，只在操作匹配文件时加载。
 **幂等**：重复安装只覆盖 Skills 和 Agents，不会重复追加规则。
+
+### 平台兼容性
+
+| 功能 | Claude Code | GitHub Copilot |
+|------|------------|----------------|
+| Skills | `~/.claude/skills/` ✅ | `~/.copilot/skills/` (手动复制) |
+| Agents | `~/.claude/agents/` ✅ | 内置 agent 系统 |
+| Hooks | `~/.claude/hooks/` ✅ | `~/.copilot/hooks/` (格式兼容) |
+| 模块化规则 | `~/.claude/rules/` ✅ | N/A（使用 copilot-instructions.md）|
+| 全局指令 | `CLAUDE.md` ✅ | `copilot-instructions.md` |
+| MCP | `.mcp.json` ✅ | `.mcp.json` ✅ |
+
+> 框架主要针对 Claude Code 优化。GitHub Copilot 用户可手动复制 skills 和 hooks 到 `~/.copilot/` 目录使用。
 
 ## 项目初始化
 
@@ -294,7 +313,7 @@ bash /tmp/multi-agent-framework/scripts/verify-init.sh
 | 10 | `agent-reviewer` | 设计+代码审查 + OWASP 安全 + 严重级别 + 置信度过滤 + 活文档维护 |
 | 11 | `agent-tester` | 覆盖率分析 + Flaky 检测 + E2E Playwright + Issue JSON + 活文档维护 |
 | 12 | `agent-events` | events.db 查询、分析、清理、导出 |
-| 13 | `agent-hooks` | 15+ Hook 生命周期管理 + Block/Approval 语义 + 优先级链 + 工具 Profile + 3-Phase 调度 |
+| 13 | `agent-hooks` | 13 Hook 生命周期管理 + Block/Approval 语义 + 优先级链 + 工具 Profile + 3-Phase 调度 |
 | 14 | `agent-teams` | Agent Teams 并行执行 — Subagent 派生 + 多实现者 + 并行审查 + 3-Phase 并行轨道 |
 | 15 | `agent-orchestrator` | **NEW** 3-Phase 编排器守护进程 — 自动驱动 + prompt 模板 + 可插拔 CI/Review/Device |
 
@@ -448,6 +467,10 @@ sqlite3 .agents/events.db "SELECT * FROM events ORDER BY id DESC LIMIT 20;"
 
 ```
 ~/.claude/                            # 全局层（安装后）
+├── rules/                             # 模块化规则（路径作用域）
+│   ├── agent-workflow.md              # 角色 + FSM 规则
+│   ├── security.md                    # 安全规则
+│   └── commit-standards.md            # 提交规范
 ├── hooks/
 │   ├── hooks.json                     # Hook 配置（9 种事件类型）
 │   ├── agent-session-start.sh         # 初始化 events.db
@@ -517,7 +540,7 @@ sqlite3 .agents/events.db "SELECT * FROM events ORDER BY id DESC LIMIT 20;"
 - **Phase 6** ✅ 结构化消息 + Cycle Time 度量 + 看板增强 + 项目级记忆
 - **Phase 7** ✅ 基础设施（一键安装 + 版本管理 + 社区模板 + 测试套件）
 - **Phase 8** ✅ 记忆系统 2.0（三层架构 + FTS5 索引 + 混合检索 + 自动晋升）
-- **Phase 9** ✅ Hook 精细化（15+ hook 点 + 终止/审批语义 + 工具 Profile）
+- **Phase 9** ✅ Hook 精细化（13 hook 脚本 / 9 事件类型 + 终止/审批语义 + 工具 Profile）
 - **Phase 10** ✅ 调度自动化（Cron + Webhook + FSM 自动推进）
 - **Phase 11** ✅ Context Engine（预算管理 + 角色注入 + 智能压缩）
 - **Phase 12** ✅ Agent Teams 集成（Subagent 派生 + 并行实现/审查）

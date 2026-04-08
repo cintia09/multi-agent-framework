@@ -9,6 +9,14 @@ EXPECTED_HOOKS=(
     "agent-pre-tool-use.sh"
     "agent-post-tool-use.sh"
     "agent-staleness-check.sh"
+    "agent-before-switch.sh"
+    "agent-after-switch.sh"
+    "agent-before-task-create.sh"
+    "agent-after-task-status.sh"
+    "agent-before-memory-write.sh"
+    "agent-after-memory-write.sh"
+    "agent-before-compaction.sh"
+    "agent-on-goal-verified.sh"
     "security-scan.sh"
 )
 
