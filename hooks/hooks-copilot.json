@@ -36,6 +36,66 @@
         "comment": "Multi-Agent Framework: detect stale tasks",
         "timeoutSec": 5
       }
+    ],
+    "agentSwitch": [
+      {
+        "type": "command",
+        "bash": "~/.copilot/hooks/agent-before-switch.sh",
+        "comment": "Multi-Agent Framework: validate agent switch before execution",
+        "timeoutSec": 5
+      },
+      {
+        "type": "command",
+        "bash": "~/.copilot/hooks/agent-after-switch.sh",
+        "comment": "Multi-Agent Framework: inject role context after switch",
+        "timeoutSec": 5
+      }
+    ],
+    "taskCreate": [
+      {
+        "type": "command",
+        "bash": "~/.copilot/hooks/agent-before-task-create.sh",
+        "comment": "Multi-Agent Framework: validate task format and detect duplicates",
+        "timeoutSec": 5
+      }
+    ],
+    "taskStatusChange": [
+      {
+        "type": "command",
+        "bash": "~/.copilot/hooks/agent-after-task-status.sh",
+        "comment": "Multi-Agent Framework: notify agents + persist memory on status change",
+        "timeoutSec": 5
+      }
+    ],
+    "memoryWrite": [
+      {
+        "type": "command",
+        "bash": "~/.copilot/hooks/agent-before-memory-write.sh",
+        "comment": "Multi-Agent Framework: deduplicate before writing memory",
+        "timeoutSec": 5
+      },
+      {
+        "type": "command",
+        "bash": "~/.copilot/hooks/agent-after-memory-write.sh",
+        "comment": "Multi-Agent Framework: update FTS5 index after memory write",
+        "timeoutSec": 10
+      }
+    ],
+    "compaction": [
+      {
+        "type": "command",
+        "bash": "~/.copilot/hooks/agent-before-compaction.sh",
+        "comment": "Multi-Agent Framework: flush memory to file before context compaction",
+        "timeoutSec": 10
+      }
+    ],
+    "goalVerified": [
+      {
+        "type": "command",
+        "bash": "~/.copilot/hooks/agent-on-goal-verified.sh",
+        "comment": "Multi-Agent Framework: update progress on goal verification",
+        "timeoutSec": 5
+      }
     ]
   }
 }

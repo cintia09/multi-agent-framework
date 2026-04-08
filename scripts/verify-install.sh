@@ -1,7 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # verify-install.sh — Verify Multi-Agent Framework installation
 # Usage: bash scripts/verify-install.sh
-set -e
+set -euo pipefail
 
 PASS=0
 FAIL=0

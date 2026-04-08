@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.8] - 2026-04-09
+
+### 🐛 Critical Fix
+- **Fix variable use-before-define** in `agent-post-tool-use.sh` — `OLD_STATUS_SQL`/`NEW_STATUS_SQL` were referenced before assignment, causing FSM validation to silently skip; also fixed self-referencing `sql_escape()` calls
+
+### 🔧 Improvements
+- **Complete Copilot hooks.json**: Added 6 missing event types (agentSwitch, taskCreate, taskStatusChange, memoryWrite, compaction, goalVerified) — Copilot users now get full hook coverage
+- **verify-install.sh hardened**: Shebang → `#!/usr/bin/env bash`, error handling → `set -euo pipefail`
+
+## [3.0.7] - 2026-04-09
+
+### 🐛 Bug Fixes
+- **README.md**: Fixed unclosed code fence after task lifecycle diagram — headings and text were rendered inside code block
+- **install.sh hook count**: Fixed glob pattern (`agent-*.sh` → `*.sh`) to include `security-scan.sh` (12/13 → 13/13)
+- **install.sh threshold**: Raised completeness check from 12 to 13 hooks
+
+### 🔧 Improvements
+- **hooks.json backup+replace**: Install now backs up existing hooks.json before overwriting (creates `.bak`) instead of skipping — applies to both Claude and Copilot platforms
+
 ## [3.0.6] - 2026-04-08
 
 ### 🔒 Security

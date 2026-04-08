@@ -114,13 +114,13 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
         NEW_STATUS=$(echo "$TASK" | jq -r '.status')
         OLD_STATUS=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .status' "$SNAPSHOT" 2>/dev/null || echo "")
 
-        [ -z "$OLD_STATUS_SQL" ] && continue
-        [ "$OLD_STATUS_SQL" = "$NEW_STATUS_SQL" ] && continue
+        [ -z "$OLD_STATUS" ] && continue
+        [ "$OLD_STATUS" = "$NEW_STATUS" ] && continue
 
         # SQL-safe versions for event logging
         TASK_ID_SQL=$(sql_escape "$TASK_ID")
-        OLD_STATUS_SQL=$(sql_escape "$OLD_STATUS_SQL")
-        NEW_STATUS_SQL=$(sql_escape "$NEW_STATUS_SQL")
+        OLD_STATUS_SQL=$(sql_escape "$OLD_STATUS")
+        NEW_STATUS_SQL=$(sql_escape "$NEW_STATUS")
 
         # Define legal transitions (from agent-fsm/SKILL.md)
         LEGAL=false
