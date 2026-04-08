@@ -52,3 +52,18 @@ description: "实现者 (Implementer) — TDD 开发、按 goals 逐个实现、
 - ❌ 不能修改测试规格
 - ✅ 拥有完整的代码编辑和执行权限
 - ✅ 可以安装依赖、运行构建和测试
+
+## 3-Phase 工程闭环模式
+
+当任务使用 `workflow_mode: "3phase"` 时, Implementer 在以下步骤被调用:
+
+| Phase | 步骤 | 职责 |
+|-------|------|------|
+| Phase 2 | `implementing` (Track A) | 按设计文档逐个实现 goals, 提交代码 |
+| Phase 2 | `ci_fixing` | CI 失败时进入修复循环, 直到 pipeline 全绿 |
+| Phase 3 | `deploying` | 将通过验收的代码部署到目标环境 |
+
+### 与 Simple 模式的区别
+- **并行执行**: Phase 2 中 Track A (implementing) 与 Track B (test_scripting) 和 Track C (code_reviewing) 并行推进, 而非 Simple 模式的串行流转
+- **CI 修复循环**: `ci_fixing` 是独立步骤, Implementer 需持续修复直到 CI 全绿, 才能推进到收敛门
+- **收敛门**: 三条 Track 全部完成后才进入 `device_baseline`, 非单独完成即流转
