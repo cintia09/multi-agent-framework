@@ -3,7 +3,7 @@
 # Logs tool execution results to events.db for audit trail.
 # Detects task-board changes and logs state transitions.
 
-set -e
+set -euo pipefail
 INPUT=$(cat)
 TOOL_NAME=$(echo "$INPUT" | jq -r '.toolName')
 TOOL_ARGS=$(echo "$INPUT" | jq -r '.toolArgs')
@@ -38,10 +38,7 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
     # --- AUTO-DISPATCH (G2) ---
     # When task-board.json changes, send messages to the next agent in FSM
     if [ -f "$AGENTS_DIR/task-board.json" ]; then
-      jq -c '.tasks[]' "$AGENTS_DIR/task-board.json" 2>/dev/null | while read -r TASK; do
-        TASK_ID=$(echo "$TASK" | jq -r '.id')
-        STATUS=$(echo "$TASK" | jq -r '.status')
-        TITLE=$(echo "$TASK" | jq -r '.title')
+      jq -r '.tasks[] | "\(.id)|\(.status)|\(.title // "")"' "$AGENTS_DIR/task-board.json" 2>/dev/null | while IFS='|' read -r TASK_ID STATUS TITLE; do
 
         # Map status to target agent (dispatch on all FSM "arrival" statuses)
         case "$STATUS" in
@@ -87,11 +84,15 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
         MSG_ID="MSG-auto-${TASK_ID}-${STATUS}"
         NOW_ISO=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-        jq --arg id "$MSG_ID" --arg from "$ACTIVE_AGENT" --arg to "$TARGET" \
-           --arg tid "$TASK_ID" --arg status "$STATUS" --arg title "$TITLE" \
-           --arg ts "$NOW_ISO" \
-           '.messages += [{"id":$id,"from":$from,"to":$to,"type":"task_update","task_id":$tid,"content":"Task \($tid) [\($title)] status changed to \($status). Please process.","timestamp":$ts,"read":false}]' \
-           "$TARGET_INBOX" > "${TARGET_INBOX}.tmp" && mv "${TARGET_INBOX}.tmp" "$TARGET_INBOX"
+        # Atomic write with file locking to prevent race conditions
+        (
+          flock -x -w 5 200 2>/dev/null || true
+          jq --arg id "$MSG_ID" --arg from "$ACTIVE_AGENT" --arg to "$TARGET" \
+             --arg tid "$TASK_ID" --arg status "$STATUS" --arg title "$TITLE" \
+             --arg ts "$NOW_ISO" \
+             '.messages += [{"id":$id,"from":$from,"to":$to,"type":"task_update","task_id":$tid,"content":"Task \($tid) [\($title)] status changed to \($status). Please process.","timestamp":$ts,"read":false}]' \
+             "$TARGET_INBOX" > "${TARGET_INBOX}.tmp" && mv "${TARGET_INBOX}.tmp" "$TARGET_INBOX"
+        ) 200>"${TARGET_INBOX}.lock"
 
         sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'auto_dispatch', '$TARGET', '$TASK_ID', '{\"from_status\":\"$STATUS\",\"from_agent\":\"$ACTIVE_AGENT\"}');" 2>/dev/null || true
       done

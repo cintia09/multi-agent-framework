@@ -3,7 +3,7 @@
 # Enforces agent boundaries — prevents agents from doing things outside their role.
 # Can output {"permissionDecision":"deny","permissionDecisionReason":"..."} to block.
 
-set -e
+set -euo pipefail
 INPUT=$(cat)
 TOOL_NAME=$(echo "$INPUT" | jq -r '.toolName')
 TOOL_ARGS=$(echo "$INPUT" | jq -r '.toolArgs')

@@ -3,7 +3,7 @@
 # Checks agent state and pending items when a session begins.
 # Output is ignored by the AI tool — we only log to events.db.
 
-set -e
+set -euo pipefail
 INPUT=$(cat)
 CWD=$(echo "$INPUT" | jq -r '.cwd')
 SOURCE=$(echo "$INPUT" | jq -r '.source')
@@ -41,7 +41,9 @@ ACTIVE_FILE="$AGENTS_DIR/runtime/active-agent"
 [ -f "$ACTIVE_FILE" ] && ACTIVE_AGENT=$(cat "$ACTIVE_FILE")
 
 # Log session start event
-sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, detail) VALUES ($TIMESTAMP, 'session_start', '${ACTIVE_AGENT:-none}', '{\"source\":\"$SOURCE\"}');"
+if ! sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, detail) VALUES ($TIMESTAMP, 'session_start', '${ACTIVE_AGENT:-none}', '{\"source\":\"$SOURCE\"}');" 2>/dev/null; then
+  echo "Warning: Failed to log session_start event to events.db" >&2
+fi
 
 # Count pending messages across all agents
 TOTAL_MSGS=0
@@ -65,6 +67,6 @@ fi
 # Staleness check (G4) — warn about inactive tasks/agents
 HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 STALE_OUTPUT=$("$HOOK_DIR/agent-staleness-check.sh" "$AGENTS_DIR" 24 2>/dev/null || true)
-if echo "$STALE_OUTPUT" | grep -q "⚠️"; then
+if echo "$STALE_OUTPUT" | grep -qE "⚠️|🔴"; then
   echo "$STALE_OUTPUT" >&2
 fi

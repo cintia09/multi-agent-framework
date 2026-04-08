@@ -53,20 +53,20 @@ find "$AGENTS_DIR/memory" -name "*.md" -type f | while read -r file; do
     *PROJECT_MEMORY*) layer="project" ;;
   esac
 
-  # Remove old entries
-  sqlite3 "$INDEX_DB" "DELETE FROM memory_fts WHERE file_path='$file'"
-
-  # Index line by line
+  # Use a single transaction for atomicity and performance
+  SQL_BATCH="BEGIN TRANSACTION; DELETE FROM memory_fts WHERE file_path='$file';"
   line_num=0
   while IFS= read -r line; do
     line_num=$((line_num + 1))
     [ -z "$line" ] && continue
     escaped=$(echo "$line" | sed "s/'/''/g")
-    sqlite3 "$INDEX_DB" "INSERT INTO memory_fts(file_path, line_number, content, role, layer) VALUES('$file', $line_num, '$escaped', '$role', '$layer')"
+    SQL_BATCH="$SQL_BATCH INSERT INTO memory_fts(file_path, line_number, content, role, layer) VALUES('$file', $line_num, '$escaped', '$role', '$layer');"
   done < "$file"
+  SQL_BATCH="$SQL_BATCH INSERT OR REPLACE INTO memory_meta(file_path, last_indexed, checksum) VALUES('$file', datetime('now'), '$current_checksum'); COMMIT;"
 
-  # Update meta
-  sqlite3 "$INDEX_DB" "INSERT OR REPLACE INTO memory_meta(file_path, last_indexed, checksum) VALUES('$file', datetime('now'), '$current_checksum')"
+  if ! sqlite3 "$INDEX_DB" "$SQL_BATCH" 2>/dev/null; then
+    echo "Warning: Failed to index $file" >&2
+  fi
 done
 
 echo "✓ Memory index updated"
