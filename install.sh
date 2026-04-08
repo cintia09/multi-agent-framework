@@ -64,28 +64,35 @@ install() {
     echo "🤖 Multi-Agent Framework v${VERSION}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
-    # Step 1: Clone
+    # Step 1: Download source
     if [ -d "$TMP_DIR" ]; then rm -rf "$TMP_DIR"; fi
-    echo "📥 Cloning repository..."
+    echo "📥 Downloading framework..."
     if [ "$dry_run" = true ]; then
-        echo "  [DRY RUN] Would clone ${REPO} to ${TMP_DIR}"
+        echo "  [DRY RUN] Would download to ${TMP_DIR}"
     else
-        # Increase buffer for large repos; retry up to 3 times
-        git config --global http.postBuffer 524288000 2>/dev/null || true
-        local attempt=0
-        while [ $attempt -lt 3 ]; do
-            attempt=$((attempt + 1))
-            if git clone --depth 1 "$REPO" "$TMP_DIR" 2>/dev/null; then
-                break
-            fi
-            rm -rf "$TMP_DIR"
-            if [ $attempt -lt 3 ]; then
-                warn "Clone attempt $attempt failed, retrying..."
-                sleep 2
-            else
-                error "Failed to clone repository after 3 attempts. Check your network connection."
-            fi
-        done
+        local success=false
+        # Method 1: Try tarball download (faster, more reliable)
+        local TARBALL_URL="https://github.com/cintia09/multi-agent-framework/archive/refs/heads/main.tar.gz"
+        if curl -sL --connect-timeout 10 --max-time 60 "$TARBALL_URL" | tar xz -C /tmp 2>/dev/null; then
+            mv /tmp/multi-agent-framework-main "$TMP_DIR" 2>/dev/null && success=true
+        fi
+        # Method 2: Fallback to git clone with retry
+        if [ "$success" = false ]; then
+            warn "Tarball download failed, trying git clone..."
+            git config --global http.postBuffer 524288000 2>/dev/null || true
+            local attempt=0
+            while [ $attempt -lt 3 ]; do
+                attempt=$((attempt + 1))
+                if git clone --depth 1 "$REPO" "$TMP_DIR" 2>/dev/null; then
+                    success=true
+                    break
+                fi
+                rm -rf "$TMP_DIR"
+                [ $attempt -lt 3 ] && warn "Clone attempt $attempt failed, retrying..." && sleep 2
+            done
+        fi
+        [ "$success" = false ] && error "Failed to download. Check your network connection."
+        info "Downloaded successfully"
     fi
     
     # Step 2: Backup existing config
