@@ -26,3 +26,13 @@ build/
 # Project-specific
 Raw_input.txt
 docs/.rawinput
+
+# Agent runtime (generated, should not be committed)
+.agents/events.db
+.agents/runtime/*/state.json
+.agents/runtime/*/inbox.json
+.agents/runtime/.task-board-snapshot.json
+.agents/orchestrator/logs/
+.agents/orchestrator/daemon.pid
+.agents/backup-*
+.agents/memory/index.sqlite

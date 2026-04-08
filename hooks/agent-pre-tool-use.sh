@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Multi-Agent Framework: Pre-Tool-Use Hook
 # Enforces agent boundaries — prevents agents from doing things outside their role.
 # Can output {"permissionDecision":"deny","permissionDecisionReason":"..."} to block.

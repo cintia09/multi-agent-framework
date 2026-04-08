@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # After task status change: log event to events.db
-# Memory capture and index rebuild are handled by agent-post-tool-use.sh
 INPUT=$(cat)
-TASK_ID=$(echo "$INPUT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('task_id',''))")
-NEW_STATUS=$(echo "$INPUT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('new_status',''))")
-AGENT=$(echo "$INPUT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('agent',''))")
+TASK_ID=$(echo "$INPUT" | jq -r '.task_id // ""')
+NEW_STATUS=$(echo "$INPUT" | jq -r '.new_status // ""')
+AGENT=$(echo "$INPUT" | jq -r '.agent // ""')
+
+sql_escape() { echo "$1" | sed "s/'/''/g"; }
 
 if [ -f ".agents/events.db" ]; then
-  if ! sqlite3 .agents/events.db "INSERT INTO events(timestamp,event_type,agent,task_id,detail) VALUES(strftime('%s','now'),'task_status_change','$AGENT','$TASK_ID','Status changed to $NEW_STATUS');" 2>/dev/null; then
+  TASK_ESC=$(sql_escape "$TASK_ID")
+  STATUS_ESC=$(sql_escape "$NEW_STATUS")
+  AGENT_ESC=$(sql_escape "$AGENT")
+  if ! sqlite3 .agents/events.db "INSERT INTO events(timestamp,event_type,agent,task_id,detail) VALUES(strftime('%s','now'),'task_status_change','$AGENT_ESC','$TASK_ESC','Status changed to $STATUS_ESC');" 2>/dev/null; then
     echo "Warning: Failed to log task_status_change event" >&2
   fi
 fi

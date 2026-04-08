@@ -86,12 +86,11 @@ CREATE INDEX IF NOT EXISTS idx_events_agent ON events(agent);
 CREATE INDEX IF NOT EXISTS idx_events_task ON events(task_id);
 SQL
 ```
+事件类型: `session_start` | `tool_use` | `task_board_write` | `state_change` | `agent_switch` | `message_sent`
 
 ### 4. 创建空任务表
-```json
-// .agents/task-board.json
-{"version": 0, "tasks": []}
-```
+- **`.agents/task-board.json`**: `{"version": 0, "tasks": []}`
+- **`.agents/task-board.md`**: Markdown 表格 (`| ID | 标题 | 状态 | 负责 | 优先级 | 更新时间 |`), 自动生成勿手动编辑
 
 ### 5. 生成项目级 Skills (AI 定制化)
 

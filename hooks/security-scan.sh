@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Security Scan Hook: Scans staged files for secrets before git commit/push.
 # Independent of Multi-Agent system — works in ANY project.
 # Can output {"permissionDecision":"deny","permissionDecisionReason":"..."} to block.
@@ -20,8 +20,8 @@ case "$TOOL_NAME" in
         while IFS= read -r f; do
           [ -f "$CWD/$f" ] || continue
 
-          # API keys (Google, OpenAI, GitHub, AWS)
-          if grep -qE '(AIza[0-9A-Za-z_-]{35}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|ghr_[a-zA-Z0-9]{36}|AKIA[0-9A-Z]{16})' "$CWD/$f" 2>/dev/null; then
+          # API keys (Google, OpenAI, GitHub, AWS, Stripe, Slack)
+          if grep -qE '(AIza[0-9A-Za-z_-]{35}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|ghr_[a-zA-Z0-9]{36}|AKIA[0-9A-Z]{16}|sk_live_[a-zA-Z0-9]{20,}|xox[bpoas]-[a-zA-Z0-9-]+)' "$CWD/$f" 2>/dev/null; then
             SECRETS_FOUND="$SECRETS_FOUND\n  ⚠️ $f: possible API key"
           fi
 
@@ -33,6 +33,21 @@ case "$TOOL_NAME" in
           # Private keys (SSH, TLS)
           if grep -q 'BEGIN.*PRIVATE KEY' "$CWD/$f" 2>/dev/null; then
             SECRETS_FOUND="$SECRETS_FOUND\n  ⚠️ $f: private key detected"
+          fi
+
+          # Database connection strings
+          if grep -qE '(postgres|mysql|mongodb(\+srv)?|redis)://[^@]+@' "$CWD/$f" 2>/dev/null; then
+            SECRETS_FOUND="$SECRETS_FOUND\n  ⚠️ $f: database connection string with credentials"
+          fi
+
+          # JWT / Bearer tokens
+          if grep -qE '(eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}|Bearer\s+[a-zA-Z0-9._-]{20,})' "$CWD/$f" 2>/dev/null; then
+            SECRETS_FOUND="$SECRETS_FOUND\n  ⚠️ $f: possible JWT/Bearer token"
+          fi
+
+          # Webhook URLs (Slack, Discord)
+          if grep -qE 'hooks\.(slack\.com|discord\.com)/services/' "$CWD/$f" 2>/dev/null; then
+            SECRETS_FOUND="$SECRETS_FOUND\n  ⚠️ $f: webhook URL detected"
           fi
 
           # .env files

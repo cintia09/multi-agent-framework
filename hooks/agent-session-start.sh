@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Multi-Agent Framework: Session Start Hook
 # Checks agent state and pending items when a session begins.
 # Output is ignored by the AI tool — we only log to events.db.
@@ -40,8 +40,13 @@ ACTIVE_AGENT=""
 ACTIVE_FILE="$AGENTS_DIR/runtime/active-agent"
 [ -f "$ACTIVE_FILE" ] && ACTIVE_AGENT=$(cat "$ACTIVE_FILE")
 
+# SQL escape helper
+sql_escape() { echo "$1" | sed "s/'/''/g"; }
+AGENT_ESC=$(sql_escape "${ACTIVE_AGENT:-none}")
+SOURCE_ESC=$(sql_escape "$SOURCE")
+
 # Log session start event
-if ! sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, detail) VALUES ($TIMESTAMP, 'session_start', '${ACTIVE_AGENT:-none}', '{\"source\":\"$SOURCE\"}');" 2>/dev/null; then
+if ! sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, detail) VALUES ($TIMESTAMP, 'session_start', '$AGENT_ESC', '{\"source\":\"$SOURCE_ESC\"}');" 2>/dev/null; then
   echo "Warning: Failed to log session_start event to events.db" >&2
 fi
 

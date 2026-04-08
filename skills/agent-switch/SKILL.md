@@ -87,6 +87,16 @@ rm -f .agents/runtime/active-agent
 
 **安全规则**: 单任务隔离 | 失败不阻塞 (标记 blocked 继续) | 乐观锁保护 | 自动通知
 
+## 事件管理
+```bash
+# 查看近24h活动
+sqlite3 .agents/events.db "SELECT agent, count(*) FROM events WHERE created_at > datetime('now', '-24 hours') GROUP BY agent ORDER BY 2 DESC;"
+# 清理30天前事件
+sqlite3 .agents/events.db "DELETE FROM events WHERE created_at < datetime('now', '-30 days');"
+# 重置所有
+sqlite3 .agents/events.db "DELETE FROM events; DELETE FROM sqlite_sequence WHERE name='events';"
+```
+
 ## 可用角色
 | 命令 | 角色 | Emoji |
 |------|------|-------|
@@ -99,7 +109,12 @@ rm -f .agents/runtime/active-agent
 
 ## 周期时间追踪 (Cycle Time)
 
-每次 FSM 转移时记录 `cycle_time.stages.<status>.entered_at/exited_at/duration_minutes`。
+每次 FSM 转移时在 `tasks/T-NNN.json` 记录:
+```json
+{"cycle_time":{"created_at":"...","stages":{"designing":{"entered_at":"...","exited_at":"...","duration_minutes":90},"implementing":{"entered_at":"...","exited_at":null,"duration_minutes":null}},"blocked_time":[{"from":"...","to":"...","duration_minutes":60,"reason":"..."}],"total_elapsed_minutes":null}}
+```
+
+**记录规则**: 进入→写`entered_at` | 离开→写`exited_at`+计算duration | 重入→追加`rounds`数组 | accepted→计算total | blocked时间不计入阶段duration
 
 | 阶段 | 停滞阈值 | 2x→🔴严重 | 3x→⛔建议 block |
 |------|---------|----------|----------------|
@@ -139,3 +154,10 @@ Set `"auto_advance": false` on task to disable.
 4. 记忆 Top-6: `bash scripts/memory-search.sh "<task>" --role {role} --limit 6`
 5. 上游 Handoff: inbox 消息
 6. 项目上下文: `project-agents-context/SKILL.md`
+
+**Phase-specific 额外上下文**: designing→架构约束+ADR | implementing→编码规范+TDD | reviewing→审查清单+质量阈值 | testing→测试命令+覆盖率 | accepting→验收标准+质量红线
+
+**Handoff 消息格式**:
+```json
+{"from":"designer","to":"implementer","task_id":"T-024","type":"handoff","summary":"...","artifacts":["...design-docs/T-024.md","...test-specs/T-024-test-spec.md"]}
+```

@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # Validates task before creation
-# Checks: title not empty, no duplicate IDs
 INPUT=$(cat)
-TASK_ID=$(echo "$INPUT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('task_id',''))")
-TITLE=$(echo "$INPUT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('title',''))")
+TASK_ID=$(echo "$INPUT" | jq -r '.task_id // ""')
+TITLE=$(echo "$INPUT" | jq -r '.title // ""')
 
 if [ -z "$TITLE" ]; then
   echo '{"block": true, "reason": "Task title cannot be empty"}'
@@ -13,8 +12,8 @@ fi
 
 # Check duplicate
 if [ -f ".agents/task-board.json" ]; then
-  EXISTS=$(TASK_ID="$TASK_ID" python3 -c "import json,os; d=json.load(open('.agents/task-board.json')); print('yes' if any(t['id']==os.environ['TASK_ID'] for t in d['tasks']) else 'no')")
-  if [ "$EXISTS" = "yes" ]; then
+  EXISTS=$(jq -r --arg tid "$TASK_ID" '[.tasks[] | select(.id == $tid)] | length' .agents/task-board.json 2>/dev/null || echo 0)
+  if [ "$EXISTS" -gt 0 ]; then
     echo "{\"block\": true, \"reason\": \"Task $TASK_ID already exists\"}"
     exit 0
   fi

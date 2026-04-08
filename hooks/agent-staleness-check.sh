@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 # Multi-Agent Framework: Staleness Detection
 # Checks for tasks and agents inactive beyond threshold.

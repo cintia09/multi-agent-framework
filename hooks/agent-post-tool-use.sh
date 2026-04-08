@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Multi-Agent Framework: Post-Tool-Use Hook
 # Logs tool execution results to events.db for audit trail.
 # Detects task-board changes and logs state transitions.
@@ -19,21 +19,26 @@ SNAPSHOT="$AGENTS_DIR/runtime/.task-board-snapshot.json"
 [ -f "$EVENTS_DB" ] || exit 0
 
 # Read active agent
+# Escape single quotes for SQL safety
+sql_escape() { echo "$1" | sed "s/'/''/g"; }
+
 ACTIVE_AGENT="none"
 ACTIVE_FILE="$AGENTS_DIR/runtime/active-agent"
-[ -f "$ACTIVE_FILE" ] && ACTIVE_AGENT=$(cat "$ACTIVE_FILE")
+[ -f "$ACTIVE_FILE" ] && ACTIVE_AGENT=$(sql_escape "$(cat "$ACTIVE_FILE")")
 
-# Escape single quotes for SQL
-TOOL_ARGS_ESCAPED=$(echo "$TOOL_ARGS" | sed "s/'/''/g" | head -c 500)
+# Escape all input variables
+TOOL_NAME_ESC=$(sql_escape "$TOOL_NAME")
+RESULT_TYPE_ESC=$(sql_escape "$RESULT_TYPE")
+TOOL_ARGS_ESC=$(echo "$TOOL_ARGS" | sed "s/'/''/g" | head -c 500)
 
 # Log every tool use to events.db
-sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, tool_name, detail) VALUES ($TIMESTAMP, 'tool_use', '$ACTIVE_AGENT', '$TOOL_NAME', '{\"result\":\"$RESULT_TYPE\",\"args\":\"$TOOL_ARGS_ESCAPED\"}');"
+sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, tool_name, detail) VALUES ($TIMESTAMP, 'tool_use', '$ACTIVE_AGENT', '$TOOL_NAME_ESC', '{\"result\":\"$RESULT_TYPE_ESC\",\"args\":\"$TOOL_ARGS_ESC\"}');"
 
 # Detect task-board writes
 if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
   FILE_PATH=$(echo "$TOOL_ARGS" | jq -r '.path // empty' 2>/dev/null)
   if [[ "$FILE_PATH" =~ task-board\.json ]]; then
-    sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, detail) VALUES ($TIMESTAMP, 'task_board_write', '$ACTIVE_AGENT', '{\"tool\":\"$TOOL_NAME\"}');"
+    sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, detail) VALUES ($TIMESTAMP, 'task_board_write', '$ACTIVE_AGENT', '{\"tool\":\"$TOOL_NAME_ESC\"}');"
 
     # --- AUTO-DISPATCH (G2) ---
     # When task-board.json changes, send messages to the next agent in FSM
@@ -94,7 +99,10 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
              "$TARGET_INBOX" > "${TARGET_INBOX}.tmp" && mv "${TARGET_INBOX}.tmp" "$TARGET_INBOX"
         ) 200>"${TARGET_INBOX}.lock"
 
-        sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'auto_dispatch', '$TARGET', '$TASK_ID', '{\"from_status\":\"$STATUS\",\"from_agent\":\"$ACTIVE_AGENT\"}');" 2>/dev/null || true
+        TARGET_ESC=$(sql_escape "$TARGET")
+        TASK_ID_ESC=$(sql_escape "$TASK_ID")
+        STATUS_ESC=$(sql_escape "$STATUS")
+        sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'auto_dispatch', '$TARGET_ESC', '$TASK_ID_ESC', '{\"from_status\":\"$STATUS_ESC\",\"from_agent\":\"$ACTIVE_AGENT\"}');" 2>/dev/null || true
       done
     fi
 
@@ -106,8 +114,13 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
         NEW_STATUS=$(echo "$TASK" | jq -r '.status')
         OLD_STATUS=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .status' "$SNAPSHOT" 2>/dev/null || echo "")
 
-        [ -z "$OLD_STATUS" ] && continue
-        [ "$OLD_STATUS" = "$NEW_STATUS" ] && continue
+        [ -z "$OLD_STATUS_SQL" ] && continue
+        [ "$OLD_STATUS_SQL" = "$NEW_STATUS_SQL" ] && continue
+
+        # SQL-safe versions for event logging
+        TASK_ID_SQL=$(sql_escape "$TASK_ID")
+        OLD_STATUS_SQL=$(sql_escape "$OLD_STATUS_SQL")
+        NEW_STATUS_SQL=$(sql_escape "$NEW_STATUS_SQL")
 
         # Define legal transitions (from agent-fsm/SKILL.md)
         LEGAL=false
@@ -155,7 +168,7 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
               # Validate unblock: only allow return to blocked_from state
               BLOCKED_FROM=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .blocked_from // ""' "$AGENTS_DIR/task-board.json" 2>/dev/null || echo "")
               if [ -n "$BLOCKED_FROM" ] && [ "$BLOCKED_FROM" != "null" ]; then
-                [ "$NEW_STATUS" = "$BLOCKED_FROM" ] && LEGAL=true
+                [ "$NEW_STATUS_SQL" = "$BLOCKED_FROM" ] && LEGAL=true
               else
                 LEGAL=true  # no blocked_from recorded, allow any unblock
               fi
@@ -171,7 +184,7 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
                 FEEDBACK_COUNT=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .feedback_loops // 0' "$AGENTS_DIR/task-board.json" 2>/dev/null || echo 0)
                 if [ "$FEEDBACK_COUNT" -ge 10 ]; then
                   echo "⛔ [FSM] FEEDBACK SAFETY LIMIT: Task $TASK_ID has reached 10 feedback loops. Transition $OLD_STATUS → $NEW_STATUS blocked. Manual intervention required."
-                  sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'fsm_feedback_limit', '$ACTIVE_AGENT', '$TASK_ID', '{\"from\":\"$OLD_STATUS\",\"to\":\"$NEW_STATUS\",\"loops\":$FEEDBACK_COUNT}');" 2>/dev/null || true
+                  sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'fsm_feedback_limit', '$ACTIVE_AGENT', '$TASK_ID_SQL', '{\"from\":\"$OLD_STATUS_SQL\",\"to\":\"$NEW_STATUS_SQL\",\"loops\":$FEEDBACK_COUNT}');" 2>/dev/null || true
                   LEGAL=false
                 fi
                 ;;
@@ -179,7 +192,7 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
           fi
 
           # Convergence gate check for device_baseline
-          if [ "$LEGAL" = true ] && [ "$NEW_STATUS" = "device_baseline" ]; then
+          if [ "$LEGAL" = true ] && [ "$NEW_STATUS_SQL" = "device_baseline" ]; then
             IMPL_STATUS=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .parallel_tracks.implementing // "pending"' "$AGENTS_DIR/task-board.json" 2>/dev/null || echo "pending")
             TEST_STATUS=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .parallel_tracks.test_scripting // "pending"' "$AGENTS_DIR/task-board.json" 2>/dev/null || echo "pending")
             REVIEW_STATUS=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .parallel_tracks.code_reviewing // "pending"' "$AGENTS_DIR/task-board.json" 2>/dev/null || echo "pending")
@@ -208,7 +221,7 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
               # Validate unblock: only allow return to blocked_from state
               BLOCKED_FROM=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .blocked_from // ""' "$AGENTS_DIR/task-board.json" 2>/dev/null || echo "")
               if [ -n "$BLOCKED_FROM" ] && [ "$BLOCKED_FROM" != "null" ]; then
-                [ "$NEW_STATUS" = "$BLOCKED_FROM" ] && LEGAL=true
+                [ "$NEW_STATUS_SQL" = "$BLOCKED_FROM" ] && LEGAL=true
               else
                 LEGAL=true  # no blocked_from recorded, allow any unblock
               fi
@@ -217,20 +230,20 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
         fi
 
         # === Goal Guard: block acceptance if goals not all verified ===
-        if [ "$LEGAL" = true ] && [ "$NEW_STATUS" = "accepted" ]; then
+        if [ "$LEGAL" = true ] && [ "$NEW_STATUS_SQL" = "accepted" ]; then
           UNVERIFIED=$(jq -r --arg tid "$TASK_ID" \
             '.tasks[] | select(.id == $tid) | .goals // [] | map(select(.status != "verified")) | length' \
             "$AGENTS_DIR/task-board.json" 2>/dev/null || echo "0")
           if [ "$UNVERIFIED" -gt 0 ]; then
             echo "⛔ [GOAL GUARD] Task $TASK_ID cannot be accepted: $UNVERIFIED goal(s) not yet verified. All goals must have status=verified before acceptance."
-            sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'goal_guard_block', '$ACTIVE_AGENT', '$TASK_ID', '{\"unverified_goals\":$UNVERIFIED}');" 2>/dev/null || true
+            sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'goal_guard_block', '$ACTIVE_AGENT', '$TASK_ID_SQL', '{\"unverified_goals\":$UNVERIFIED}');" 2>/dev/null || true
             LEGAL=false
           fi
         fi
 
         if [ "$LEGAL" = false ]; then
           echo "⛔ [FSM] ILLEGAL transition detected: $TASK_ID ($OLD_STATUS → $NEW_STATUS). Legal transitions from '$OLD_STATUS' do not include '$NEW_STATUS'. Please use agent-fsm to make valid transitions."
-          sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'fsm_violation', '$ACTIVE_AGENT', '$TASK_ID', '{\"from\":\"$OLD_STATUS\",\"to\":\"$NEW_STATUS\"}');" 2>/dev/null || true
+          sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'fsm_violation', '$ACTIVE_AGENT', '$TASK_ID_SQL', '{\"from\":\"$OLD_STATUS_SQL\",\"to\":\"$NEW_STATUS_SQL\"}');" 2>/dev/null || true
         fi
       done
     fi
@@ -248,9 +261,9 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
           OLD_STATUS=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .status' "$SNAPSHOT" 2>/dev/null || echo "")
 
           # Only trigger on actual transitions
-          if [ -n "$OLD_STATUS" ] && [ "$OLD_STATUS" != "$NEW_STATUS" ]; then
+          if [ -n "$OLD_STATUS_SQL" ] && [ "$OLD_STATUS_SQL" != "$NEW_STATUS_SQL" ]; then
             # Record memory_capture_needed event
-            sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'memory_capture_needed', '$ACTIVE_AGENT', '$TASK_ID', '{\"from_status\":\"$OLD_STATUS\",\"to_status\":\"$NEW_STATUS\"}');" 2>/dev/null || true
+            sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'memory_capture_needed', '$ACTIVE_AGENT', '$TASK_ID_SQL', '{\"from_status\":\"$OLD_STATUS_SQL\",\"to_status\":\"$NEW_STATUS_SQL\"}');" 2>/dev/null || true
 
             # Create memory directory if needed
             MEMORY_DIR="$AGENTS_DIR/memory"
@@ -270,7 +283,7 @@ MEMEOF
             echo "🧠 [Auto-Capture] Task $TASK_ID status changed: $OLD_STATUS → $NEW_STATUS. Please save memory snapshot to .agents/memory/${TASK_ID}-memory.json (summary, decisions, files_modified, handoff_notes)."
 
             # Trigger memory index rebuild on acceptance
-            if [ "$NEW_STATUS" = "accepted" ]; then
+            if [ "$NEW_STATUS_SQL" = "accepted" ]; then
               SCRIPT_PATH=""
               [ -f "$AGENTS_DIR/scripts/memory-index.sh" ] && SCRIPT_PATH="$AGENTS_DIR/scripts/memory-index.sh"
               [ -z "$SCRIPT_PATH" ] && [ -f "$CWD/scripts/memory-index.sh" ] && SCRIPT_PATH="$CWD/scripts/memory-index.sh"
@@ -291,6 +304,7 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
   FILE_PATH=$(echo "$TOOL_ARGS" | jq -r '.path // empty' 2>/dev/null)
   if [[ "$FILE_PATH" =~ state\.json ]]; then
     AGENT_FROM_PATH=$(echo "$FILE_PATH" | sed -n 's|.*runtime/\([^/]*\).*|\1|p')
-    sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, detail) VALUES ($TIMESTAMP, 'state_change', '${AGENT_FROM_PATH:-unknown}', '{\"tool\":\"$TOOL_NAME\"}');"
+    AGENT_PATH_ESC=$(sql_escape "${AGENT_FROM_PATH:-unknown}")
+    sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, detail) VALUES ($TIMESTAMP, 'state_change', '$AGENT_PATH_ESC', '{\"tool\":\"$TOOL_NAME_ESC\"}');"
   fi
 fi

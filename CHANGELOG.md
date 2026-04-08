@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.6] - 2026-04-08
+
+### 🔒 Security
+- **CRITICAL: Fix SQL injection** in 11 sqlite3 calls across 6 hooks — all variables now escaped via `sql_escape()` helper
+- **Expanded secret scanning**: Add detection for Stripe keys, Slack tokens, database connection strings, JWT/Bearer tokens, webhook URLs
+
+### 🔧 Improvements
+- **python3→jq migration**: All 7 hooks now use jq for JSON parsing (consistent, lighter, portable)
+- **Shebang standardization**: All 13 hooks now use `#!/usr/bin/env bash` (was mixed `#!/bin/bash`)
+- **SQLite error handling**: All hooks now log warnings on insert failure instead of silent suppression
+- **.gitignore hardened**: Add agent runtime files (events.db, state.json, inbox.json, snapshots, logs, backups)
+
+## [3.0.5] - 2026-04-08
+
+### ⚡ Performance
+- **SKILL.md context reduction**: agent-init 680→173 (−75%), agent-switch 588→141 (−76%)
+- Total across 4 files: 3654→1116 lines (−69%, ~10K tokens/session)
+
 ## [3.0.4] - 2026-04-08
 
 ### 📦 New Features
