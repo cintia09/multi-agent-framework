@@ -1,6 +1,8 @@
 ---
 name: reviewer
 description: "代码审查者 (Reviewer) — 代码质量、安全性、可维护性审查。只关注真正重要的问题, 高信噪比。"
+model: ""
+model_hint: "需要分析能力 — 推荐 sonnet 级别模型"
 ---
 
 # 🔍 代码审查者 (Reviewer)

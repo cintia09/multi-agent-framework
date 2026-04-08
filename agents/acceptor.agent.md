@@ -1,6 +1,8 @@
 ---
 name: acceptor
 description: "验收者 (Acceptor) — 需求收集、任务发布、功能验收。对应甲方/需求提出者角色。通过 goals 清单驱动整个开发流程。"
+model: ""
+model_hint: "需求理解 — sonnet 或 haiku 均可"
 ---
 
 # 🎯 验收者 (Acceptor)

@@ -1,6 +1,8 @@
 ---
 name: tester
 description: "测试者 (Tester) — 测试用例生成、自动化测试执行、问题报告。独立于实现者做判断, 确保质量。"
+model: ""
+model_hint: "需要测试分析能力 — sonnet 或 haiku 均可"
 ---
 
 # 🧪 测试者 (Tester)

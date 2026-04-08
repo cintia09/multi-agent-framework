@@ -37,12 +37,28 @@ head -5 README.md 2>/dev/null
 cat CLAUDE.md 2>/dev/null
 ```
 
-#### 1c. 选择工作流模式
+#### 1c. 分类项目类型
+
+根据 Step 1a 检测结果, 将项目归类:
+
+| 检测特征 | 项目类型 | 标识 |
+|---------|---------|------|
+| Package.swift / .xcodeproj / SwiftUI | iOS/macOS 原生 | `ios` |
+| next.config / nuxt.config / vue.config / angular.json | 前端 Web | `frontend` |
+| package.json + 无前端框架 / go.mod / pom.xml | 后端服务 | `backend` |
+| Cargo.toml / CMakeLists.txt / Makefile (C/C++) | 系统级 | `systems` |
+| requirements.txt + torch/tensorflow/transformers | AI/ML | `ai-ml` |
+| Dockerfile + k8s/ / serverless.yml | DevOps/基础设施 | `devops` |
+| 其他 / 混合 | 通用 | `general` |
+
+在 Step 5a 的 project-agents-context 中记录: `project_type: "<类型>"`
+
+#### 1d. 选择工作流模式
 询问用户: Simple (线性 SDLC) 或 3-Phase (三阶段工程闭环)
 - 选择 1 → `workflow_mode: "simple"` (默认)
 - 选择 2 → `workflow_mode: "3phase"` (执行 Step 5h)
 
-#### 1d. 读取全局 agent profiles & skills
+#### 1e. 读取全局 agent profiles & skills
 ```bash
 for f in acceptor designer implementer reviewer tester; do cat ~/.claude/agents/${f}.agent.md; done
 for f in agent-acceptor agent-designer agent-implementer agent-reviewer agent-tester agent-fsm agent-task-board; do cat ~/.claude/skills/${f}/SKILL.md; done
@@ -100,7 +116,7 @@ SQL
 **通用要求**: YAML frontmatter 开头, Markdown 格式, 项目相对路径, 实际命令。
 
 #### 5a. `project-agents-context/SKILL.md` — 共享上下文
-必须包含: 项目信息 (名称/描述/仓库) | 技术栈 | 常用命令表 | 目录结构 | 分支策略
+必须包含: 项目信息 (名称/描述/仓库) | 技术栈 | `project_type` | 常用命令表 | 目录结构 | 分支策略
 
 #### 5b. `project-acceptor/SKILL.md` — 项目级验收
 必须包含: 业务背景 | 验收标准基线 (测试/构建/lint/覆盖率) | 验收流程 | 质量红线
@@ -116,6 +132,17 @@ SQL
 
 #### 5f. `project-tester/SKILL.md` — 项目级测试
 必须包含: 测试框架 | 测试命令表 | 测试文件组织 | 测试策略 | 测试环境
+
+> **项目类型适配**: 根据 Step 1c 检测的 `project_type` 定制每个 skill 的内容:
+>
+> | 项目类型 | Tester 侧重 | Implementer 侧重 | Designer 侧重 |
+> |---------|------------|-----------------|--------------|
+> | `ios` | XCTest, UI Testing, SwiftUI Previews | Xcode, Swift Package Manager, SwiftUI/UIKit | MVC/MVVM, Core Data, App Lifecycle |
+> | `frontend` | Playwright/Cypress, Jest/Vitest, RTL | npm/pnpm, ESLint, TypeScript strict | 组件架构, 状态管理, API 层设计 |
+> | `backend` | API 集成测试, 数据库迁移测试, 负载测试 | ORM, 中间件, 容器化 | 微服务/单体, 数据模型, 认证授权 |
+> | `systems` | 单元测试 + 集成测试, Valgrind/Sanitizers | CMake/Cargo, 内存安全, 性能 profile | 模块接口, 内存模型, 线程安全 |
+> | `ai-ml` | 模型精度/召回率验证, 数据集分割测试 | Jupyter→.py, 训练管线, GPU 资源 | 模型架构, 数据管线, 实验追踪 |
+> | `devops` | Terraform plan 验证, 容器健康检查 | IaC, CI/CD pipeline, 监控告警 | 基础设施拓扑, 安全组, 灾备 |
 
 ### 5g. 项目级 Hooks (可选)
 如需项目级 hook 覆盖:

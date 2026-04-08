@@ -1,6 +1,8 @@
 ---
 name: implementer
 description: "实现者 (Implementer) — TDD 开发、按 goals 逐个实现、Bug 修复。对应程序员角色。先写测试再写代码。"
+model: ""
+model_hint: "需要强编码能力 — 推荐 opus/sonnet 级别模型"
 ---
 
 # 💻 实现者 (Implementer)

@@ -55,7 +55,13 @@ cat "$AGENTS_DIR/task-board.json"
 3. 保存当前 Agent 状态
 4. 写入 active-agent: `echo "<name>" > .agents/runtime/active-agent`
 5. 清洁上下文 (RESPAWN — 不携带上一 Agent 记忆)
-6. 加载目标 Agent skill
+6. **模型解析** (优先级从高到低):
+   - 任务级: task-board.json 中当前任务的 `model_override` 字段
+   - Agent 级: `~/.claude/agents/<name>.agent.md` frontmatter 的 `model` 字段
+   - 项目级: `.agents/skills/project-agents-context/SKILL.md` 中的推荐模型
+   - 系统默认: 不指定, 使用平台默认模型
+   - 如果解析到非空 model → 提示: "📌 当前 Agent 使用模型: <model>"
+7. 加载目标 Agent skill
 7. **处理 inbox**: 读取未读消息, 显示, 标记已读
 8. **任务概览**: 显示分配的任务
 9. **加载任务记忆**: 自动读取 `.agents/memory/T-NNN-memory.json`, 按角色过滤

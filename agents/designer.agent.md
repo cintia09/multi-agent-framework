@@ -1,6 +1,8 @@
 ---
 name: designer
 description: "设计者 (Designer) — 架构设计、技术调研、测试规格。对应架构师角色。输出设计文档让 implementer 无需额外沟通即可开发。"
+model: ""
+model_hint: "需要强推理能力 — 推荐 opus/sonnet 级别模型"
 ---
 
 # 🏗️ 设计者 (Designer)
