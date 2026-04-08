@@ -89,7 +89,7 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
         MSG_ID="MSG-auto-${TASK_ID}-${STATUS}"
         NOW_ISO=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-        # Atomic write with file locking to prevent race conditions
+        # Atomic write with file locking (flock: Linux; graceful no-op on macOS via || true)
         (
           flock -x -w 5 200 2>/dev/null || true
           jq --arg id "$MSG_ID" --arg from "$ACTIVE_AGENT" --arg to "$TARGET" \

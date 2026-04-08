@@ -11,8 +11,9 @@ if [ -z "$TITLE" ]; then
 fi
 
 # Check duplicate
-if [ -f ".agents/task-board.json" ]; then
-  EXISTS=$(jq -r --arg tid "$TASK_ID" '[.tasks[] | select(.id == $tid)] | length' .agents/task-board.json 2>/dev/null || echo 0)
+AGENTS_DIR="${CWD:-.}/.agents"
+if [ -f "$AGENTS_DIR/task-board.json" ]; then
+  EXISTS=$(jq -r --arg tid "$TASK_ID" '[.tasks[] | select(.id == $tid)] | length' "$AGENTS_DIR/task-board.json" 2>/dev/null || echo 0)
   if [ "$EXISTS" -gt 0 ]; then
     echo "{\"block\": true, \"reason\": \"Task $TASK_ID already exists\"}"
     exit 0

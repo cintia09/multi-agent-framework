@@ -20,11 +20,22 @@ Thank you for your interest in contributing! This guide explains how to add new 
 ### Adding a New Hook
 
 1. Create a shell script under `hooks/` (e.g., `hooks/my-hook.sh`)
-2. Add shebang: `#!/usr/bin/env bash`
-3. Make it executable: `chmod +x hooks/my-hook.sh`
-4. Register in `hooks/hooks.json` (Claude Code format)
-5. Also add to `hooks/hooks-copilot.json` (Copilot format) if applicable
+2. Add shebang: `#!/usr/bin/env bash` and `set -euo pipefail`
+3. Use `AGENTS_DIR="${CWD:-.}/.agents"` for project paths (not bare `.agents/`)
+4. Make it executable: `chmod +x hooks/my-hook.sh`
+5. Register in **both** JSON configs (see format differences below)
 6. Document the trigger conditions and behavior
+
+**Dual-platform hook format:**
+
+| Field | Claude Code (`hooks.json`) | Copilot (`hooks-copilot.json`) |
+|-------|---------------------------|-------------------------------|
+| Event keys | `PascalCase` (SessionStart) | `camelCase` (sessionStart) |
+| Script field | `"command": "path"` | `"bash": "path"` |
+| Timeout | `"timeout": 5000` (ms) | `"timeoutSec": 5` (sec) |
+| Routing | `"matcher": "*"` | N/A |
+| Description | N/A | `"comment": "..."` |
+| Script path | `~/.claude/hooks/` | `~/.copilot/hooks/` |
 
 ### Adding a Rule
 

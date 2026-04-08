@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # Before context compaction: flush current session memories
-# Ensures key decisions are preserved before summarization
+AGENTS_DIR="${CWD:-.}/.agents"
 
-AGENT=$(cat .agents/runtime/active-agent 2>/dev/null || echo "unknown")
+AGENT=$(cat "$AGENTS_DIR/runtime/active-agent" 2>/dev/null || echo "unknown")
 DATE=$(date +%Y-%m-%d)
-DIARY_DIR=".agents/memory/$AGENT/diary"
+DIARY_DIR="$AGENTS_DIR/memory/$AGENT/diary"
 
 mkdir -p "$DIARY_DIR"
 
