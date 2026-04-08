@@ -39,8 +39,8 @@ check_platform() {
     local hooks=$(ls "${dir}/hooks/"*.sh 2>/dev/null | wc -l | tr -d ' ')
     local has_json=$([ -f "${dir}/hooks/hooks.json" ] && echo '✅' || echo '❌')
     echo "  ${name}:"
-    echo "    Skills: ${skills}/15 | Agents: ${agents}/5 | Hooks: ${hooks}/13 | hooks.json: ${has_json}"
-    [ "$skills" -ge 15 ] && [ "$agents" -ge 5 ] && [ "$hooks" -ge 13 ] && [ -f "${dir}/hooks/hooks.json" ]
+    echo "    Skills: ${skills}/16 | Agents: ${agents}/5 | Hooks: ${hooks}/13 | hooks.json: ${has_json}"
+    [ "$skills" -ge 16 ] && [ "$agents" -ge 5 ] && [ "$hooks" -ge 13 ] && [ -f "${dir}/hooks/hooks.json" ]
 }
 
 check_install() {
@@ -157,7 +157,7 @@ install() {
     else
         mkdir -p "${CLAUDE_DIR}/skills"
         cp -r "${TMP_DIR}/skills/agent-"* "${CLAUDE_DIR}/skills/"
-        info "15 Skills installed (includes orchestrator template)"
+        info "16 Skills installed (includes orchestrator + config)"
     fi
     
     # Step 4: Install Agents
