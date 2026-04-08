@@ -2,7 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.0.1] - 2026-04-08
+## [3.0.3] - 2026-04-08
+
+### ⚡ Performance
+- **jq loop optimization**: Auto-dispatch now uses pipe-delimited parsing (3 jq calls → 1 per task)
+- **SQLite transactions**: `memory-index.sh` wraps all inserts in a single transaction (atomicity + ~10x speed)
+
+### 🐛 Bug Fixes
+- **File locking**: Add `flock`-based locking on inbox.json writes to prevent race conditions
+- **Cross-platform dates**: Add python3 fallback for ISO date parsing (macOS + Linux + containers)
+- **SQLite error logging**: Replace silent `2>/dev/null || true` with proper warning on failure
+- **Shell safety**: Standardize `set -euo pipefail` across all 6 hook scripts
+
+### 📦 New Features
+- **Orphan task detection**: Staleness check now flags blocked tasks with no activity >48h (🔴 warning)
+
+## [3.0.2] - 2026-04-08
 
 ### 🐛 Bug Fixes
 - **CRITICAL**: Fix missing `accepting→accept_fail` FSM transition in Simple mode validation — previously blocked all acceptance failure flows
