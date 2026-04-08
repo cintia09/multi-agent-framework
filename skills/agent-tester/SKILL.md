@@ -207,56 +207,17 @@ watch fixes for T-003    → 英文触发
 
 ### 全自动循环 (无需用户干预)
 
-```
-┌─────────────────────────────────────────────┐
-│ 🔄 修复监控模式开始 (任务 T-NNN)              │
-│    自动运行, 直到所有 issue 验证通过           │
-└─────────┬───────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────┐
-│ STEP 1: 读取 T-NNN-issues.json (加锁读取)    │
-│   统计: open={n}, fixed={n}, verified={n}     │
-│   检查 version (乐观锁)                       │
-└─────────┬───────────────────────────────────┘
-          │
-     有 status=="fixed" 的 issue？
-     ┌────┴────┐
-     │ YES     │ NO
-     ▼         ▼
-┌──────────┐  ┌─────────────────────────────┐
-│ STEP 2:  │  │ 检查全局状态:                 │
-│ 逐个验证  │  │                              │
-│ 所有fixed │  │ ┌─ 全部 verified:            │
-│ issues   │  │ │  ✅ FSM → accepting         │
-│          │  │ │  通知 acceptor              │
-│ 验证通过: │  │ │  → 结束循环, 输出最终报告   │
-│ → verified│  │ │                             │
-│ 验证失败: │  │ ├─ 有 open/reopened:         │
-│ → reopened│  │ │  FSM → fixing              │
-│          │  │ │  通知 implementer           │
-└────┬─────┘  │ │  → 自动回到 STEP 1          │
-     │        │ │    (等待 implementer 修复后  │
-     ▼        │ │     任务会回到 testing 状态, │
-     写回JSON  │ │     session-start hook 会   │
-     (version │ │     自动检查 inbox 并       │
-      +1)     │ │     重新触发本循环)         │
-     │        │ └─────────────────────────────┘
-     │        │
-     └── 回到 STEP 1 (继续处理下一轮)
-```
+1. 读取 `T-NNN-issues.json`（加锁读取，检查 version 乐观锁）
+2. 统计 issue 状态: open / fixed / verified / reopened
+3. 如有 `fixed` issues → 逐个验证: 通过→`verified`，失败→`reopened`，写回 JSON (version+1)
+4. 检查全局状态:
+   - 全部 `verified` → FSM→accepting，通知 acceptor，结束循环
+   - 有 `open/reopened` → FSM→fixing，通知 implementer，等待修复后回到步骤 1
+5. 循环直到所有 issue 验证通过
 
 ### 自动重入机制
 
-当 tester 验证发现问题并 reopen → 任务转为 fixing → 实现者修复 → 任务转回 testing → **auto-dispatch 自动将消息写入 tester inbox** → tester 下次启动/切入时自动检查 inbox → **自动重新进入监控循环**。
-
-```
-tester 验证失败         implementer 修复       auto-dispatch
-→ reopen + fixing ───→ 修复 + testing ───→ tester inbox 📥
-                                              │
-                                   tester 下次启动时自动读取
-                                   → 自动进入监控循环 ↻
-```
+tester reopen → fixing → implementer 修复 → testing → **auto-dispatch** 写入 tester inbox → tester 下次启动自动检查 inbox → 重新进入监控循环。
 
 ### 并发保护 (乐观锁)
 
@@ -392,3 +353,21 @@ export class LoginPage {
 - **覆盖率**: [百分比]
 - **发现问题**: [列表或"无"]
 ```
+
+## 3-Phase 工程闭环模式
+
+当任务 `workflow_mode: "3phase"` 时，Tester 负责以下步骤:
+
+| Phase | 步骤 | 职责 |
+|-------|------|------|
+| 1 | `tdd_design` | 与 Designer 协作定义 TDD 测试规格和用例框架 |
+| 2 | `test_scripting` | Track B — 编写自动化测试脚本和测试装置 |
+| 3 | `regression_testing` | 运行完整回归测试，确保未引入回归 |
+| 3 | `feature_testing` | 测试新功能所有场景（正常路径 + 边界条件） |
+| 3 | `log_analysis` | 分析日志和诊断信息，识别隐藏问题 |
+
+与 Simple 模式的区别:
+- 从 Phase 1 就参与（定义测试策略），而非 Simple 模式的后期介入
+- Phase 2 中与 Implementer 并行编写测试脚本
+- Phase 3 分三层测试: regression → feature → log_analysis
+- 测试失败可回退到 Phase 2 (`regression_testing→implementing`) 或 Phase 1

@@ -183,56 +183,17 @@ watch feedback for T-003 → 英文触发
 
 ### 全自动循环 (无需用户干预)
 
-```
-┌─────────────────────────────────────────────┐
-│ 🔄 反馈监控模式开始 (任务 T-NNN)              │
-│    自动运行, 直到所有 issue 验证通过           │
-└─────────┬───────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────┐
-│ STEP 1: 读取 T-NNN-issues.json (加锁读取)    │
-│   统计: open={n}, fixed={n}, verified={n}     │
-│   检查 version (乐观锁)                       │
-└─────────┬───────────────────────────────────┘
-          │
-     有 status=="open" 或 "reopened" 的 issue？
-     ┌────┴────┐
-     │ YES     │ NO
-     ▼         ▼
-┌──────────┐  ┌─────────────────────────────┐
-│ STEP 2:  │  │ 检查全局状态:                 │
-│ 逐个修复  │  │                              │
-│ 所有open/ │  │ ┌─ 全部 verified:            │
-│ reopened  │  │ │  ✅ 任务修复完成!           │
-│ issues    │  │ │  → 结束循环, 输出最终报告   │
-│          │  │ │                             │
-│ 修复完成: │  │ ├─ 有 fixed 待验证:           │
-│ → fixed  │  │ │  FSM → testing              │
-│ + commit │  │ │  通知 tester                │
-└────┬─────┘  │ │  → 自动回到 STEP 1          │
-     │        │ │    (任务转回 testing 后,     │
-     ▼        │ │     tester 验证完会转回      │
-     写回JSON  │ │     fixing, auto-dispatch   │
-     (version │ │     自动写入 implementer     │
-      +1)     │ │     inbox, 下次启动时        │
-     │        │ │     自动重新进入本循环)      │
-     │        │ └─────────────────────────────┘
-     │        │
-     └── 回到 STEP 1 (继续处理)
-```
+1. 读取 `T-NNN-issues.json`（加锁读取，检查 version 乐观锁）
+2. 统计 issue 状态: open / fixed / verified / reopened
+3. 如有 `open/reopened` issues → 逐个修复: 修复→`fixed` + git commit，写回 JSON (version+1)
+4. 检查全局状态:
+   - 全部 `verified` → 任务修复完成，结束循环
+   - 有 `fixed` 待验证 → FSM→testing，通知 tester，等待验证后回到步骤 1
+5. 循环直到所有 issue 验证通过
 
 ### 自动重入机制
 
-当 implementer 修复完 → 任务转为 testing → tester 验证 → 如果 reopen → 任务转回 fixing → **auto-dispatch 自动将消息写入 implementer inbox** → implementer 下次启动/切入时自动读取 → **自动重新进入监控循环**。
-
-```
-implementer 修复         tester 验证            auto-dispatch
-→ fixed + testing ───→ reopen + fixing ───→ implementer inbox 📥
-                                               │
-                                    implementer 下次启动时自动读取
-                                    → 自动进入监控循环 ↻
-```
+implementer 修复 → testing → tester 验证 → 如 reopen → fixing → **auto-dispatch** 写入 implementer inbox → implementer 下次启动自动读取 → 重新进入监控循环。
 
 ### 并发保护 (乐观锁)
 
@@ -324,3 +285,20 @@ fix-tracking.md 从 `T-NNN-issues.json` 自动生成，格式如下:
 - **测试覆盖**: [覆盖率/通过数]
 - **注意事项**: [后续需要关注的]
 ```
+
+## 3-Phase 工程闭环模式
+
+当任务 `workflow_mode: "3phase"` 时，Implementer 负责以下步骤:
+
+| Phase | 步骤 | 职责 |
+|-------|------|------|
+| 2 | `implementing` | Track A — 按设计文档 + TDD 实现功能代码 |
+| 2 | `ci_monitoring` | 监控 CI 构建，确保通过 |
+| 2 | `ci_fixing` | 修复 CI 失败（构建错误、测试失败），循环直到通过 |
+| 2 | `device_baseline` | 验证目标环境基线，确保可运行 |
+| 3 | `deploying` | 将通过测试的代码部署到测试环境 |
+
+与 Simple 模式的区别:
+- Phase 2 中 Track A/B/C 并行，Implementer 需监控 CI 并即时修复
+- 测试失败可回退 (`regression_testing→implementing`)，自动进入修复循环
+- 最多 10 次反馈环，超限自动阻塞
