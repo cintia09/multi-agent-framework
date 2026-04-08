@@ -4,7 +4,7 @@ set -euo pipefail
 # Multi-Agent Framework Installer
 # Usage: curl -sL https://raw.githubusercontent.com/cintia09/multi-agent-framework/main/install.sh | bash
 
-VERSION="3.0.9"
+VERSION="3.0.10"
 REPO="https://github.com/cintia09/multi-agent-framework.git"
 TMP_DIR="/tmp/multi-agent-framework"
 CLAUDE_DIR="${HOME}/.claude"
@@ -53,8 +53,27 @@ uninstall() {
     rm -rf "${CLAUDE_DIR}/skills/agent-"*
     rm -f "${CLAUDE_DIR}/agents/"*.agent.md
     rm -f "${CLAUDE_DIR}/hooks/agent-"*.sh
-    # Don't remove hooks.json or CLAUDE.md (may have other content)
-    info "Uninstalled. hooks.json and CLAUDE.md preserved (may contain other config)."
+    rm -f "${CLAUDE_DIR}/hooks/security-scan.sh"
+    rm -f "${CLAUDE_DIR}/rules/agent-workflow.md" "${CLAUDE_DIR}/rules/security.md" "${CLAUDE_DIR}/rules/commit-standards.md"
+    # Restore hooks.json backup if available
+    if [ -f "${CLAUDE_DIR}/hooks/hooks.json.bak" ]; then
+        mv "${CLAUDE_DIR}/hooks/hooks.json.bak" "${CLAUDE_DIR}/hooks/hooks.json"
+        info "Restored hooks.json from backup"
+    fi
+    # Copilot cleanup
+    local COPILOT_DIR="${HOME}/.copilot"
+    if [ -d "$COPILOT_DIR" ]; then
+        rm -rf "${COPILOT_DIR}/skills/agent-"*
+        rm -f "${COPILOT_DIR}/hooks/agent-"*.sh
+        rm -f "${COPILOT_DIR}/hooks/security-scan.sh"
+        if [ -f "${COPILOT_DIR}/hooks/hooks.json.bak" ]; then
+            mv "${COPILOT_DIR}/hooks/hooks.json.bak" "${COPILOT_DIR}/hooks/hooks.json"
+            info "Restored Copilot hooks.json from backup"
+        fi
+    fi
+    echo ""
+    echo "  ⚠️  Project-level .agents/ directories must be removed manually."
+    info "Uninstall complete. hooks.json and CLAUDE.md preserved (may contain other config)."
 }
 
 install() {

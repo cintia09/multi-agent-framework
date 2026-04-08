@@ -70,6 +70,27 @@ case "$TOOL_NAME" in
         ;;
     esac
     ;;
+  bash)
+    # Enforce bash command boundaries for non-implementer roles
+    BASH_CMD=$(echo "$TOOL_ARGS" | jq -r '.command // empty' 2>/dev/null)
+    [ -n "$BASH_CMD" ] || exit 0
+    case "$ACTIVE_AGENT" in
+      acceptor|designer)
+        # Read-only roles: block destructive commands
+        if echo "$BASH_CMD" | grep -qE '(^|\s)(rm|mv|cp|git\s+push|git\s+commit|npm\s+publish|docker\s+run|chmod|chown)\s'; then
+          echo "{\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"${ACTIVE_AGENT} cannot run write/destructive commands via bash.\"}"
+          exit 0
+        fi
+        ;;
+      reviewer)
+        # Reviewer: read + git diff/log allowed, no writes
+        if echo "$BASH_CMD" | grep -qE '(^|\s)(rm|mv|cp|git\s+push|git\s+commit|npm\s+publish|docker\s+run|chmod|chown)\s'; then
+          echo '{"permissionDecision":"deny","permissionDecisionReason":"🔍 Reviewer cannot run write/destructive commands via bash."}'
+          exit 0
+        fi
+        ;;
+    esac
+    ;;
 esac
 
 # Allow by default

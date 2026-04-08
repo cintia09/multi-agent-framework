@@ -261,9 +261,12 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
           OLD_STATUS=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .status' "$SNAPSHOT" 2>/dev/null || echo "")
 
           # Only trigger on actual transitions
-          if [ -n "$OLD_STATUS_SQL" ] && [ "$OLD_STATUS_SQL" != "$NEW_STATUS_SQL" ]; then
+          if [ -n "$OLD_STATUS" ] && [ "$OLD_STATUS" != "$NEW_STATUS" ]; then
+            TASK_ID_ESC=$(sql_escape "$TASK_ID")
+            OLD_STATUS_ESC=$(sql_escape "$OLD_STATUS")
+            NEW_STATUS_ESC=$(sql_escape "$NEW_STATUS")
             # Record memory_capture_needed event
-            sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'memory_capture_needed', '$ACTIVE_AGENT', '$TASK_ID_SQL', '{\"from_status\":\"$OLD_STATUS_SQL\",\"to_status\":\"$NEW_STATUS_SQL\"}');" 2>/dev/null || true
+            sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'memory_capture_needed', '$ACTIVE_AGENT', '$TASK_ID_ESC', '{\"from_status\":\"$OLD_STATUS_ESC\",\"to_status\":\"$NEW_STATUS_ESC\"}');" 2>/dev/null || true
 
             # Create memory directory if needed
             MEMORY_DIR="$AGENTS_DIR/memory"
@@ -283,7 +286,7 @@ MEMEOF
             echo "🧠 [Auto-Capture] Task $TASK_ID status changed: $OLD_STATUS → $NEW_STATUS. Please save memory snapshot to .agents/memory/${TASK_ID}-memory.json (summary, decisions, files_modified, handoff_notes)."
 
             # Trigger memory index rebuild on acceptance
-            if [ "$NEW_STATUS_SQL" = "accepted" ]; then
+            if [ "$NEW_STATUS" = "accepted" ]; then
               SCRIPT_PATH=""
               [ -f "$AGENTS_DIR/scripts/memory-index.sh" ] && SCRIPT_PATH="$AGENTS_DIR/scripts/memory-index.sh"
               [ -z "$SCRIPT_PATH" ] && [ -f "$CWD/scripts/memory-index.sh" ] && SCRIPT_PATH="$CWD/scripts/memory-index.sh"
