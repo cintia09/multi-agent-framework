@@ -61,7 +61,7 @@ bash ~/.claude/skills/agent-config/config.sh tools rm reviewer edit
 bash ~/.claude/skills/agent-config/config.sh tools reset reviewer
 ```
 
-### 推荐工具配置
+### 推荐工具配置（内置 agent 参考）
 
 | Agent | 推荐 tools 设置 | 说明 |
 |-------|-----------------|------|
@@ -70,6 +70,8 @@ bash ~/.claude/skills/agent-config/config.sh tools reset reviewer
 | implementer | (all) | 需要完整读写+执行能力 |
 | reviewer | read,search,grep,glob,view | 只读 — 审查不修改 |
 | tester | read,search,grep,glob,view,bash | 可读可执行测试，不直接编辑 src |
+
+> 自定义 agent 的工具配置由用户自行决定。使用 `config.sh tools set <agent> <tools>` 配置。
 
 ## 模型解析优先级
 
@@ -84,14 +86,21 @@ bash ~/.claude/skills/agent-config/config.sh tools reset reviewer
 
 当用户要求配置 agent 时:
 
-1. 运行 `config.sh list` 展示当前全部配置
-2. 询问用户要配置什么（模型/工具/两者都配）
-3. 询问目标 agent（或全部）
-4. 执行对应命令
-5. 再次 `config.sh list` 确认更改
+1. **先运行发现命令**获取实际 agent 列表:
+   ```bash
+   bash ~/.claude/skills/agent-config/config.sh list
+   ```
+   > ⚠️ 不要假设只有 5 个 agent。用户可能添加了自定义 agent（如 `security-auditor.agent.md`）。始终从 `config.sh list` 的输出中动态获取 agent 列表。
+
+2. 向用户展示 `config.sh list` 的**完整输出**（包括所有检测到的 agent）
+3. 询问用户要配置什么（模型/工具/两者都配）
+4. 询问目标 agent — **列出所有从 step 1 发现的 agent**，加上"全部"选项
+5. 执行对应命令
+6. 再次运行 `config.sh list` 确认更改
 
 ## 注意事项
 
+- Agent 列表是**动态发现**的 — config.sh 扫描所有平台目录中的 `*.agent.md` 文件
 - 所有更改同时应用到 `~/.claude/agents/` 和 `~/.copilot/agents/`
 - `model: ""` = 使用系统默认模型
 - `tools` 字段省略 = 不限制工具（agent 可使用所有工具）
