@@ -78,7 +78,8 @@ case "$TOOL_NAME" in
       acceptor|designer)
         # Read-only roles: block destructive commands
         if echo "$BASH_CMD" | grep -qE '(^|\s)(rm|mv|cp|git\s+push|git\s+commit|npm\s+publish|docker\s+run|chmod|chown)\s'; then
-          echo "{\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"${ACTIVE_AGENT} cannot run write/destructive commands via bash.\"}"
+          AGENT_JSON_ESC=$(echo "$ACTIVE_AGENT" | sed 's/"/\\"/g')
+          echo "{\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"${AGENT_JSON_ESC} cannot run write/destructive commands via bash.\"}"
           exit 0
         fi
         ;;

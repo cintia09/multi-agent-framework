@@ -70,8 +70,11 @@ get_field() {
 set_field() {
     local file="$1" field="$2" value="$3"
     [ ! -f "$file" ] && return 1
+    local field_esc value_esc
+    field_esc=$(printf '%s\n' "$field" | sed 's/[&/\|]/\\&/g')
+    value_esc=$(printf '%s\n' "$value" | sed 's/[&/\|]/\\&/g')
     if grep -q "^${field}:" "$file"; then
-        _sed_i "s|^${field}:.*|${field}: \"${value}\"|" "$file"
+        _sed_i "s|^${field_esc}:.*|${field_esc}: \"${value_esc}\"|" "$file"
     else
         _sed_i "/^description:/a\\
 ${field}: \"${value}\"" "$file"

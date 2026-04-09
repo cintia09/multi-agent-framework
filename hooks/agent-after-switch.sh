@@ -31,12 +31,12 @@ DOC_MSG=""
 if [ -f "$AGENTS_DIR/task-board.json" ]; then
   # Find current task for this agent
   CURRENT_TASK=$(jq -r --arg agent "$AGENT" \
-    '[.tasks[] | select(.assigned_to == $agent and .status != "accepted" and .status != "blocked")] | first | .id // empty' \
+    '[.tasks[] | select((.assigned_to // "") == $agent and .status != "accepted" and .status != "blocked")] | .[0] | .id // empty' \
     "$AGENTS_DIR/task-board.json" 2>/dev/null)
   if [ -n "$CURRENT_TASK" ]; then
     DOCS_DIR="$AGENTS_DIR/docs/$CURRENT_TASK"
     if [ -d "$DOCS_DIR" ]; then
-      DOC_LIST=$(ls "$DOCS_DIR"/*.md 2>/dev/null | xargs -I{} basename {} | tr '\n' ', ' | sed 's/,$//')
+      DOC_LIST=$(find "$DOCS_DIR" -maxdepth 1 -name "*.md" -type f -exec basename {} \; 2>/dev/null | sort | tr '\n' ',' | sed 's/,$//')
       [ -n "$DOC_LIST" ] && DOC_MSG="📄 Task ${CURRENT_TASK} docs: ${DOC_LIST}. Read input docs before starting."
     fi
   fi

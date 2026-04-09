@@ -42,10 +42,15 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
   if [[ "$FILE_PATH" =~ task-board\.json ]]; then
     sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, detail) VALUES ($TIMESTAMP, 'task_board_write', '$ACTIVE_AGENT', '{\"tool\":\"$TOOL_NAME_ESC\"}');"
 
-    # Cache file content to avoid repeated disk reads
+    # Cache file content with validation to avoid processing corrupted JSON
     TASK_BOARD_CACHE=""
     if [ -f "$AGENTS_DIR/task-board.json" ]; then
-      TASK_BOARD_CACHE=$(cat "$AGENTS_DIR/task-board.json" 2>/dev/null || echo '{"tasks":[]}')
+      if jq empty "$AGENTS_DIR/task-board.json" 2>/dev/null; then
+        TASK_BOARD_CACHE=$(cat "$AGENTS_DIR/task-board.json")
+      else
+        echo "⚠️ [ERROR] task-board.json is corrupted, skipping FSM checks" >&2
+        TASK_BOARD_CACHE='{"tasks":[]}'
+      fi
     fi
 
     # Source and run modules

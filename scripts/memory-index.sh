@@ -31,7 +31,8 @@ SQL
 find "$AGENTS_DIR/memory" -name "*.md" -type f | while read -r file; do
   # Check if file changed since last index
   current_checksum=$(md5 -q "$file" 2>/dev/null || md5sum "$file" | cut -d' ' -f1)
-  stored_checksum=$(sqlite3 "$INDEX_DB" "SELECT checksum FROM memory_meta WHERE file_path='$file'" 2>/dev/null)
+  file_esc=$(echo "$file" | sed "s/'/''/g")
+  stored_checksum=$(sqlite3 "$INDEX_DB" "SELECT checksum FROM memory_meta WHERE file_path='$file_esc'" 2>/dev/null)
 
   if [ "$current_checksum" = "$stored_checksum" ] && [ "${1:-}" != "--force" ]; then
     continue
@@ -54,15 +55,16 @@ find "$AGENTS_DIR/memory" -name "*.md" -type f | while read -r file; do
   esac
 
   # Use a single transaction for atomicity and performance
-  SQL_BATCH="BEGIN TRANSACTION; DELETE FROM memory_fts WHERE file_path='$file';"
+  SQL_BATCH="BEGIN TRANSACTION; DELETE FROM memory_fts WHERE file_path='$file_esc';"
   line_num=0
   while IFS= read -r line; do
     line_num=$((line_num + 1))
     [ -z "$line" ] && continue
     escaped=$(echo "$line" | sed "s/'/''/g")
-    SQL_BATCH="$SQL_BATCH INSERT INTO memory_fts(file_path, line_number, content, role, layer) VALUES('$file', $line_num, '$escaped', '$role', '$layer');"
+    SQL_BATCH="$SQL_BATCH INSERT INTO memory_fts(file_path, line_number, content, role, layer) VALUES('$file_esc', $line_num, '$escaped', '$role', '$layer');"
   done < "$file"
-  SQL_BATCH="$SQL_BATCH INSERT OR REPLACE INTO memory_meta(file_path, last_indexed, checksum) VALUES('$file', datetime('now'), '$current_checksum'); COMMIT;"
+  checksum_esc=$(echo "$current_checksum" | sed "s/'/''/g")
+  SQL_BATCH="$SQL_BATCH INSERT OR REPLACE INTO memory_meta(file_path, last_indexed, checksum) VALUES('$file_esc', datetime('now'), '$checksum_esc'); COMMIT;"
 
   if ! sqlite3 "$INDEX_DB" "$SQL_BATCH" 2>/dev/null; then
     echo "Warning: Failed to index $file" >&2

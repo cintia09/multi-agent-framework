@@ -9,7 +9,9 @@ PAYLOAD="${2:-{}}"
 
 log_event() {
   if [ -f ".agents/events.db" ]; then
-    sqlite3 .agents/events.db "INSERT INTO events(timestamp,event_type,detail) VALUES(strftime('%s','now'),'webhook','$1')"
+    local detail_esc
+    detail_esc=$(echo "$1" | sed "s/'/''/g")
+    sqlite3 .agents/events.db "INSERT INTO events(timestamp,event_type,detail) VALUES(strftime('%s','now'),'webhook','$detail_esc')"
   fi
 }
 

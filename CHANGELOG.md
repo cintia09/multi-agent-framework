@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.21] - 2026-04-09
+
+### 🔒 Security Audit Round 3 (12 issues fixed)
+
+**HIGH — SQL Injection:**
+- `webhook-handler.sh`: escape PAYLOAD before SQL insertion
+- `memory-index.sh`: escape file paths and checksum in all SQL queries
+
+**MEDIUM — Security & Correctness:**
+- `auto-dispatch.sh`: escape ACTIVE_AGENT in SQL JSON detail
+- `memory-capture.sh` + `fsm-validate.sh`: fix `||`/`&&` operator precedence bug (guard clause now uses explicit `if/fi`)
+- `agent-after-switch.sh`: replace jq `first` (1.6+) with `.[0]` for older jq compat; add null-safety for `.assigned_to`
+- `agent-post-tool-use.sh`: validate task-board.json with `jq empty` before processing
+- `auto-dispatch.sh`: fail-safe lock timeout (skip instead of proceeding unprotected)
+- `config.sh`: escape special chars in sed replacement patterns
+
+**LOW — Hardening:**
+- `agent-pre-tool-use.sh`: escape agent name in JSON error output
+- `agent-after-switch.sh`: replace unsafe `ls *.md` with `find -name "*.md"`
+
 ## [3.0.20] - 2026-04-09
 
 ### ⚡ Performance Optimization

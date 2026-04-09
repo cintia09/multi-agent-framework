@@ -3,7 +3,9 @@
 # Sourced by agent-post-tool-use.sh. Expects: TASK_BOARD_CACHE, SNAPSHOT, AGENTS_DIR, ACTIVE_AGENT, TIMESTAMP, EVENTS_DB, CWD, sql_escape()
 
 run_memory_capture() {
-  [ -z "$TASK_BOARD_CACHE" ] || [ ! -f "$SNAPSHOT" ] && return 0
+  if [ -z "$TASK_BOARD_CACHE" ] || [ ! -f "$SNAPSHOT" ]; then
+    return 0
+  fi
 
   # Pre-load old statuses from snapshot (1 jq call)
   local SNAPSHOT_STATUSES

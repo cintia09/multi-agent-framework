@@ -54,7 +54,10 @@ run_auto_dispatch() {
     while ! mkdir "$LOCK_DIR" 2>/dev/null; do
       sleep 0.1
       LOCK_WAIT=$((LOCK_WAIT + 1))
-      [ "$LOCK_WAIT" -ge 50 ] && break
+      if [ "$LOCK_WAIT" -ge 50 ]; then
+        echo "⚠️ [Auto-Dispatch] Lock timeout for $TARGET inbox, skipping" >&2
+        continue 2
+      fi
     done
     if jq --arg id "$MSG_ID" --arg from "$ACTIVE_AGENT" --arg to "$TARGET" \
        --arg tid "$TASK_ID" --arg status "$STATUS" --arg title "$TITLE" \
@@ -70,6 +73,7 @@ run_auto_dispatch() {
     TARGET_ESC=$(sql_escape "$TARGET")
     TASK_ID_ESC=$(sql_escape "$TASK_ID")
     STATUS_ESC=$(sql_escape "$STATUS")
-    sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'auto_dispatch', '$TARGET_ESC', '$TASK_ID_ESC', '{\"from_status\":\"$STATUS_ESC\",\"from_agent\":\"$ACTIVE_AGENT\"}');" 2>/dev/null || true
+    ACTIVE_AGENT_ESC=$(sql_escape "$ACTIVE_AGENT")
+    sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'auto_dispatch', '$TARGET_ESC', '$TASK_ID_ESC', '{\"from_status\":\"$STATUS_ESC\",\"from_agent\":\"$ACTIVE_AGENT_ESC\"}');" 2>/dev/null || true
   done < <(echo "$TASK_BOARD_CACHE" | jq -r '.tasks[] | "\(.id)|\(.status)|\(.title // "")"' 2>/dev/null)
 }
