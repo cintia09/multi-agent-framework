@@ -70,11 +70,14 @@ for j in jobs['jobs']:
     elif action == 'index-memory':
         subprocess.run(['bash', f'{project_dir}/scripts/memory-index.sh'], capture_output=True)
     elif action == 'generate-report':
-        board = json.load(open('.agents/task-board.json'))
-        total = len(board['tasks'])
-        accepted = sum(1 for t in board['tasks'] if t['status'] == 'accepted')
-        implementing = sum(1 for t in board['tasks'] if t['status'] == 'implementing')
-        print(f'📊 Daily Report: {accepted}/{total} accepted, {implementing} in progress')
+        import pathlib
+        tb_path = pathlib.Path(project_dir) / '.agents' / 'task-board.json'
+        if tb_path.exists():
+            board = json.load(open(tb_path))
+            total = len(board['tasks'])
+            accepted = sum(1 for t in board['tasks'] if t['status'] == 'accepted')
+            implementing = sum(1 for t in board['tasks'] if t['status'] == 'implementing')
+            print(f'📊 Daily Report: {accepted}/{total} accepted, {implementing} in progress')
 "
     ;;
   *)

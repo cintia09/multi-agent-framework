@@ -189,6 +189,7 @@ LEGAL_TRANSITIONS=(
   "tdd_design:dfmea"
   "dfmea:design_review"
   "design_review:implementing"
+  "design_review:test_scripting"
   "design_review:architecture"
   "implementing:code_reviewing"
   "implementing:ci_monitoring"

@@ -157,6 +157,7 @@ architecture    → tdd_design                (architecture complete)
 tdd_design      → dfmea                     (TDD plan + test strategy ready)
 dfmea           → design_review             (DFMEA complete)
 design_review   → implementing              (design review PASS → Phase 2)
+design_review   → test_scripting            (design review PASS → start test scripting)
 design_review   → architecture              (design review FAIL → rework)
 ```
 

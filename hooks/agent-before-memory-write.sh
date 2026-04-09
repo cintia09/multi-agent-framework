@@ -11,6 +11,13 @@ if [ -z "$CONTENT" ]; then
 fi
 
 case "$FILE_PATH" in
-  .agents/memory/*) echo '{"allow": true}' ;;
+  .agents/memory/*)
+    # Block path traversal
+    if echo "$FILE_PATH" | grep -qF '..'; then
+      echo '{"block": true, "reason": "Path traversal not allowed in memory path"}'
+    else
+      echo '{"allow": true}'
+    fi
+    ;;
   *) echo '{"block": true, "reason": "Memory must be written to .agents/memory/"}' ;;
 esac

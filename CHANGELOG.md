@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.2] - 2026-04-09
+
+### 🔒 Security Audit Round 7 (10 issues fixed)
+
+**HIGH:**
+- `agent-before-memory-write.sh`: Block path traversal (`..`) in memory file paths
+
+**MEDIUM:**
+- `agent-before-compaction.sh`: Validate agent name against `[a-z_-]+` allowlist
+- `agent-fsm/SKILL.md`: Document `design_review→test_scripting` transition (was in code but not docs)
+- `test-integration.sh`: Fix hypothesis test field name `.path` (was `.file_path`, test was vacuous)
+- `cron-scheduler.sh`: Use `project_dir` for task-board path in generate-report
+- `team-session.sh`: Escape `PROJECT_DIR` in dashboard pane tmux command
+
+**LOW:**
+- `test-3phase-fsm.sh`: Add `design_review:test_scripting` to legal transitions test array
+- `agent-pre-tool-use.sh`: Add tester bash restrictions (block git push, npm publish, docker run)
+- `install.sh`: Narrow chmod +x to `agent-*.sh` + `security-scan.sh` only
+
 ## [3.1.1] - 2026-04-09
 
 ### 🔒 Security Audit Round 6 (16 issues fixed)

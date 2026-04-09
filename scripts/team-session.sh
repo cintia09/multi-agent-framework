@@ -66,7 +66,8 @@ for ((i=1; i<AGENT_COUNT; i++)); do
 done
 
 # Add dashboard pane
-DASHBOARD_CMD="cd '$PROJECT_DIR' && watch -n 10 'bash \"$SCRIPT_DIR/team-dashboard.sh\" 2>/dev/null || echo \"Dashboard loading...\"'"
+SAFE_SCRIPT_DIR=$(printf '%s' "$SCRIPT_DIR" | sed "s/'/'\\\\''/g")
+DASHBOARD_CMD="cd '${SAFE_PROJECT}' && watch -n 10 'bash \"${SAFE_SCRIPT_DIR}/team-dashboard.sh\" 2>/dev/null || echo \"Dashboard loading...\"'"
 tmux split-window -t "$SESSION_NAME" -l 8 "$DASHBOARD_CMD"
 
 # Final layout

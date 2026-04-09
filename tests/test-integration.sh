@@ -153,7 +153,7 @@ check "Staleness-check: runs without error (exit 0)" "$([ $? -eq 0 ] && echo pas
 # === Test 22: Hypothesis transition (designing→hypothesizing) is legal ===
 jq '.tasks[0].status = "hypothesizing"' "$TEST_DIR/.agents/task-board.json" > "$TEST_DIR/.agents/task-board-hyp.json" && mv "$TEST_DIR/.agents/task-board-hyp.json" "$TEST_DIR/.agents/task-board.json"
 echo "designer" > "$TEST_DIR/.agents/runtime/active-agent"
-HYP_OUTPUT=$(echo '{"toolName":"edit","toolArgs":"{\"file_path\":\"'"$TEST_DIR"'/.agents/task-board.json\"}","toolResult":{"resultType":"success"},"cwd":"'"$TEST_DIR"'","timestamp":"1744200600"}' \
+HYP_OUTPUT=$(echo '{"toolName":"edit","toolArgs":"{\"path\":\"'"$TEST_DIR"'/.agents/task-board.json\"}","toolResult":{"resultType":"success"},"cwd":"'"$TEST_DIR"'","timestamp":"1744200600"}' \
   | bash "$HOOK_DIR/agent-post-tool-use.sh" 2>&1)
 HYP_VIOLATION=$(echo "$HYP_OUTPUT" | grep -c "ILLEGAL" || true)
 check "Hypothesis: designing→hypothesizing is LEGAL" "$([ "$HYP_VIOLATION" -eq 0 ] && echo pass || echo fail)"

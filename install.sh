@@ -4,7 +4,7 @@ set -euo pipefail
 # Multi-Agent Framework Installer
 # Usage: curl -sL https://raw.githubusercontent.com/cintia09/multi-agent-framework/main/install.sh | bash
 
-VERSION="3.1.1"
+VERSION="3.1.2"
 REPO="https://github.com/cintia09/multi-agent-framework.git"
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/multi-agent-framework.XXXXXX")
 CLAUDE_DIR="${HOME}/.claude"
@@ -241,7 +241,7 @@ install() {
             cp "${TMP_DIR}/hooks/"*.sh "${COPILOT_DIR}/hooks/"
             mkdir -p "${COPILOT_DIR}/hooks/lib"
             cp "${TMP_DIR}/hooks/lib/"*.sh "${COPILOT_DIR}/hooks/lib/"
-            chmod +x "${COPILOT_DIR}/hooks/"*.sh
+            chmod +x "${COPILOT_DIR}/hooks/agent-"*.sh "${COPILOT_DIR}/hooks/security-scan.sh" 2>/dev/null || true
             if [ -f "${COPILOT_DIR}/hooks/hooks.json" ]; then
                 cp "${COPILOT_DIR}/hooks/hooks.json" "${COPILOT_DIR}/hooks/hooks.json.bak"
                 info "Backed up existing Copilot hooks.json → hooks.json.bak"

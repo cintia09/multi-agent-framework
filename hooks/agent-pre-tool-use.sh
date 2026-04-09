@@ -90,6 +90,13 @@ case "$TOOL_NAME" in
           exit 0
         fi
         ;;
+      tester)
+        # Tester: can run tests, but not publish/deploy
+        if echo "$BASH_CMD" | grep -qE '(^|\s)(git\s+push|npm\s+publish|docker\s+run)(\s|$)'; then
+          echo '{"permissionDecision":"deny","permissionDecisionReason":"🧪 Tester cannot run publish/deploy commands. Use test runners only."}'
+          exit 0
+        fi
+        ;;
     esac
     ;;
 esac
