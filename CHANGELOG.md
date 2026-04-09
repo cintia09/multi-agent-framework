@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.19] - 2026-04-09
+
+### 🔧 Hook Modularization
+
+Split the 364-line `agent-post-tool-use.sh` monolith into a clean 79-line main hook + 3 focused modules:
+
+- `hooks/lib/auto-dispatch.sh` (75 lines) — message routing on status change
+- `hooks/lib/fsm-validate.sh` (171 lines) — FSM transitions, goal guard, doc gate, feedback limit
+- `hooks/lib/memory-capture.sh` (49 lines) — status transition detection + memory init
+
+### 🧪 Integration Tests
+
+- New `tests/test-integration.sh` with 12 actual hook execution tests
+- Covers: tool logging, auto-dispatch, FSM violation, doc gate, memory capture, after-switch, compaction, security scan, before-task-create, events DB
+- Added to `tests/run-all.sh` — full suite now 5/5
+
+### 📄 Other
+
+- `agent-init` skill now auto-creates `.agents/docs/` directory
+- README: added document pipeline section with flow diagram
+
 ## [3.0.18] - 2026-04-09
 
 ### 📄 New Feature: Document Pipeline (`agent-docs` skill)

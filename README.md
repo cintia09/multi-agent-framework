@@ -93,6 +93,28 @@ accepting → accept_fail → designing (验收失败，重新设计)
 
 任何任务都可以转为 `blocked` 状态（需要人工介入），通过 `unblock` 解除。
 
+## 文档流水线
+
+每个阶段产出标准化文档，作为下一阶段的输入。文档存放在 `.agents/docs/T-XXX/`：
+
+```
+Acceptor ──→ requirements.md + acceptance-criteria.md
+               ↓
+Designer ──→ design.md
+               ↓
+Implementer → implementation.md
+               ↓
+Reviewer ──→ review-report.md
+               ↓
+Tester ────→ test-report.md
+               ↓
+Acceptor ──→ 基于 acceptance-criteria.md 验收
+```
+
+- **⚠️ 文档门禁**: FSM 状态转换时自动检查输出文档是否存在
+- **📄 自动提示**: 切换 Agent 时列出当前任务可用的输入文档
+- **📋 标准模板**: `agent-docs` skill 提供 6 种文档模板
+
 ## 工作流模式
 
 ### Simple 模式（默认）

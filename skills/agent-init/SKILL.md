@@ -67,7 +67,7 @@ for f in agent-acceptor agent-designer agent-implementer agent-reviewer agent-te
 ### 2. 创建目录结构
 ```bash
 mkdir -p .agents/skills/project-{agents-context,acceptor,designer,implementer,reviewer,tester}
-mkdir -p .agents/tasks .agents/memory
+mkdir -p .agents/tasks .agents/memory .agents/docs
 mkdir -p .agents/runtime/{acceptor,designer,implementer,reviewer,tester}/workspace
 mkdir -p .agents/runtime/designer/workspace/{research,design-docs,test-specs}
 mkdir -p .agents/runtime/acceptor/workspace/{requirements,acceptance-docs,acceptance-reports}

@@ -4,7 +4,7 @@ set -euo pipefail
 # Multi-Agent Framework Installer
 # Usage: curl -sL https://raw.githubusercontent.com/cintia09/multi-agent-framework/main/install.sh | bash
 
-VERSION="3.0.18"
+VERSION="3.0.19"
 REPO="https://github.com/cintia09/multi-agent-framework.git"
 TMP_DIR="/tmp/multi-agent-framework"
 CLAUDE_DIR="${HOME}/.claude"
