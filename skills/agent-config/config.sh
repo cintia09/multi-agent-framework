@@ -18,7 +18,7 @@ set -euo pipefail
 #   config.sh tools reset <agent>            — Remove tools restriction (all tools)
 #   config.sh platforms                      — Show detected platforms
 
-AGENTS=(acceptor designer implementer reviewer tester)
+BUILTIN_AGENTS=(acceptor designer implementer reviewer tester)
 
 # ── Platform Detection ──────────────────────────────────────────
 detect_dirs() {
@@ -28,6 +28,26 @@ detect_dirs() {
     [ -d ".agents" ] && dirs+=(".agents")
     [ -d ".github/agents" ] && dirs+=(".github/agents")
     echo "${dirs[@]}"
+}
+
+# Discover all unique agent names across all platforms
+discover_agents() {
+    local dirs agents_seen=()
+    read -ra dirs <<< "$(detect_dirs)"
+    for dir in "${dirs[@]}"; do
+        for f in "${dir}/"*.agent.md; do
+            [ -f "$f" ] || continue
+            local name
+            name=$(basename "$f" .agent.md)
+            # Deduplicate
+            local found=false
+            for seen in "${agents_seen[@]+"${agents_seen[@]}"}"; do
+                [ "$seen" = "$name" ] && found=true && break
+            done
+            [ "$found" = false ] && agents_seen+=("$name")
+        done
+    done
+    echo "${agents_seen[@]+"${agents_seen[@]}"}"
 }
 
 # ── YAML Field Read/Write ──────────────────────────────────────
@@ -85,11 +105,13 @@ tools: ${yaml_array}" "$file"
 # ── Validation ──────────────────────────────────────────────────
 validate_agent() {
     local agent="$1"
-    for a in "${AGENTS[@]}"; do
+    local all_agents
+    read -ra all_agents <<< "$(discover_agents)"
+    for a in "${all_agents[@]+"${all_agents[@]}"}"; do
         [ "$a" = "$agent" ] && return 0
     done
     echo "❌ Unknown agent: ${agent}"
-    echo "   Valid agents: ${AGENTS[*]}"
+    echo "   Detected agents: ${all_agents[*]+"${all_agents[*]}"}"
     exit 1
 }
 
@@ -97,18 +119,19 @@ validate_agent() {
 cmd_list() {
     echo "📋 Agent Configuration"
     echo ""
-    local dirs
+    local dirs all_agents
     read -ra dirs <<< "$(detect_dirs)"
+    read -ra all_agents <<< "$(discover_agents)"
     for dir in "${dirs[@]}"; do
         echo "  📁 ${dir}:"
-        for agent in "${AGENTS[@]}"; do
+        for agent in "${all_agents[@]+"${all_agents[@]}"}"; do
             local file="${dir}/${agent}.agent.md"
             if [ -f "$file" ]; then
                 local model hint tools
                 model=$(get_field "$file" "model")
                 hint=$(get_field "$file" "model_hint")
                 tools=$(get_tools "$file")
-                printf "    %-14s" "$agent"
+                printf "    %-20s" "$agent"
                 if [ -n "$model" ]; then
                     printf "model=%-20s" "$model"
                 else
@@ -168,15 +191,19 @@ cmd_model_reset() {
 
 cmd_model_set_all() {
     local model="$1"
+    local all_agents
+    read -ra all_agents <<< "$(discover_agents)"
     echo "Setting all agents model → ${model}"
-    for agent in "${AGENTS[@]}"; do
+    for agent in "${all_agents[@]+"${all_agents[@]}"}"; do
         cmd_model_set "$agent" "$model"
     done
 }
 
 cmd_model_reset_all() {
+    local all_agents
+    read -ra all_agents <<< "$(discover_agents)"
     echo "Resetting all agents to system default model"
-    for agent in "${AGENTS[@]}"; do
+    for agent in "${all_agents[@]+"${all_agents[@]}"}"; do
         cmd_model_set "$agent" ""
     done
 }
@@ -278,7 +305,9 @@ cmd_platforms() {
 }
 
 show_help() {
-    cat <<'EOF'
+    local all_agents
+    read -ra all_agents <<< "$(discover_agents)"
+    cat <<EOF
 Agent Configuration Helper — Multi-Agent Framework
 
 OVERVIEW:
@@ -305,7 +334,7 @@ BACKWARD COMPAT:
   config.sh set-all <model>                Alias for: model set-all
   config.sh reset-all                      Alias for: model reset-all
 
-Agents: acceptor designer implementer reviewer tester
+Detected agents: ${all_agents[*]+"${all_agents[*]}"}
 Changes apply to ALL detected platforms simultaneously.
 EOF
 }
