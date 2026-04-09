@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.16] - 2026-04-09
+
+### 🐛 Critical Bug Fixes (Security & Reliability Audit)
+- **TIMESTAMP SQL injection** — validate timestamp is numeric before SQL insertion
+- **Pipe subshell variable loss** — convert `| while` to `while ... done < <(...)` in agent-post-tool-use.sh and agent-staleness-check.sh; staleness detection was completely broken
+- **macOS file locking** — replace Linux-only `flock` with portable `mkdir`-based atomic lock
+- **JSON null validation** — guard TASK_ID/NEW_STATUS against null/empty before FSM processing
+- **TOOL_ARGS truncation order** — truncate before SQL escaping (not after) to prevent broken escape sequences
+- **CWD initialization** — add INPUT/CWD extraction to 5 hooks missing it (after-memory-write, after-task-status, before-compaction, on-goal-verified, after-switch)
+
 ## [3.0.15] - 2026-04-09
 
 ### ✨ New Skill: agent-config

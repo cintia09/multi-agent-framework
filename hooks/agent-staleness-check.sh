@@ -39,8 +39,7 @@ done
 
 # Check task staleness
 if [ -f "$AGENTS_DIR/task-board.json" ]; then
-  jq -r '.tasks[] | select(.status != "accepted" and .status != "blocked") | "\(.id)|\(.status)|\(.updated_at // .created_at)|\(.title)"' \
-    "$AGENTS_DIR/task-board.json" 2>/dev/null | while IFS='|' read -r TID TSTATUS TUPDATED TTITLE; do
+  while IFS='|' read -r TID TSTATUS TUPDATED TTITLE; do
     [ -z "$TUPDATED" ] || [ "$TUPDATED" = "null" ] && continue
 
     TASK_SEC=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$TUPDATED" +%s 2>/dev/null || \
@@ -53,15 +52,15 @@ if [ -f "$AGENTS_DIR/task-board.json" ]; then
       echo "⚠️  Task $TID ($TSTATUS): no activity for ${HOURS}h — $TTITLE"
       FOUND_STALE=1
     fi
-  done
+  done < <(jq -r '.tasks[] | select(.status != "accepted" and .status != "blocked") | "\(.id)|\(.status)|\(.updated_at // .created_at)|\(.title)"' \
+    "$AGENTS_DIR/task-board.json" 2>/dev/null)
 fi
 
 # Check for orphan blocked tasks (blocked > 48h with no activity)
 ORPHAN_HOURS=48
 ORPHAN_SEC=$((ORPHAN_HOURS * 3600))
 if [ -f "$AGENTS_DIR/task-board.json" ]; then
-  jq -r '.tasks[] | select(.status == "blocked") | "\(.id)|\(.updated_at // .created_at)|\(.title)"' \
-    "$AGENTS_DIR/task-board.json" 2>/dev/null | while IFS='|' read -r TID TUPDATED TTITLE; do
+  while IFS='|' read -r TID TUPDATED TTITLE; do
     [ -z "$TUPDATED" ] || [ "$TUPDATED" = "null" ] && continue
     TASK_SEC=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$TUPDATED" +%s 2>/dev/null || \
                date -d "$TUPDATED" +%s 2>/dev/null || \
@@ -72,7 +71,8 @@ if [ -f "$AGENTS_DIR/task-board.json" ]; then
       echo "🔴 Orphan task $TID: blocked for ${DAYS}d with no activity — $TTITLE"
       FOUND_STALE=1
     fi
-  done
+  done < <(jq -r '.tasks[] | select(.status == "blocked") | "\(.id)|\(.updated_at // .created_at)|\(.title)"' \
+    "$AGENTS_DIR/task-board.json" 2>/dev/null)
 fi
 
 exit 0

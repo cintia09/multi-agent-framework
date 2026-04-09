@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # Before context compaction: flush current session memories
-AGENTS_DIR="${CWD:-.}/.agents"
+INPUT=$(cat)
+CWD=$(echo "$INPUT" | jq -r '.cwd // "."')
+AGENTS_DIR="$CWD/.agents"
 
 AGENT=$(cat "$AGENTS_DIR/runtime/active-agent" 2>/dev/null || echo "unknown")
 DATE=$(date +%Y-%m-%d)

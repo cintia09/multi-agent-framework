@@ -3,7 +3,8 @@ set -euo pipefail
 # Post-switch actions: log event, inject role context, suggest model
 INPUT=$(cat)
 AGENT=$(echo "$INPUT" | jq -r '.agent // ""')
-AGENTS_DIR="${CWD:-.}/.agents"
+CWD=$(echo "$INPUT" | jq -r '.cwd // "."')
+AGENTS_DIR="$CWD/.agents"
 
 sql_escape() { echo "$1" | sed "s/'/''/g"; }
 

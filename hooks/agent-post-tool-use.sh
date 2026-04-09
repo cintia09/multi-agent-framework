@@ -9,7 +9,9 @@ TOOL_NAME=$(echo "$INPUT" | jq -r '.toolName')
 TOOL_ARGS=$(echo "$INPUT" | jq -r '.toolArgs')
 RESULT_TYPE=$(echo "$INPUT" | jq -r '.toolResult.resultType')
 CWD=$(echo "$INPUT" | jq -r '.cwd')
-TIMESTAMP=$(echo "$INPUT" | jq -r '.timestamp')
+# Validate TIMESTAMP is numeric to prevent SQL injection
+TIMESTAMP_RAW=$(echo "$INPUT" | jq -r '.timestamp')
+TIMESTAMP=$(echo "$TIMESTAMP_RAW" | grep -oE '^[0-9]+$' || date +%s)
 
 AGENTS_DIR="$CWD/.agents"
 EVENTS_DB="$AGENTS_DIR/events.db"
@@ -29,7 +31,7 @@ ACTIVE_FILE="$AGENTS_DIR/runtime/active-agent"
 # Escape all input variables
 TOOL_NAME_ESC=$(sql_escape "$TOOL_NAME")
 RESULT_TYPE_ESC=$(sql_escape "$RESULT_TYPE")
-TOOL_ARGS_ESC=$(echo "$TOOL_ARGS" | sed "s/'/''/g" | head -c 500)
+TOOL_ARGS_ESC=$(echo "$TOOL_ARGS" | head -c 500 | sed "s/'/''/g")
 
 # Log every tool use to events.db
 sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, tool_name, detail) VALUES ($TIMESTAMP, 'tool_use', '$ACTIVE_AGENT', '$TOOL_NAME_ESC', '{\"result\":\"$RESULT_TYPE_ESC\",\"args\":\"$TOOL_ARGS_ESC\"}');"
@@ -49,7 +51,7 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
     fi
 
     if [ -n "$TASK_BOARD_CACHE" ]; then
-      echo "$TASK_BOARD_CACHE" | jq -r '.tasks[] | "\(.id)|\(.status)|\(.title // "")"' 2>/dev/null | while IFS='|' read -r TASK_ID STATUS TITLE; do
+      while IFS='|' read -r TASK_ID STATUS TITLE; do
 
         # Map status to target agent (dispatch on all FSM "arrival" statuses)
         case "$STATUS" in
@@ -95,32 +97,36 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
         MSG_ID="MSG-auto-${TASK_ID}-${STATUS}"
         NOW_ISO=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-        # Atomic write with file locking (flock: Linux; graceful no-op on macOS via || true)
-        (
-          flock -x -w 5 200 2>/dev/null || true
-          jq --arg id "$MSG_ID" --arg from "$ACTIVE_AGENT" --arg to "$TARGET" \
-             --arg tid "$TASK_ID" --arg status "$STATUS" --arg title "$TITLE" \
-             --arg ts "$NOW_ISO" \
-             '.messages += [{"id":$id,"from":$from,"to":$to,"type":"task_update","task_id":$tid,"content":"Task \($tid) [\($title)] status changed to \($status). Please process.","timestamp":$ts,"read":false}]' \
-             "$TARGET_INBOX" > "${TARGET_INBOX}.tmp" && mv "${TARGET_INBOX}.tmp" "$TARGET_INBOX"
-        ) 200>"${TARGET_INBOX}.lock"
+        # Atomic write with portable directory-based locking (works on macOS + Linux)
+        LOCK_DIR="${TARGET_INBOX}.lock"
+        LOCK_WAIT=0
+        while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+          sleep 0.1
+          LOCK_WAIT=$((LOCK_WAIT + 1))
+          [ "$LOCK_WAIT" -ge 50 ] && break  # 5 second timeout
+        done
+        jq --arg id "$MSG_ID" --arg from "$ACTIVE_AGENT" --arg to "$TARGET" \
+           --arg tid "$TASK_ID" --arg status "$STATUS" --arg title "$TITLE" \
+           --arg ts "$NOW_ISO" \
+           '.messages += [{"id":$id,"from":$from,"to":$to,"type":"task_update","task_id":$tid,"content":"Task \($tid) [\($title)] status changed to \($status). Please process.","timestamp":$ts,"read":false}]' \
+           "$TARGET_INBOX" > "${TARGET_INBOX}.tmp" && mv "${TARGET_INBOX}.tmp" "$TARGET_INBOX"
+        rmdir "$LOCK_DIR" 2>/dev/null || true
 
         TARGET_ESC=$(sql_escape "$TARGET")
         TASK_ID_ESC=$(sql_escape "$TASK_ID")
         STATUS_ESC=$(sql_escape "$STATUS")
         sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'auto_dispatch', '$TARGET_ESC', '$TASK_ID_ESC', '{\"from_status\":\"$STATUS_ESC\",\"from_agent\":\"$ACTIVE_AGENT\"}');" 2>/dev/null || true
-      done
+      done < <(echo "$TASK_BOARD_CACHE" | jq -r '.tasks[] | "\(.id)|\(.status)|\(.title // "")"' 2>/dev/null)
     fi
 
     # === FSM Transition Validation ===
     # Validate that status changes follow legal FSM transitions
     if [ -n "$TASK_BOARD_CACHE" ] && [ -f "$SNAPSHOT" ]; then
       echo "$TASK_BOARD_CACHE" | jq -c '.tasks[]' 2>/dev/null | while read -r TASK; do
-        TASK_ID=$(echo "$TASK" | jq -r '.id')
-        NEW_STATUS=$(echo "$TASK" | jq -r '.status')
+        TASK_ID=$(echo "$TASK" | jq -r '.id // empty')
+        NEW_STATUS=$(echo "$TASK" | jq -r '.status // empty')
+        [ -z "$TASK_ID" ] || [ -z "$NEW_STATUS" ] && continue
         OLD_STATUS=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .status' "$SNAPSHOT" 2>/dev/null || echo "")
-
-        [ -z "$OLD_STATUS" ] && continue
         [ "$OLD_STATUS" = "$NEW_STATUS" ] && continue
 
         # SQL-safe versions for event logging
@@ -261,9 +267,10 @@ if [ "$TOOL_NAME" = "edit" ] || [ "$TOOL_NAME" = "create" ]; then
 
       if [ -f "$SNAPSHOT" ]; then
         # Extract current and previous statuses, detect transitions
-        echo "$TASK_BOARD_CACHE" | jq -c '.tasks[]' 2>/dev/null | while read -r TASK; do
-          TASK_ID=$(echo "$TASK" | jq -r '.id')
-          NEW_STATUS=$(echo "$TASK" | jq -r '.status')
+        while read -r TASK; do
+          TASK_ID=$(echo "$TASK" | jq -r '.id // empty')
+          NEW_STATUS=$(echo "$TASK" | jq -r '.status // empty')
+          [ -z "$TASK_ID" ] || [ -z "$NEW_STATUS" ] && continue
           OLD_STATUS=$(jq -r --arg tid "$TASK_ID" '.tasks[] | select(.id == $tid) | .status' "$SNAPSHOT" 2>/dev/null || echo "")
 
           # Only trigger on actual transitions
@@ -299,7 +306,7 @@ MEMEOF
               [ -n "$SCRIPT_PATH" ] && bash "$SCRIPT_PATH" 2>/dev/null || true
             fi
           fi
-        done
+        done < <(echo "$TASK_BOARD_CACHE" | jq -c '.tasks[]' 2>/dev/null)
       fi
 
       # Update snapshot for next comparison
