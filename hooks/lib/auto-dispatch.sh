@@ -38,6 +38,7 @@ run_auto_dispatch() {
       feature_testing)     TARGET="tester" ;;
       log_analysis)        TARGET="tester" ;;
       documentation)       TARGET="designer" ;;
+      hypothesizing)       TARGET="" ;;  # No auto-dispatch; coordinator manages hypotheses
       *)              TARGET="" ;;
     esac
 

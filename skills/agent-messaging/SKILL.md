@@ -78,9 +78,12 @@ description: "Agent 间消息: 发送消息给其他 Agent 或查看收件箱。
   "timestamp": "2026-04-05T10:00:00Z",
   "read": false,
 
-  "type": "request | response | notification | escalation",
+  "type": "request | response | notification | escalation | broadcast",
   "severity": "critical | high | medium | low",
   "priority": "urgent | normal | info",
+
+  "thread_id": "msg-1717599000000",
+  "reply_to": "msg-1717599500000",
 
   "context": {
     "file": "src/auth/jwt.ts",
@@ -111,6 +114,8 @@ description: "Agent 间消息: 发送消息给其他 Agent 或查看收件箱。
 | `context.line` | number | ❌ | 相关行号 |
 | `context.function` | string | ❌ | 相关函数/方法名 |
 | `content` | string | ✅ | 消息正文 |
+| `thread_id` | string | ❌ | 会话线程 ID (首条消息的 id) |
+| `reply_to` | string | ❌ | 回复的消息 ID |
 | `references` | string[] | ❌ | 引用的相关消息 ID 列表 |
 
 ### 消息类型 (type)
@@ -121,6 +126,7 @@ description: "Agent 间消息: 发送消息给其他 Agent 或查看收件箱。
 | `response` | 对 request 的回复 | reviewer → implementer: "审查完成, 3 个问题" |
 | `notification` | 单向通知, 不需回复 | acceptor → all: "新任务 T-005 已创建" |
 | `escalation` | 升级/上报问题 | tester → acceptor: "T-001 测试持续失败, 需介入" |
+| `broadcast` | 广播给所有 Agent | acceptor → all: "T-001 优先级提升为 critical" |
 
 ### 严重程度 (severity)
 
@@ -203,8 +209,9 @@ Agent 查看收件箱时, 按以下顺序排序:
 1. **直接通知**: 状态转移时, 自动向下游 Agent 发送 `request` 类型消息
 2. **退回通知**: reviewer/tester 退回时, 向 implementer 发送 `response` 类型消息, severity 至少 `high`
 3. **升级通道**: 任何 Agent 遇到阻塞问题, 向 acceptor 发送 `escalation`, priority = `urgent`
-4. **广播禁止**: 不支持群发消息; 每条消息只有一个接收者 (`to` 字段单值)
-5. **关联引用**: 如果消息是对某条消息的回复, 填写 `references` 字段指向原消息 ID
+4. **广播消息**: `type: broadcast` 时, 将消息写入**所有 5 个** Agent 的 inbox.json (`to` 设为 `"all"`)
+5. **会话线程**: 回复消息时设置 `reply_to` 指向原消息 ID, `thread_id` 指向线程首条消息 ID
+6. **关联引用**: 如果消息是对某条消息的回复, 填写 `references` 字段指向原消息 ID
 
 ---
 

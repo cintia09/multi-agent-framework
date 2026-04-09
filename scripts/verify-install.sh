@@ -26,9 +26,9 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 # Skills
 echo ""
-echo "📦 Skills (expect 17):"
+echo "📦 Skills (expect 18):"
 SKILL_COUNT=$(ls -d ~/.claude/skills/agent-*/ 2>/dev/null | wc -l | tr -d ' ')
-check "Skill directories: $SKILL_COUNT/17" "$([ "$SKILL_COUNT" -ge 17 ] && echo pass || echo fail)"
+check "Skill directories: $SKILL_COUNT/18" "$([ "$SKILL_COUNT" -ge 18 ] && echo pass || echo fail)"
 
 for name in agent-acceptor agent-config agent-designer agent-docs agent-events agent-fsm agent-hooks agent-implementer agent-init agent-memory agent-messaging agent-orchestrator agent-reviewer agent-switch agent-task-board agent-teams agent-tester; do
   if [ -f ~/.claude/skills/$name/SKILL.md ]; then

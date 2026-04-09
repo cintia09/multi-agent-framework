@@ -327,13 +327,13 @@ bash /tmp/multi-agent-framework/scripts/verify-init.sh
 
 两边全自动循环 — 无需手动 check。通过自动调度 + 收件箱实现自动重入。
 
-## 17 个 Skills
+## 18 个 Skills
 
 | # | Skill | 描述 |
 |---|-------|------|
-| 1 | `agent-fsm` | FSM 引擎 — 双模式 (Simple 10 状态 + 3-Phase 18 状态) + Guard 规则 |
+| 1 | `agent-fsm` | FSM 引擎 — 双模式 (Simple 10 状态 + 3-Phase 18 状态) + Guard 规则 + hypothesizing 状态 |
 | 2 | `agent-task-board` | 任务 CRUD + 功能目标 + 阻塞/解阻塞 + 乐观锁 |
-| 3 | `agent-messaging` | Agent 间收件箱消息 + 结构化类型 + 回放 + 优先级 |
+| 3 | `agent-messaging` | Agent 间收件箱消息 + 结构化类型 + 回放 + 优先级 + 线程/回复 + 广播 |
 | 4 | `agent-init` | 项目初始化 + 技术栈检测 + 工作流模式选择 + docs/ 文档模板 |
 | 5 | `agent-switch` | 角色切换 + 状态面板 + 流水线可视化 + 自动流转 + Cron + Webhook |
 | 6 | `agent-memory` | 三层记忆（长期/日记/项目）+ FTS5 索引 + 混合检索 + 自动晋升 + Context Engine |
@@ -344,10 +344,11 @@ bash /tmp/multi-agent-framework/scripts/verify-init.sh
 | 11 | `agent-tester` | 覆盖率分析 + Flaky 检测 + E2E Playwright + Issue JSON + 活文档维护 |
 | 12 | `agent-events` | events.db 查询、分析、清理、导出 |
 | 13 | `agent-hooks` | 13 Hook 生命周期管理 + Block/Approval 语义 + 优先级链 + 工具 Profile + 3-Phase 调度 |
-| 14 | `agent-teams` | Agent Teams 并行执行 — Subagent 派生 + 多实现者 + 并行审查 + 3-Phase 并行轨道 |
-| 15 | `agent-orchestrator` | **NEW** 3-Phase 编排器守护进程 — 自动驱动 + prompt 模板 + 可插拔 CI/Review/Device |
+| 14 | `agent-teams` | Agent Teams 并行执行 — Subagent 派生 + tmux 分屏 + 团队仪表盘 + 竞争假设 |
+| 15 | `agent-orchestrator` | 3-Phase 编排器守护进程 — 自动驱动 + prompt 模板 + 可插拔 CI/Review/Device |
 | 16 | `agent-config` | Agent 配置工具 — model/tools 管理，动态发现，多平台同步 |
-| 17 | `agent-docs` | **NEW** 文档流水线 — 阶段性文档模板 + 输入/输出门禁 + 自动加载 |
+| 17 | `agent-docs` | 文档流水线 — 阶段性文档模板 + 输入/输出门禁 + 自动加载 |
+| 18 | `agent-hypothesis` | **NEW** 竞争假设探索 — Fork/Evaluate/Promote + 并行方案对比 + 评分矩阵 |
 
 ## 问题追踪（测试者 ↔ 实现者）
 
@@ -636,6 +637,51 @@ Agent: (又一通操作)
 5. **随时可接手** — 所有状态在文件里，CLI 崩溃也能继续
 
 > 这可能就是 Vibe Coding 的最终形态 —— 不是一个人和一个 Agent 反复拉扯，而是一个 **Agent 团队**各司其职，像真正的软件开发团队一样协作。而有意思的是，连这个框架本身，也是由 Agent 写的。
+
+## Agent Teams（代理团队）
+
+### 核心架构
+
+```
+Team Lead (Acceptor)
+├── Designer    ←→ 双向消息 + 线程回复
+├── Implementer ←→ 广播接收 + 假设探索
+├── Reviewer    ←→ 收件箱优先级 + 评估评分
+└── Tester      ←→ 竞争假设 + 团队仪表盘
+    │
+    └── 📊 Team Dashboard (tmux 底栏)
+```
+
+### 三大特性
+
+**1. 双向消息通信** — Agent 间可直接对话，不仅仅是单向派发
+- 线程会话：`reply_to` + `thread_id` 支持消息链
+- 广播消息：`type: broadcast` 通知全团队
+- 优先级队列：🔴 urgent 置顶，切换 Agent 时自动显示未读数
+
+**2. tmux 分屏并行** — 多 Agent 同时工作
+```bash
+# 启动全团队
+bash scripts/team-session.sh
+
+# 指定 Agent + 任务
+bash scripts/team-session.sh --agents implementer,tester,reviewer --task T-042
+```
+底部仪表盘实时显示：Agent 状态、收件箱计数、流水线进度条、最近事件。
+
+**3. 竞争假设探索** — 面对多方案抉择时并行探索
+```
+designing → hypothesizing → evaluate → promote winner → designing
+```
+每个假设独立工作区（`.agents/hypotheses/T-XXX/H-N/`），按权重评分矩阵择优。
+
+### 使用场景
+| 场景 | 推荐模式 |
+|------|---------|
+| 并行 Code Review | tmux 分屏 + reviewer 多实例 |
+| 多模块同时开发 | tmux 分屏 + implementer + tester |
+| 架构方案选型 | 竞争假设 (2-4 个方案) |
+| 多疑点并行调试 | 竞争假设 + 子 Agent 派生 |
 
 ## 已知限制 & 常见问题
 

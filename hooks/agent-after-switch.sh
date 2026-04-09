@@ -26,6 +26,19 @@ for agents_dir in "${HOME}/.claude/agents" "${HOME}/.copilot/agents"; do
   fi
 done
 
+# Inbox summary: check for unread messages
+INBOX_MSG=""
+INBOX_FILE="$AGENTS_DIR/runtime/$AGENT/inbox.json"
+if [ -f "$INBOX_FILE" ]; then
+  UNREAD=$(jq '[.messages[] | select(.read == false)] | length' "$INBOX_FILE" 2>/dev/null || echo 0)
+  URGENT=$(jq '[.messages[] | select(.read == false and .priority == "urgent")] | length' "$INBOX_FILE" 2>/dev/null || echo 0)
+  if [ "$URGENT" -gt 0 ]; then
+    INBOX_MSG="🔴 ${UNREAD} unread messages (${URGENT} URGENT). Check inbox first!"
+  elif [ "$UNREAD" -gt 0 ]; then
+    INBOX_MSG="📬 ${UNREAD} unread messages in inbox."
+  fi
+fi
+
 # Document pipeline: list available input documents for this agent
 DOC_MSG=""
 if [ -f "$AGENTS_DIR/task-board.json" ]; then
@@ -42,18 +55,23 @@ if [ -f "$AGENTS_DIR/task-board.json" ]; then
   fi
 fi
 
-# Build response with model suggestion + document info
+# Build response with model suggestion + inbox + document info
 if [ -n "$MODEL" ]; then
   MSG="📌 Agent ${AGENT} configured model: ${MODEL}. Use /model ${MODEL} to switch."
+  [ -n "$INBOX_MSG" ] && MSG="${MSG} ${INBOX_MSG}"
   [ -n "$DOC_MSG" ] && MSG="${MSG} ${DOC_MSG}"
   jq -n --arg msg "$MSG" '{status:"ok",message:$msg}'
 elif [ -n "$MODEL_HINT" ]; then
   MSG="💡 Agent ${AGENT} model hint: ${MODEL_HINT}"
+  [ -n "$INBOX_MSG" ] && MSG="${MSG} ${INBOX_MSG}"
   [ -n "$DOC_MSG" ] && MSG="${MSG} ${DOC_MSG}"
   jq -n --arg msg "$MSG" '{status:"ok",message:$msg}'
 else
-  if [ -n "$DOC_MSG" ]; then
-    jq -n --arg msg "$DOC_MSG" '{status:"ok",message:$msg}'
+  COMBINED=""
+  [ -n "$INBOX_MSG" ] && COMBINED="$INBOX_MSG"
+  [ -n "$DOC_MSG" ] && COMBINED="${COMBINED:+$COMBINED }${DOC_MSG}"
+  if [ -n "$COMBINED" ]; then
+    jq -n --arg msg "$COMBINED" '{status:"ok",message:$msg}'
   else
     echo '{"status": "ok"}'
   fi

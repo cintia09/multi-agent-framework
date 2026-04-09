@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.0] - 2026-04-09
+
+### 🚀 Agent Teams — Bidirectional Messaging, Parallel Execution, Competitive Hypothesis
+
+**New Features:**
+- **Bidirectional Messaging**: Added `thread_id`, `reply_to` fields to message schema; `broadcast` message type for team-wide announcements
+- **tmux Team Session**: `scripts/team-session.sh` launches multi-agent split-pane session with auto-refresh dashboard
+- **Team Dashboard**: `scripts/team-dashboard.sh` shows real-time agent status, inbox counts, pipeline progress bar, recent events
+- **Competitive Hypothesis**: New `agent-hypothesis` skill (18th skill) — Fork/Evaluate/Promote pattern for parallel approach exploration
+- **`hypothesizing` FSM state**: New state in both Simple and 3-Phase workflows; `designing→hypothesizing` and `implementing→hypothesizing` transitions
+- **Inbox on Switch**: After-switch hook now shows unread message count with urgent priority highlighting
+
+**Enhancements:**
+- `agent-messaging/SKILL.md`: Added thread support, broadcast type, updated routing rules
+- `agent-teams/SKILL.md`: Added tmux session architecture, competitive hypothesis pattern, workspace storage
+- `agent-fsm/SKILL.md`: Added `hypothesizing` to universal transitions
+- `auto-dispatch.sh`: `hypothesizing` status skips auto-dispatch (coordinator manages)
+- README: Added "Agent Teams" section with architecture diagram, 3 features, usage scenarios
+- Integration tests expanded 21→23 (hypothesis transition + team dashboard)
+
 ## [3.0.23] - 2026-04-09
 
 ### 🔒 Security Audit Round 5 (16 issues fixed)

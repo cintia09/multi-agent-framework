@@ -213,6 +213,10 @@ code_reviewing      → implementing          (Phase 2 → Phase 2: review rejec
 ```
 ANY                 → blocked               (unresolvable issue)
 blocked             → [previous_state]      (human unblock)
+designing           → hypothesizing         (fork competitive approaches)
+implementing        → hypothesizing         (fork competitive approaches)
+hypothesizing       → designing             (winner promoted → design)
+hypothesizing       → implementing          (winner promoted → implementation)
 ```
 
 ### Safety Limit: Feedback Loops

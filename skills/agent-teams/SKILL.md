@@ -161,3 +161,189 @@ The same conflict prevention rules from simple parallel execution apply, with ad
 - Shared memory bus between sub-agents
 - Auto-merge of non-conflicting changes
 - Parallel pipeline (different tasks in different FSM states simultaneously)
+
+---
+
+## Team Session — tmux Split-Pane Mode
+
+### Overview
+Launch a multi-agent team session where each agent gets its own tmux pane. Agents share the task-board and communicate via inbox messages in real-time.
+
+### Launch
+```bash
+bash scripts/team-session.sh [--agents <roles>] [--task <T-XXX>] [--layout <tiled|even-horizontal>]
+```
+
+### Examples
+```bash
+# Launch all 5 agents
+bash scripts/team-session.sh
+
+# Launch specific agents for a task
+bash scripts/team-session.sh --agents implementer,tester,reviewer --task T-042
+
+# Horizontal layout
+bash scripts/team-session.sh --layout even-horizontal
+```
+
+### Architecture
+```
+┌──────────────────────────────────────────────┐
+│  tmux session: agent-team                     │
+├──────────────┬──────────────┬────────────────┤
+│  acceptor    │  designer    │  implementer   │
+│  (pane 0)    │  (pane 1)    │  (pane 2)      │
+├──────────────┴──────┬───────┴────────────────┤
+│  reviewer           │  tester                │
+│  (pane 3)           │  (pane 4)              │
+├─────────────────────┴────────────────────────┤
+│  📊 Dashboard (pane 5) — auto-refresh 10s    │
+└──────────────────────────────────────────────┘
+```
+
+### Dashboard Pane
+The bottom pane runs `watch -n10 bash scripts/team-dashboard.sh` showing:
+- Active agents and their current tasks
+- Inbox message counts per agent
+- Recent FSM transitions
+- Pipeline progress bar
+
+### Shared Resources
+- **task-board.json**: Atomic access via mkdir-based locks
+- **events.db**: SQLite WAL mode for concurrent writes
+- **inbox.json**: Per-agent, locked during write
+
+### Session Management
+| Command | Action |
+|---------|--------|
+| `tmux attach -t agent-team` | Reconnect to team session |
+| `tmux kill-session -t agent-team` | Terminate all agents |
+| Ctrl+B then arrow key | Navigate between panes |
+| Ctrl+B then z | Zoom into a pane (toggle) |
+
+---
+
+## Competitive Hypothesis Pattern
+
+### Overview
+When facing a design or implementation challenge with multiple valid approaches, fork the task into N parallel hypotheses. Each hypothesis is explored independently, then evaluated and the best one is promoted.
+
+### When to Use
+- Architecture decisions with trade-offs (e.g., monolith vs microservice)
+- Algorithm choices (e.g., BFS vs DFS for graph traversal)
+- Debugging with multiple suspected root causes
+- Performance optimization with competing strategies
+
+### Hypothesis Lifecycle
+
+```
+task (designing/implementing)
+    │
+    ▼ fork_hypothesis
+┌─────────────────────┐
+│  hypothesizing       │ ← new FSM state
+├──────┬──────┬───────┤
+│ H-1  │ H-2  │ H-3   │ ← parallel exploration
+│ BFS  │ DFS  │ A*    │
+└──────┴──────┴───────┘
+    │
+    ▼ evaluate_hypotheses
+┌─────────────────────┐
+│  Winner: H-3 (A*)    │
+│  Reason: best perf   │
+└─────────────────────┘
+    │
+    ▼ promote_hypothesis
+task continues (designing/implementing)
+```
+
+### Storage
+```
+.agents/hypotheses/T-XXX/
+├── manifest.json          # Hypothesis metadata
+├── H-1/
+│   ├── approach.md        # Description of approach
+│   ├── workspace/         # Working files
+│   └── evaluation.json    # Metrics and assessment
+├── H-2/
+│   ├── approach.md
+│   ├── workspace/
+│   └── evaluation.json
+└── H-3/
+    ├── approach.md
+    ├── workspace/
+    └── evaluation.json
+```
+
+### manifest.json Schema
+```json
+{
+  "task_id": "T-042",
+  "created_at": "2026-04-09T10:00:00Z",
+  "created_by": "designer",
+  "challenge": "Choose optimal search algorithm for memory indexing",
+  "evaluation_criteria": [
+    {"name": "performance", "weight": 0.4},
+    {"name": "memory_usage", "weight": 0.3},
+    {"name": "code_complexity", "weight": 0.3}
+  ],
+  "hypotheses": [
+    {
+      "id": "H-1",
+      "title": "BFS with memoization",
+      "status": "exploring | evaluated | promoted | rejected",
+      "agent": "implementer",
+      "scores": {}
+    }
+  ],
+  "winner": null,
+  "promoted_at": null
+}
+```
+
+### Workflow
+
+#### 1. Fork Hypotheses
+```
+User/Agent: "Explore 3 approaches for T-042 search algorithm"
+→ Creates .agents/hypotheses/T-042/manifest.json
+→ Creates H-1/, H-2/, H-3/ directories
+→ Each hypothesis gets an approach.md describing the strategy
+```
+
+#### 2. Parallel Exploration
+Each hypothesis can be explored by:
+- **Same agent sequentially** — one agent tries each approach
+- **Multiple agents in parallel** — via tmux team session
+- **Sub-agents** — coordinator spawns per-hypothesis sub-agents
+
+#### 3. Evaluate
+```json
+// H-1/evaluation.json
+{
+  "hypothesis_id": "H-1",
+  "scores": {
+    "performance": 7,
+    "memory_usage": 8,
+    "code_complexity": 9
+  },
+  "weighted_score": 7.9,
+  "notes": "Simple but O(n²) for large graphs",
+  "evaluator": "reviewer"
+}
+```
+
+#### 4. Promote Winner
+- Copy winning hypothesis workspace to main project
+- Update manifest.json with winner
+- Log to events.db: `hypothesis_promoted`
+- Continue task in original FSM state
+
+### Integration with FSM
+New transitions for `hypothesizing` state:
+```
+designing     → hypothesizing    (fork to explore approaches)
+implementing  → hypothesizing    (fork to explore implementations)
+hypothesizing → designing        (winner promoted, back to design)
+hypothesizing → implementing     (winner promoted, back to implementation)
+```

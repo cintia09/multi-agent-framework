@@ -112,6 +112,11 @@ _validate_3phase() {
     "log_analysis→documentation")         LEGAL=true ;;
     "log_analysis→ci_fixing")             LEGAL=true ;;
     "documentation→accepted")             LEGAL=true ;;
+    # Hypothesis exploration (both simple and 3-phase)
+    "designing→hypothesizing")             LEGAL=true ;;
+    "implementing→hypothesizing")          LEGAL=true ;;
+    "hypothesizing→designing")             LEGAL=true ;;
+    "hypothesizing→implementing")          LEGAL=true ;;
     *→blocked)                            LEGAL=true ;;
     "blocked→"*)
       if [ -n "$BLOCKED_FROM" ] && [ "$BLOCKED_FROM" != "null" ]; then
@@ -158,6 +163,11 @@ _validate_simple() {
     "accepting→accepted")      LEGAL=true ;;
     "accepting→accept_fail")   LEGAL=true ;;
     "accept_fail→designing")   LEGAL=true ;;
+    # Hypothesis exploration
+    "designing→hypothesizing")    LEGAL=true ;;
+    "implementing→hypothesizing") LEGAL=true ;;
+    "hypothesizing→designing")    LEGAL=true ;;
+    "hypothesizing→implementing") LEGAL=true ;;
     *→blocked)                 LEGAL=true ;;
     "blocked→"*)
       if [ -n "$BLOCKED_FROM" ] && [ "$BLOCKED_FROM" != "null" ]; then
