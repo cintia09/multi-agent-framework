@@ -388,10 +388,7 @@ set_task_status "T-TEST" "documentation" "accepted" "3phase" "0" "pending" "pend
 result=$(run_fsm_check)
 check "3-Phase: documentation→accepted (goals verified) LEGAL" "LEGAL" "$result"
 
-# Cleanup
-rm -rf "$TEST_DIR"
-
-# Summary
+# Summary (cleanup handled by EXIT trap)
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Results: $PASS passed, $FAIL failed"

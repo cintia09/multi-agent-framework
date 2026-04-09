@@ -50,15 +50,17 @@ echo "   Layout: ${LAYOUT}"
 [ -n "$TASK_FILTER" ] && echo "   Task: ${TASK_FILTER}"
 echo ""
 
-# Create first pane with first agent
+# Create first pane with first agent (escape single quotes for tmux)
 FIRST_AGENT="${AGENT_LIST[0]}"
-AGENT_CMD="cd '$PROJECT_DIR' && echo '🤖 Agent: $FIRST_AGENT' && echo 'Task: ${TASK_FILTER:-all}' && echo '---'"
+SAFE_PROJECT=$(printf '%s' "$PROJECT_DIR" | sed "s/'/'\\\\''/g")
+SAFE_FILTER=$(printf '%s' "${TASK_FILTER:-all}" | sed "s/'/'\\\\''/g")
+AGENT_CMD="cd '${SAFE_PROJECT}' && echo '🤖 Agent: $FIRST_AGENT' && echo 'Task: ${SAFE_FILTER}' && echo '---'"
 tmux new-session -d -s "$SESSION_NAME" -x 200 -y 50 "$AGENT_CMD; bash"
 
 # Create additional panes for remaining agents
 for ((i=1; i<AGENT_COUNT; i++)); do
   AGENT="${AGENT_LIST[$i]}"
-  AGENT_CMD="cd '$PROJECT_DIR' && echo '🤖 Agent: $AGENT' && echo 'Task: ${TASK_FILTER:-all}' && echo '---'"
+  AGENT_CMD="cd '${SAFE_PROJECT}' && echo '🤖 Agent: $AGENT' && echo 'Task: ${SAFE_FILTER}' && echo '---'"
   tmux split-window -t "$SESSION_NAME" "$AGENT_CMD; bash"
   tmux select-layout -t "$SESSION_NAME" "$LAYOUT"
 done

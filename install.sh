@@ -4,7 +4,7 @@ set -euo pipefail
 # Multi-Agent Framework Installer
 # Usage: curl -sL https://raw.githubusercontent.com/cintia09/multi-agent-framework/main/install.sh | bash
 
-VERSION="3.1.0"
+VERSION="3.1.1"
 REPO="https://github.com/cintia09/multi-agent-framework.git"
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/multi-agent-framework.XXXXXX")
 CLAUDE_DIR="${HOME}/.claude"
@@ -117,10 +117,10 @@ install() {
         local success=false
         # Method 1: Try tarball download (faster, more reliable)
         local TARBALL_URL="https://github.com/cintia09/multi-agent-framework/archive/refs/heads/main.tar.gz"
-        if curl -sL --connect-timeout 10 --max-time 60 "$TARBALL_URL" | tar xz -C /tmp 2>/dev/null; then
-            mv /tmp/multi-agent-framework-main "$TMP_DIR" 2>/dev/null && success=true
+        if curl -sL --connect-timeout 10 --max-time 60 "$TARBALL_URL" | tar xz -C "$TMP_DIR" --strip-components=1 2>/dev/null; then
+            success=true
             # Basic integrity: ensure key files exist
-            if [ "$success" = true ] && { [ ! -f "$TMP_DIR/install.sh" ] || [ ! -d "$TMP_DIR/skills" ]; }; then
+            if [ ! -f "$TMP_DIR/install.sh" ] || [ ! -d "$TMP_DIR/skills" ]; then
                 warn "Download may be corrupted (missing key files)"
                 success=false
                 rm -rf "$TMP_DIR"
@@ -129,7 +129,6 @@ install() {
         # Method 2: Fallback to git clone with retry
         if [ "$success" = false ]; then
             warn "Tarball download failed, trying git clone..."
-            git config --global http.postBuffer 524288000 2>/dev/null || true
             local attempt=0
             while [ $attempt -lt 3 ]; do
                 attempt=$((attempt + 1))

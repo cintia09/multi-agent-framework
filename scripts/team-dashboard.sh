@@ -73,8 +73,8 @@ if [ -f "$AGENTS_DIR/task-board.json" ]; then
     FILLED=$((PCT * BAR_LEN / 100))
     EMPTY=$((BAR_LEN - FILLED))
     printf "  ["
-    printf "${GREEN}%0.s█${NC}" $(seq 1 "$FILLED" 2>/dev/null) || true
-    printf "%0.s░" $(seq 1 "$EMPTY" 2>/dev/null) || true
+    [ "$FILLED" -gt 0 ] && printf "${GREEN}%0.s█${NC}" $(seq 1 "$FILLED") || true
+    [ "$EMPTY" -gt 0 ] && printf "%0.s░" $(seq 1 "$EMPTY") || true
     printf "] %d%%\n" "$PCT"
   fi
 fi

@@ -47,13 +47,7 @@ run_auto_dispatch() {
     TARGET_INBOX="$AGENTS_DIR/runtime/$TARGET/inbox.json"
     [ -f "$TARGET_INBOX" ] || continue
 
-    # Duplicate prevention
     MSG_ID="MSG-auto-${TASK_ID}-${STATUS}"
-    EXISTING=$(jq --arg mid "$MSG_ID" \
-      '[.messages[] | select(.id == $mid)] | length' \
-      "$TARGET_INBOX" 2>/dev/null || echo 0)
-    [ "$EXISTING" -gt 0 ] && continue
-
     NOW_ISO=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
     # Atomic write with portable directory-based locking
@@ -67,6 +61,16 @@ run_auto_dispatch() {
         continue 2
       fi
     done
+
+    # Duplicate check INSIDE lock to prevent TOCTOU race
+    EXISTING=$(jq --arg mid "$MSG_ID" \
+      '[.messages[] | select(.id == $mid)] | length' \
+      "$TARGET_INBOX" 2>/dev/null || echo 0)
+    if [ "$EXISTING" -gt 0 ]; then
+      rmdir "$LOCK_DIR" 2>/dev/null || true
+      continue
+    fi
+
     if jq --arg id "$MSG_ID" --arg from "$ACTIVE_AGENT" --arg to "$TARGET" \
        --arg tid "$TASK_ID" --arg status "$STATUS" --arg title "$TITLE" \
        --arg ts "$NOW_ISO" \

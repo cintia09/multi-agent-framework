@@ -43,9 +43,9 @@ fi
 case "${1:-}" in
   --check)
     echo "📋 Scheduled Jobs:"
-    python3 -c "
-import json
-with open('$JOBS_FILE') as f:
+    JOBS_FILE="$JOBS_FILE" python3 -c "
+import json, os
+with open(os.environ['JOBS_FILE']) as f:
     jobs = json.load(f)
 for j in jobs['jobs']:
     status = '✅' if j.get('enabled', True) else '❌'
@@ -55,20 +55,21 @@ for j in jobs['jobs']:
     ;;
   --run)
     # Execute due jobs (simplified - checks action type)
-    python3 -c "
-import json, subprocess, sys
-with open('$JOBS_FILE') as f:
+    JOBS_FILE="$JOBS_FILE" PROJECT_DIR="$PROJECT_DIR" python3 -c "
+import json, subprocess, sys, os
+jobs_file = os.environ['JOBS_FILE']
+project_dir = os.environ['PROJECT_DIR']
+with open(jobs_file) as f:
     jobs = json.load(f)
 for j in jobs['jobs']:
     if not j.get('enabled', True):
         continue
     action = j['action']
     if action == 'check-staleness':
-        subprocess.run(['bash', '$PROJECT_DIR/hooks/agent-staleness-check.sh'], capture_output=True)
+        subprocess.run(['bash', f'{project_dir}/hooks/agent-staleness-check.sh'], capture_output=True)
     elif action == 'index-memory':
-        subprocess.run(['bash', '$PROJECT_DIR/scripts/memory-index.sh'], capture_output=True)
+        subprocess.run(['bash', f'{project_dir}/scripts/memory-index.sh'], capture_output=True)
     elif action == 'generate-report':
-        # Generate simple report
         board = json.load(open('.agents/task-board.json'))
         total = len(board['tasks'])
         accepted = sum(1 for t in board['tasks'] if t['status'] == 'accepted')

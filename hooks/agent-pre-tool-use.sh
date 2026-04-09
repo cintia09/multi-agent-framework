@@ -26,7 +26,7 @@ case "$TOOL_NAME" in
     [ -n "$FILE_PATH" ] || exit 0
 
     # Normalize: remove CWD prefix for relative comparison
-    REL_PATH="${FILE_PATH#$CWD/}"
+    REL_PATH="${FILE_PATH#"$CWD"/}"
 
     case "$ACTIVE_AGENT" in
       acceptor)
@@ -38,9 +38,9 @@ case "$TOOL_NAME" in
         fi
         ;;
       reviewer)
-        # Reviewer can only edit: .agents/runtime/reviewer/ (review reports)
+        # Reviewer can edit: .agents/runtime/reviewer/ (review reports), .agents/docs/ (review-report.md)
         # Cannot edit source code or other agents' files
-        if [[ ! "$REL_PATH" =~ ^\.agents/runtime/reviewer/ ]] && [[ ! "$REL_PATH" =~ ^\.agents/task-board ]]; then
+        if [[ ! "$REL_PATH" =~ ^\.agents/runtime/reviewer/ ]] && [[ ! "$REL_PATH" =~ ^\.agents/task-board ]] && [[ ! "$REL_PATH" =~ ^\.agents/docs/ ]]; then
           echo '{"permissionDecision":"deny","permissionDecisionReason":"🔍 Reviewer cannot edit source code. Write review reports in .agents/runtime/reviewer/workspace/."}'
           exit 0
         fi

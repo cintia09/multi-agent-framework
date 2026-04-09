@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.1] - 2026-04-09
+
+### 🔒 Security Audit Round 6 (16 issues fixed)
+
+**HIGH:**
+- `install.sh`: Fixed symlink attack — tarball now extracts directly to mktemp dir with `--strip-components=1`
+- `webhook-handler.sh`: Added `|| true` to sqlite3 call; log previous agent on switch
+- `verify-init.sh`: Replaced all python3 code injection vectors with jq; fixed shebang + `set -euo pipefail`
+- `agent-pre-tool-use.sh`: Reviewer now allowed to write `.agents/docs/` (fixes doc gate/boundary conflict)
+
+**MEDIUM:**
+- `cron-scheduler.sh`: Pass shell vars via `os.environ` instead of interpolating into Python strings
+- `fsm-validate.sh`: Convergence gate uses `$NEW_STATUS` (not `$NEW_STATUS_SQL`); escape PT_* in JSON
+- `auto-dispatch.sh`: Moved duplicate check inside lock to prevent TOCTOU race condition
+- `team-session.sh`: Escape single quotes in TASK_FILTER and PROJECT_DIR for tmux
+- `test-integration.sh`: Fixed hypothesis test using wrong field names (was snake_case, now camelCase)
+- `install.sh`: Removed `git config --global http.postBuffer` side effect
+
+**LOW:**
+- `agent-pre-tool-use.sh`: Quote `$CWD` in parameter expansion to prevent glob interpretation
+- `team-dashboard.sh`: Fixed progress bar off-by-one at 0%
+- `webhook-handler.sh`: Log previous agent name on webhook-triggered switch
+- `test-3phase-fsm.sh`: Removed redundant rm -rf (EXIT trap handles cleanup)
+- `fsm-validate.sh`: SQL-escape PT_* values in convergence gate JSON
+
 ## [3.1.0] - 2026-04-09
 
 ### 🚀 Agent Teams — Bidirectional Messaging, Parallel Execution, Competitive Hypothesis

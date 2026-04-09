@@ -1,7 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # verify-init.sh — Verify Agent system initialization in a project
 # Usage: bash scripts/verify-init.sh [project_dir]
-set -e
+set -euo pipefail
 
 PROJECT_DIR="${1:-.}"
 AGENTS_DIR="$PROJECT_DIR/.agents"
@@ -53,7 +53,7 @@ for agent in acceptor designer implementer reviewer tester; do
   AGENT_DIR="$AGENTS_DIR/runtime/$agent"
   if [ -f "$AGENT_DIR/state.json" ]; then
     # Validate JSON
-    if python3 -c "import json; d=json.load(open('$AGENT_DIR/state.json')); assert d.get('agent')=='$agent'" 2>/dev/null; then
+    if jq -e --arg agent "$agent" '.agent == $agent' "$AGENT_DIR/state.json" >/dev/null 2>&1; then
       check "$agent/state.json (valid)" "pass"
     else
       check "$agent/state.json (invalid format)" "fail"
@@ -70,8 +70,8 @@ done
 echo ""
 echo "📋 Task Board:"
 if [ -f "$AGENTS_DIR/task-board.json" ]; then
-  if python3 -c "import json; d=json.load(open('$AGENTS_DIR/task-board.json')); assert 'version' in d and 'tasks' in d" 2>/dev/null; then
-    TASK_COUNT=$(python3 -c "import json; print(len(json.load(open('$AGENTS_DIR/task-board.json'))['tasks']))")
+  if jq -e 'has("version") and has("tasks")' "$AGENTS_DIR/task-board.json" >/dev/null 2>&1; then
+    TASK_COUNT=$(jq '.tasks | length' "$AGENTS_DIR/task-board.json")
     check "task-board.json (valid, $TASK_COUNT tasks)" "pass"
   else
     check "task-board.json (invalid schema)" "fail"

@@ -140,10 +140,13 @@ _validate_3phase() {
   fi
 
   # Convergence gate (uses pre-extracted parallel_tracks fields)
-  if [ "$LEGAL" = true ] && [ "$NEW_STATUS_SQL" = "device_baseline" ]; then
+  if [ "$LEGAL" = true ] && [ "$NEW_STATUS" = "device_baseline" ]; then
     if [ "$PT_IMPL" != "complete" ] || [ "$PT_TEST" != "complete" ] || [ "$PT_REVIEW" != "complete" ] || [ "$PT_CI" != "green" ]; then
       echo "⛔ [FSM] CONVERGENCE GATE: Task $TASK_ID — tracks not converged (impl=$PT_IMPL, test=$PT_TEST, review=$PT_REVIEW, ci=$PT_CI)."
-      sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'convergence_gate_block', '$ACTIVE_AGENT_ESC', '$TASK_ID_SQL', '{\"impl\":\"$PT_IMPL\",\"test\":\"$PT_TEST\",\"review\":\"$PT_REVIEW\",\"ci\":\"$PT_CI\"}');" 2>/dev/null || true
+      local PT_IMPL_ESC PT_TEST_ESC PT_REVIEW_ESC PT_CI_ESC
+      PT_IMPL_ESC=$(sql_escape "$PT_IMPL"); PT_TEST_ESC=$(sql_escape "$PT_TEST")
+      PT_REVIEW_ESC=$(sql_escape "$PT_REVIEW"); PT_CI_ESC=$(sql_escape "$PT_CI")
+      sqlite3 "$EVENTS_DB" "INSERT INTO events (timestamp, event_type, agent, task_id, detail) VALUES ($TIMESTAMP, 'convergence_gate_block', '$ACTIVE_AGENT_ESC', '$TASK_ID_SQL', '{\"impl\":\"$PT_IMPL_ESC\",\"test\":\"$PT_TEST_ESC\",\"review\":\"$PT_REVIEW_ESC\",\"ci\":\"$PT_CI_ESC\"}');" 2>/dev/null || true
       LEGAL=false
     fi
   fi
