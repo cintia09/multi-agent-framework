@@ -626,3 +626,13 @@ Split the 364-line `agent-post-tool-use.sh` monolith into a clean 79-line main h
 - Added `paths:` frontmatter to `agent-hooks` skill (`hooks/**`, `**/*.sh`, config files)
 - Documented `paths:` feature in skills-mechanism.md platform comparison table
 - Role skills (tester, implementer) excluded to avoid breaking agent workflow
+
+## v3.2.2
+
+### Documentation Cleanup
+- Fix stale references: skill count 14/15/17→18 across README, USAGE_GUIDE, badges
+- Update claude-code-flow.md: two-level Skill loading + per-agent isolation diagram
+- Update agent-rules.md: remove stale state.json, add skills: isolation mention
+- Simplify README: condense issue tracking + memory sections, collapsible narrative
+- Fix doc gate limitation entry: strict mode now exists (was listed as planned)
+- README: 734→682 lines (−7%)
