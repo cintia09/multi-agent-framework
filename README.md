@@ -12,7 +12,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Agents-5-6366f1?style=flat-square" alt="5 Agents">
-  <img src="https://img.shields.io/badge/Skills-17-10b981?style=flat-square" alt="17 Skills">
+  <img src="https://img.shields.io/badge/Skills-18-10b981?style=flat-square" alt="18 Skills">
   <img src="https://img.shields.io/badge/Hooks-13-f59e0b?style=flat-square" alt="13 Hooks">
   <img src="https://img.shields.io/badge/FSM_States-10+18-ef4444?style=flat-square" alt="10+18 FSM States">
   <img src="https://img.shields.io/badge/Workflow_Modes-2-8b5cf6?style=flat-square" alt="2 Workflow Modes">
@@ -27,7 +27,7 @@
   <a href="#安装">安装</a> ·
   <a href="#使用方式">使用</a> ·
   <a href="#工作流模式">工作流模式</a> ·
-  <a href="#17-个-skills">17 Skills</a> ·
+  <a href="#18-个-skills">18 Skills</a> ·
   <a href="#为什么需要这个框架">为什么</a> ·
   <a href="blog/vibe-coding-and-multi-agent.md">博客</a>
 </p>
@@ -369,81 +369,24 @@ bash /tmp/multi-agent-framework/scripts/verify-init.sh
 
 ## 问题追踪（测试者 ↔ 实现者）
 
-结构化 JSON（`T-NNN-issues.json`）是唯一真相源：
+结构化 JSON（`T-NNN-issues.json`）是唯一真相源。Issue 状态流转：`open → fixed → verified ✅`（或 `→ reopened → fixed → ...`）。
 
-```json
-{
-  "task_id": "T-003",
-  "version": 5,
-  "round": 2,
-  "issues": [
-    {
-      "id": "ISS-001",
-      "severity": "high",
-      "status": "verified",
-      "title": "登录接口空密码返回 500",
-      "fix_note": "添加了空值检查",
-      "fix_commit": "abc1234"
-    }
-  ]
-}
-```
+- **字段归属**：测试者写问题详情和状态（open/verified），实现者写 fix_note 和 fix_commit
+- **并发安全**：乐观锁（version 字段）+ 字段隔离防止冲突
+- **Markdown 报告**：从 JSON 自动生成（只读）
 
-**Issue 状态流转**：`open → fixed → verified ✅`（或 `→ reopened → fixed → ...`）
-
-**字段归属**：
-- 测试者写：问题详情、状态（open/verified/reopened）
-- 实现者写：fix_note、fix_commit、状态（fixed）
-- Markdown 报告从 JSON 自动生成（只读）
-
-**并发安全**：乐观锁（version 字段）+ 字段隔离防止冲突。
+> 📖 详细格式示例见 [USAGE_GUIDE](docs/USAGE_GUIDE.md)
 
 ## 任务记忆
 
 每个任务有独立的记忆文件（`.agents/memory/T-NNN-memory.json`），跨阶段积累上下文：
 
-- **自动保存** — 任务状态转移时，当前 Agent 自动保存工作摘要、关键决策、产出物、修改文件
-- **智能加载** — 下一个 Agent 按角色只加载需要的字段（Implementer 看 decisions + artifacts，Reviewer 看 files_modified + decisions）
-- **完整可追溯** — 记录每个阶段的 `handoff_notes`（交接备注），确保上下文不丢失
-- **提交到 Git** — 记忆文件是有价值的项目知识，不是临时运行时状态
+- **自动保存** — 状态转移时自动保存工作摘要、关键决策、产出物
+- **智能加载** — 下一个 Agent 按角色只加载需要的字段
+- **搜索记忆** — 跨所有任务搜索决策、踩坑记录、交接备注
+- **项目摘要** — 汇总所有任务的架构决策和高风险文件
 
-```json
-{
-  "task_id": "T-001",
-  "version": 3,
-  "stages": {
-    "designing": {
-      "agent": "designer",
-      "summary": "设计了基于 JWT 的用户认证系统...",
-      "decisions": ["选择 JWT 而非 session", "使用 bcrypt"],
-      "artifacts": ["design-docs/T-001-design.md"],
-      "handoff_notes": "实现者应先完成 JWT 中间件"
-    },
-    "implementing": {
-      "agent": "implementer",
-      "summary": "实现了登录/注册接口...",
-      "files_modified": ["src/auth/jwt.ts", "src/routes/auth.ts"],
-      "handoff_notes": "注意 token 刷新使用滑动窗口"
-    }
-  }
-}
-```
-
-查看方式：对 Agent 说 **"查看记忆"** / **"任务上下文"** 即可展示完整的阶段记忆。
-
-### 搜索记忆
-
-对 Agent 说 **"搜索记忆 redis"** 或 **"有没有类似的经验"**：
-- 跨所有任务搜索过去的**决策**、**踩坑记录**、**交接备注**
-- 按相关度排序：精确匹配 decisions/issues > 同类阶段 > 最近任务
-- 当前任务上下文感知：不指定关键词时，自动从任务描述提取关键词搜索
-
-### 项目级摘要
-
-对 Agent 说 **"项目摘要"** 或 **"lessons learned"**：
-- 从所有任务记忆中汇总：架构决策、踩坑记录、技术栈选择、文件修改热区
-- 自动识别高风险文件（被多个任务反复修改的文件）
-- 可保存为 `.agents/memory/PROJECT-SUMMARY.md`
+> 📖 详细格式和搜索功能见 [USAGE_GUIDE](docs/USAGE_GUIDE.md)
 
 ## 功能目标清单
 
@@ -600,6 +543,9 @@ sqlite3 .agents/events.db "SELECT * FROM events ORDER BY id DESC LIMIT 20;"
 
 ## 为什么需要这个框架？
 
+<details>
+<summary>💡 点击展开：从 Vibe Coding 到 Agent 团队协作</summary>
+
 ### 从编译器到 Agent：不变的本质
 
 Vibe Coding 其实就是自然语言编程。
@@ -655,6 +601,8 @@ Agent: (又一通操作)
 
 > 这可能就是 Vibe Coding 的最终形态 —— 不是一个人和一个 Agent 反复拉扯，而是一个 **Agent 团队**各司其职，像真正的软件开发团队一样协作。而有意思的是，连这个框架本身，也是由 Agent 写的。
 
+</details>
+
 ## Agent Teams（代理团队）
 
 ### 核心架构
@@ -709,7 +657,7 @@ designing → hypothesizing → evaluate → promote winner → designing
 | **仅 CLI** | 框架通过 Shell Hook 运行，需要 Claude Code 或 Copilot CLI | 不支持 Web UI / API 模式 |
 | **macOS/Linux** | 依赖 bash 4+、jq、sqlite3 | Windows 需使用 WSL |
 | **单项目** | `.agents/` 目录绑定单个项目 | 多项目需分别初始化 |
-| **文档门禁** | 目前仅输出 ⚠️ 警告，不会阻止状态转换 | 计划未来支持 strict 模式 |
+| **文档门禁** | 默认 warn 模式仅警告；strict 模式可阻止转换 | 在 `task-board.json` 设置 `"doc_gate_mode": "strict"` |
 | **内存索引** | 需要项目自行提供 `memory-index.sh` | 可选功能，不影响核心流程 |
 
 ### 常见问题
