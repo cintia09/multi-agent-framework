@@ -648,3 +648,14 @@ Split the 364-line `agent-post-tool-use.sh` monolith into a clean 79-line main h
 - Step 7: NEW — generate/update CLAUDE.md + copilot-instructions.md with framework refs
 - Step 7c: NEW — auto-append .agents runtime paths to project .gitignore
 - Step 8: Updated summary with platform + global skill count
+
+## v3.2.4
+
+### Skills Loading Animation
+- Interactive HTML animation (8 steps, keyboard/auto-play)
+- GIF (378KB) + MP4 (152KB) versions for sharing
+- Visualizes two-level loading, per-agent isolation, token efficiency
+
+### Audit Round 11
+- 1 doc-only issue fixed (stale version in USAGE_GUIDE)
+- Executable code: ZERO issues for 3rd consecutive round
