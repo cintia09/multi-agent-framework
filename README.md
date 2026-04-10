@@ -293,7 +293,7 @@ bash install.sh --check
    - 读取 `CLAUDE.md`（项目规范，如果存在）
    - 读取全局 Agent Profiles（`~/.claude/agents/*.agent.md`，角色定义）
    - 读取全局 Skills（`~/.claude/skills/agent-*/SKILL.md`，工作流定义）
-2. 创建 `.agents/runtime/` 运行时目录（state.json、inbox.json）
+2. 创建 `.agents/runtime/` 运行时目录（inbox.json 等）
 3. 初始化 `events.db`（SQLite 审计日志）
 4. 创建 `.agents/task-board.json` 空任务表
 5. **AI 生成 6 个项目级 Skill**（基于上下文定制，非拷贝！）：
@@ -537,7 +537,7 @@ sqlite3 .agents/events.db "SELECT * FROM events ORDER BY id DESC LIMIT 20;"
 │   ├── agent-on-goal-verified.sh      # 目标验证
 │   └── security-scan.sh              # 🔒 密钥扫描
 ├── skills/
-│   └── agent-*/SKILL.md               # 15 个 Skill 目录
+│   └── agent-*/SKILL.md               # 18 个 Skill 目录
 └── agents/
     └── *.agent.md                     # 5 个角色 Profile
 
@@ -558,7 +558,7 @@ sqlite3 .agents/events.db "SELECT * FROM events ORDER BY id DESC LIMIT 20;"
 └── runtime/
     ├── active-agent                   # 当前活跃 Agent
     └── <角色>/
-        ├── state.json / inbox.json
+        ├── inbox.json
         └── workspace/                 # 工作产出物
             └── issues/T-NNN-issues.json  # 结构化问题追踪
 

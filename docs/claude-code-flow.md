@@ -118,7 +118,7 @@ sequenceDiagram
     participant POST as 🪝 Post-Hook
     participant DB as 💾 State
 
-    Note over CC: 加载 Rules + 18 Skills + Agent Profile
+    Note over CC: 加载 Rules + 18 Skills 摘要列表 + Agent Profile
 
     U->>CC: 用户消息
     CC->>LLM: System Prompt + 用户消息
@@ -226,26 +226,28 @@ graph LR
 
 ```mermaid
 flowchart LR
-    subgraph Load["Skill 加载顺序"]
+    subgraph Load["Skill 发现"]
         direction TB
-        L1["~/.claude/skills/*/SKILL.md<br/>(用户级)"]
+        L1["~/.claude/skills/*/SKILL.md<br/>(用户级 18 个)"]
         L2[".claude/skills/*/SKILL.md<br/>(项目级)"]
-        L3["Agent Profile<br/>(.agent.md → tools 字段)"]
+        L3["Agent Profile<br/>(.agent.md → skills: 隔离清单)"]
     end
 
-    subgraph Inject["注入 System Prompt"]
-        I1["所有 SKILL.md 内容<br/>作为上下文注入"]
-        I2["当前 Agent 的角色约束"]
-        I3["CLAUDE.md 项目规则"]
+    subgraph Level1["第1级: 摘要 (~1% token)"]
+        I1["name + description × 18<br/>注入 System Prompt"]
     end
 
-    subgraph Runtime["运行时行为"]
+    subgraph Level2["第2级: 全文 (按需)"]
+        I4["用户 /skillname 或 LLM 自动激活<br/>→ 加载完整 SKILL.md 到 Messages"]
+    end
+
+    subgraph Runtime["运行时"]
         R1["LLM 根据 Skill 知识<br/>决定行为和格式"]
         R2["Hook 根据 Skill 定义<br/>验证合法性"]
     end
 
-    L1 --> I1
-    L2 --> I1
-    L3 --> I2
-    I1 & I2 & I3 --> R1 & R2
+    L1 & L2 --> I1
+    L3 -->|"Per-Agent 隔离"| I1
+    I1 -->|"LLM 识别需要"| I4
+    I4 --> R1 & R2
 ```
