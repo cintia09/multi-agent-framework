@@ -35,6 +35,7 @@ head -5 README.md 2>/dev/null
 #### 1b. 读取项目级 instructions
 ```bash
 cat CLAUDE.md 2>/dev/null
+cat .github/copilot-instructions.md 2>/dev/null
 ```
 
 #### 1c. 分类项目类型
@@ -58,10 +59,35 @@ cat CLAUDE.md 2>/dev/null
 - 选择 1 → `workflow_mode: "simple"` (默认)
 - 选择 2 → `workflow_mode: "3phase"` (执行 Step 5h)
 
-#### 1e. 读取全局 agent profiles & skills
+#### 1e. 读取全局 agent profiles, skills & rules
+
+扫描全部全局资源, 构建完整上下文:
+
 ```bash
-for f in acceptor designer implementer reviewer tester; do cat ~/.claude/agents/${f}.agent.md; done
-for f in agent-acceptor agent-designer agent-implementer agent-reviewer agent-tester agent-fsm agent-task-board; do cat ~/.claude/skills/${f}/SKILL.md; done
+# Agent Profiles (5 个, 含 skills: 隔离清单)
+for f in acceptor designer implementer reviewer tester; do
+  cat ~/.claude/agents/${f}.agent.md 2>/dev/null || cat ~/.copilot/agents/${f}.agent.md 2>/dev/null
+done
+
+# 全部 18 个 Skills (只读 frontmatter + 前 20 行摘要, 避免上下文溢出)
+for d in ~/.claude/skills/agent-*/SKILL.md; do
+  head -20 "$d" 2>/dev/null
+done
+
+# 全局 Rules
+for r in ~/.claude/rules/*.md; do
+  cat "$r" 2>/dev/null
+done
+```
+
+> 关注: 每个 agent profile 的 `skills:` frontmatter 定义了该角色允许调用的 skills 列表 (Per-Agent 隔离)。
+
+#### 1f. 检测平台
+
+```bash
+# 检测当前运行的平台
+if [ -d ~/.claude ]; then PLATFORM="claude-code"; fi
+if [ -d ~/.copilot ]; then PLATFORM="${PLATFORM:+$PLATFORM+}copilot-cli"; fi
 ```
 
 ### 2. 创建目录结构
@@ -81,10 +107,8 @@ done
 
 ### 3. 初始化状态文件
 
-为每个 Agent 创建 `state.json` 和 `inbox.json`:
+为每个 Agent 创建 `inbox.json`:
 ```json
-// .agents/runtime/<agent>/state.json
-{"agent":"<name>","status":"idle","current_task":null,"sub_state":null,"queue":[],"last_activity":"<ISO>","version":0,"error":null}
 // .agents/runtime/<agent>/inbox.json
 {"messages":[]}
 ```
@@ -185,18 +209,80 @@ mkdir -p .agents/orchestrator/logs .agents/prompts
 
 ### 6. 创建 .agents/.gitignore
 ```
-runtime/*/state.json
 runtime/*/inbox.json
 orchestrator/logs/
 orchestrator/daemon.pid
 !runtime/*/workspace/.gitkeep
 ```
 
-### 7. 输出摘要
+### 7. 生成/更新项目级 Instructions
+
+> 结合 Step 1 收集的上下文 + 全局框架信息, 生成项目级配置文件。
+> 如果文件已存在, **追加**框架相关内容 (不覆盖已有内容)。
+
+#### 7a. CLAUDE.md (Claude Code 项目配置)
+
+生成或追加到项目根目录 `CLAUDE.md`:
+
+```markdown
+# Agent Framework Configuration
+
+## 框架信息
+- Multi-Agent Framework v3.2.x
+- 5 Agent 角色 | 18 Skills | 13 Hooks | 双模式 FSM
+
+## 全局资源
+- Agent Profiles: ~/.claude/agents/*.agent.md (含 skills: Per-Agent 隔离)
+- Skills: ~/.claude/skills/agent-*/ (18 个, 两级加载: 摘要列表 + 按需全文)
+- Hooks: ~/.claude/hooks/ (13 个 Shell 脚本)
+- Rules: ~/.claude/rules/ (agent-workflow, commit-standards, security)
+
+## 项目技术栈
+<基于 Step 1a 检测结果填写>
+
+## 常用命令
+| 命令 | 说明 |
+|------|------|
+| /agent acceptor | 切换到验收者角色 |
+| /agent-init | 初始化 Agent 系统 |
+| /agent-task-board | 查看任务看板 |
+| /agent-fsm | 查看 FSM 状态机 |
+
+## 项目规范
+<基于 Step 1b 已有 CLAUDE.md 内容保留>
+```
+
+#### 7b. .github/copilot-instructions.md (Copilot CLI 项目配置)
+
+```bash
+mkdir -p .github
+```
+
+生成或追加到 `.github/copilot-instructions.md`, 内容与 7a 对应, 但路径替换为 Copilot:
+- `~/.claude/` → `~/.copilot/`
+- `hooks.json` → `hooks-copilot.json`
+
+#### 7c. 更新 .gitignore
+
+确保框架运行时文件被忽略:
+```bash
+# 检查项目 .gitignore 是否已包含 .agents 排除
+grep -q '.agents/runtime' .gitignore 2>/dev/null || cat >> .gitignore << 'GITIGNORE'
+
+# Multi-Agent Framework runtime (not tracked)
+.agents/runtime/*/inbox.json
+.agents/events.db
+.agents/runtime/.lock
+.agents/runtime/.task-board-snapshot.json
+GITIGNORE
+```
+
+### 8. 输出摘要
 ```
 ✅ Agent 系统已初始化
 ━━━━━━━━━━━━━━━━━━━━━━━
 项目: <name> | 技术栈: <detected> | 工作流: <Simple/3-Phase>
-Skills: 6 project skills | Runtime: 5 agents (idle) | Memory: 空
+Skills: 6 project + 18 global | Runtime: 5 agents | 平台: <Claude Code/Copilot/Both>
+CLAUDE.md: ✅ 已生成 | copilot-instructions.md: ✅ 已生成
 下一步: Simple → /agent acceptor | 3-Phase → bash .agents/orchestrator/run.sh T-001
 ```

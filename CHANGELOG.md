@@ -636,3 +636,15 @@ Split the 364-line `agent-post-tool-use.sh` monolith into a clean 79-line main h
 - Simplify README: condense issue tracking + memory sections, collapsible narrative
 - Fix doc gate limitation entry: strict mode now exists (was listed as planned)
 - README: 734→682 lines (−7%)
+
+## v3.2.3
+
+### agent-init Rework
+- Step 1b: Scan both CLAUDE.md and .github/copilot-instructions.md
+- Step 1e: Scan all 18 global skills (was only 7), read agent profiles with skills: isolation
+- Step 1f: NEW — detect platform (Claude Code / Copilot CLI / both)
+- Step 3: Remove stale state.json references
+- Step 6: Fix .gitignore (remove state.json)
+- Step 7: NEW — generate/update CLAUDE.md + copilot-instructions.md with framework refs
+- Step 7c: NEW — auto-append .agents runtime paths to project .gitignore
+- Step 8: Updated summary with platform + global skill count
