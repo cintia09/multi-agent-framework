@@ -187,6 +187,11 @@ hitl_get_feedback(task_id, role) → [{ section, comment, author, at }]
 - FSM 转移前检查: `hitl_status.status == "approved"`
 - 如果不是 approved: 拒绝转移, 提示 "⛔ HITL 审批未通过, 请先完成人工审批"
 
+**乐观锁保护**:
+- publish 时读取 task-board.json 的 `version` 字段
+- 写回时校验 version 未变 → 防止并发 Agent 覆盖
+- 冲突时重试 (最多 3 次)
+
 ## 快速审批 (shortcut)
 
 用户可以在 Agent 对话中说:

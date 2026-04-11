@@ -126,9 +126,11 @@ All hooks are registered in `hooks/hooks.json`. Each entry specifies:
 
 ---
 
-## 3-Phase Dispatch Logic
+## 3-Phase Dispatch Logic (已废弃 — Legacy)
 
-When `workflow_mode` is `"3phase"`, the hook system extends its dispatch and validation to cover all 18 states and parallel tracks.
+> ⚠️ **v3.4.0 起已废弃**: 3-Phase 工作流已合并到统一 FSM (11 状态)。以下代码仅供参考和向后兼容。
+> 新项目应使用统一 FSM 模式 (参见 `agent-fsm/SKILL.md`)。
+> 旧任务的 3-Phase 状态会自动映射到统一 FSM 状态 (参见 FSM Legacy 迁移表)。
 
 ### Step → Agent Mapping (3-Phase)
 

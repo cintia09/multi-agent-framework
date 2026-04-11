@@ -20,13 +20,14 @@ mkdir -p "$REVIEWS_DIR"
 # Load config
 load_config() {
   if [ -f "$CONFIG_FILE" ]; then
-    CONFLUENCE_BASE_URL="${CONFLUENCE_BASE_URL:-$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('hitl',{}).get('confluence',{}).get('base_url',''))" 2>/dev/null || echo "")}"
-    CONFLUENCE_SPACE_KEY="${CONFLUENCE_SPACE_KEY:-$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('hitl',{}).get('confluence',{}).get('space_key',''))" 2>/dev/null || echo "")}"
-    CONFLUENCE_PARENT_PAGE_ID="${CONFLUENCE_PARENT_PAGE_ID:-$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('hitl',{}).get('confluence',{}).get('parent_page_id',''))" 2>/dev/null || echo "")}"
-    CONFLUENCE_TOKEN="${CONFLUENCE_TOKEN:-$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); t=c.get('hitl',{}).get('confluence',{}).get('auth',''); print(t.replace('env:',''))" 2>/dev/null || echo "")}"
-    # Resolve env: prefix
-    if [[ "$CONFLUENCE_TOKEN" != "" ]] && [[ "$CONFLUENCE_TOKEN" != "CONFLUENCE_TOKEN" ]]; then
-      CONFLUENCE_TOKEN="${!CONFLUENCE_TOKEN:-$CONFLUENCE_TOKEN}"
+    CONFLUENCE_BASE_URL="${CONFLUENCE_BASE_URL:-$(python3 -c "import json,sys; c=json.load(open(sys.argv[1])); print(c.get('hitl',{}).get('confluence',{}).get('base_url',''))" "$CONFIG_FILE" 2>/dev/null || echo "")}"
+    CONFLUENCE_SPACE_KEY="${CONFLUENCE_SPACE_KEY:-$(python3 -c "import json,sys; c=json.load(open(sys.argv[1])); print(c.get('hitl',{}).get('confluence',{}).get('space_key',''))" "$CONFIG_FILE" 2>/dev/null || echo "")}"
+    CONFLUENCE_PARENT_PAGE_ID="${CONFLUENCE_PARENT_PAGE_ID:-$(python3 -c "import json,sys; c=json.load(open(sys.argv[1])); print(c.get('hitl',{}).get('confluence',{}).get('parent_page_id',''))" "$CONFIG_FILE" 2>/dev/null || echo "")}"
+    CONFLUENCE_TOKEN="${CONFLUENCE_TOKEN:-$(python3 -c "import json,sys; t=json.load(open(sys.argv[1])).get('hitl',{}).get('confluence',{}).get('auth',''); print(t.replace('env:',''))" "$CONFIG_FILE" 2>/dev/null || echo "")}"
+    # Resolve env: prefix — token value may be an env var name to look up
+    if [ -n "$CONFLUENCE_TOKEN" ] && [ "$CONFLUENCE_TOKEN" != "CONFLUENCE_TOKEN" ]; then
+      resolved=$(printenv "$CONFLUENCE_TOKEN" 2>/dev/null || echo "")
+      [ -n "$resolved" ] && CONFLUENCE_TOKEN="$resolved"
     fi
   fi
 }
@@ -86,11 +87,16 @@ data = {
 print(json.dumps(data))
 " "$title" "$CONFLUENCE_SPACE_KEY" "$CONFLUENCE_PARENT_PAGE_ID" "$body_html")
 
-    response=$(curl -s -X POST \
+    response=$(curl -sf -X POST \
       "${CONFLUENCE_BASE_URL}/rest/api/content" \
       -H "Authorization: Bearer ${CONFLUENCE_TOKEN}" \
       -H "Content-Type: application/json" \
-      -d "$page_data")
+      -d "$page_data" 2>/dev/null)
+    
+    if [ $? -ne 0 ] || [ -z "$response" ]; then
+      echo "ERROR: Confluence API request failed. Check CONFLUENCE_BASE_URL and CONFLUENCE_TOKEN." >&2
+      exit 1
+    fi
 
     page_id=$(echo "$response" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
 

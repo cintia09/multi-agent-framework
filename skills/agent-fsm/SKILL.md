@@ -117,8 +117,10 @@ state.json 格式:
 
 6. **DFMEA 门禁 (implementing → reviewing)**:
    - 检查 `.agents/runtime/implementer/workspace/T-NNN-dfmea.md` 是否存在
+   - **内容验证**: RPN ≥ 100 的失效模式必须有缓解措施 (Mitigation 列非空)
+   - 检查方法: 解析 DFMEA markdown 表格, 找到 RPN ≥ 100 的行, 验证最后一列有内容
    - 模式与文档门禁相同 (`doc_gate_mode`: warn / strict)
-   - Strict 模式下: DFMEA 缺失 → 拒绝转移
+   - Strict 模式下: DFMEA 缺失或高 RPN 未缓解 → 拒绝转移
 7. **反馈循环守卫**: 反馈转移时检查 `feedback_loops < MAX_FEEDBACK_LOOPS`
 8. **HITL 审批守卫** (仅 `hitl.enabled == true` 时生效):
    - 检查任务的 `hitl_status.status == "approved"`

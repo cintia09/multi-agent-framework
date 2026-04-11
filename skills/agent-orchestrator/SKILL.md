@@ -1,14 +1,18 @@
 ---
 name: agent-orchestrator
-description: "3-Phase Orchestrator Daemon. Autonomous background process that drives the 3-Phase Engineering Closed Loop workflow. Invokes agents via Copilot CLI with step-specific prompt templates."
+description: "Orchestrator Daemon. Autonomous background process that drives tasks through the unified FSM workflow. Invokes agents via Copilot CLI with step-specific prompt templates."
 ---
 
-# Agent Orchestrator — 3-Phase Daemon
+# Agent Orchestrator — Workflow Daemon
 
-Background shell script that autonomously drives tasks through the 3-Phase Engineering Closed Loop:
+> ⚠️ **v3.4.0 更新**: 原 3-Phase Orchestrator 已升级为统一 FSM 编排器。
+> 3-Phase 的 18 状态已合并为 11 状态统一 FSM (参见 `agent-fsm/SKILL.md`)。
+> 旧任务的 3-Phase 状态会自动映射到统一 FSM 状态。
+
+Background shell script that autonomously drives tasks through the unified FSM workflow:
 1. Reads task state from `task-board.json`, determines next step via FSM
 2. Selects agent + prompt template, invokes via Copilot CLI
-3. Evaluates result, advances FSM, handles parallel tracks & feedback loops
+3. Evaluates result, advances FSM, handles feedback loops
 
 Generated during `agent-init` with `{PLACEHOLDER}` tokens filled in.
 
