@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.5] - 2026-04-11
+
+### Added
+- **Comprehensive hard constraints for all 5 agent roles** via `preToolUse` hook enforcement
+  - **Tester**: blocked from `git commit/push`, `rm/mv/cp` on non-test files, redirects outside test directories; allowed: `.agents/`, `tests/`, `*.test.*`, `*.spec.*`
+  - **Implementer**: blocked from `npm publish`, `docker push`; blocked redirects to other agents' workspaces
+  - **Acceptor/Designer**: read-only except `.agents/`; blocked destructive commands and redirects
+  - **Reviewer**: read-only except `.agents/reviewer/`, `docs/`, `task-board`; blocked destructive commands
+
+### Fixed
+- **Bash redirect bypass vulnerability**: detected `>`, `>>`, `tee`, `sed -i`, `patch`, `dd` patterns in bash commands to prevent write operations that bypassed edit/create restrictions
+- Redirect whitelist for `.agents/` writes per-role and test directories for tester role
+
+### Verified
+- 44/44 hook enforcement test scenarios passed across all 5 roles
+- 8/8 live enforcement tests passed in real Copilot CLI session (tester role)
+
 ## [3.3.4] - 2026-04-11
 
 ### Fixed
