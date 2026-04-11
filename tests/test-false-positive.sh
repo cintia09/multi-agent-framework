@@ -101,6 +101,23 @@ check "actual git push" \
   '{"toolName":"bash","toolArgs":{"command":"git push origin main"},"cwd":"'"$PROJECT_ROOT"'"}' \
   "deny"
 
+echo "--- Acceptor: /dev/null redirects should NOT trigger ---"
+check "cat with 2>/dev/null" \
+  '{"toolName":"bash","toolArgs":{"command":"cat .agents/runtime/acceptor/inbox.json 2>/dev/null || echo no"},"cwd":"'"$PROJECT_ROOT"'"}' \
+  "allow"
+
+check "ls with >/dev/null" \
+  '{"toolName":"bash","toolArgs":{"command":"ls .agents/ >/dev/null"},"cwd":"'"$PROJECT_ROOT"'"}' \
+  "allow"
+
+check "python with 2>/dev/null at end" \
+  '{"toolName":"bash","toolArgs":{"command":"python3 -c \"print(1)\" 2>/dev/null || echo fail"},"cwd":"'"$PROJECT_ROOT"'"}' \
+  "allow"
+
+check "command with &>/dev/null" \
+  '{"toolName":"bash","toolArgs":{"command":"git status &>/dev/null && echo ok"},"cwd":"'"$PROJECT_ROOT"'"}' \
+  "allow"
+
 # --- Cleanup ---
 echo ""
 echo "implementer" > .agents/runtime/active-agent

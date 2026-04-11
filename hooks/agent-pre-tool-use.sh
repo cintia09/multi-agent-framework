@@ -130,7 +130,8 @@ case "$TOOL_NAME" in
   bash)
     VE_CMD=$(echo "$TOOL_ARGS" | jq -r '.command // empty' 2>/dev/null)
     # Strip quoted strings for virtual event checks (collapse newlines first for multi-line strings)
-    VE_CMD_CHECK=$(echo "$VE_CMD" | tr '\n' ' ' | sed "s/'[^']*'/_Q_/g" | sed 's/"[^"]*"/_Q_/g')
+    # Then strip harmless /dev/null redirects (e.g., 2>/dev/null) to avoid false positives
+    VE_CMD_CHECK=$(echo "$VE_CMD" | tr '\n' ' ' | sed "s/'[^']*'/_Q_/g" | sed 's/"[^"]*"/_Q_/g' | sed -E 's/[0-9]*>&?\/dev\/null//g; s/&>\/dev\/null//g')
 
     # PROTECT: block deletion of active-agent file (prevents enforcement bypass)
     if echo "$VE_CMD_CHECK" | grep -qE '(rm|mv)\s+.*active-agent'; then
@@ -230,7 +231,8 @@ case "$TOOL_NAME" in
     # Strip quoted strings to avoid false positives from argument content
     # e.g., gh release --notes "mentions npm publish" should NOT trigger npm publish check
     # Direct commands like `npm publish` (unquoted) are still caught
-    BASH_CMD_CHECK=$(echo "$BASH_CMD" | tr '\n' ' ' | sed "s/'[^']*'/_Q_/g" | sed 's/"[^"]*"/_Q_/g')
+    # Also strip harmless /dev/null redirects (2>/dev/null, &>/dev/null)
+    BASH_CMD_CHECK=$(echo "$BASH_CMD" | tr '\n' ' ' | sed "s/'[^']*'/_Q_/g" | sed 's/"[^"]*"/_Q_/g' | sed -E 's/[0-9]*>&?\/dev\/null//g; s/&>\/dev\/null//g')
 
     # Helper: check if ANY segment of a chained command has a dangerous pattern
     # without matching a whitelist. Splits on &&, ||, ; for per-segment analysis.
