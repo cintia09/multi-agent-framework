@@ -267,16 +267,13 @@ mkdir -p .github
 
 #### 7c. 更新 .gitignore
 
-确保框架运行时文件被忽略:
+确保整个 Agent 系统目录被忽略（用户项目不应追踪 .agents/）:
 ```bash
-# 检查项目 .gitignore 是否已包含 .agents 排除
-grep -q '.agents/runtime' .gitignore 2>/dev/null || cat >> .gitignore << 'GITIGNORE'
+# 检查项目 .gitignore 是否已包含 .agents/ 排除
+grep -q '^\.agents/' .gitignore 2>/dev/null || cat >> .gitignore << 'GITIGNORE'
 
-# Multi-Agent Framework runtime (not tracked)
-.agents/runtime/*/inbox.json
-.agents/events.db
-.agents/runtime/.lock
-.agents/runtime/.task-board-snapshot.json
+# Multi-Agent Framework (runtime state, not tracked)
+.agents/
 GITIGNORE
 ```
 
@@ -285,7 +282,7 @@ GITIGNORE
 ✅ Agent 系统已初始化
 ━━━━━━━━━━━━━━━━━━━━━━━
 项目: <name> | 技术栈: <detected> | 工作流: 统一线性
-Skills: 6 project + 18 global | Runtime: 5 agents | 平台: <Claude Code/Copilot/Both>
+Skills: 6 project + 20 global | Runtime: 5 agents | 平台: <Claude Code/Copilot/Both>
 CLAUDE.md: ✅ 已生成 | copilot-instructions.md: ✅ 已生成
 下一步: /agent acceptor 开始收集需求
 ```
