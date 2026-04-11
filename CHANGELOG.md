@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.1] - 2025-04-11
+
+### 🔒 HITL Hook Enforcement
+
+- **Hook hard constraint**: `agent-pre-tool-use.sh` now blocks FSM transitions in `task-board.json` when `hitl.enabled: true` and no approved feedback file exists
+- **6 transitions enforced**: created→designing, designing→implementing, implementing→reviewing, reviewing→testing, testing→accepting, accepting→accepted
+- **All 5 agent skills** updated with `🔒 Hook 硬约束` notice
+- Backward transitions and property-only changes remain unrestricted
+- HITL disabled (`hitl.enabled: false`) skips all gate checks
+
+### 🧪 E2E Test Results
+- 30/30 tests passed across 6 test groups
+- Agent switching, role boundaries, HITL pipeline, mid-flow modifications, HITL disabled, memory isolation
+
 ## [3.4.0] - 2026-04-13
 
 ### 🚀 Agent Experience Enhancement
