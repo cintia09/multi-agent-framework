@@ -85,7 +85,18 @@ cat "$AGENTS_DIR/task-board.json"
    | reviewer | `reviewing` | — |
    | tester | `testing` | — |
    - 无匹配 → 警告 + 询问是否仍要切换
-3. 保存当前 Agent 状态
+3. **保存并检查当前 Agent 状态**
+   - 保存 state.json
+   - **⛔ 切出守卫** (switch-away guard): 检查当前角色是否有未完成的关键输出:
+     | 当前角色 | 检查项 | 警告条件 |
+     |---------|--------|---------|
+     | acceptor | task-board.json | 用户已提出需求但未发布任务到 task-board |
+     | designer | design docs | 设计文档已起草但任务未转 implementing |
+     | implementer | code + DFMEA | 代码已修改但未提交/未写 DFMEA |
+     | reviewer | review report | 审查已进行但未出报告 |
+     | tester | test report | 测试已执行但未出报告 |
+   - 若检测到未完成输出 → 警告: "⚠️ 当前角色有未完成的工作: [描述]。确定要切换吗？"
+   - 用户确认后才继续切换
 4. 写入 active-agent: `echo "<name>" > .agents/runtime/active-agent`
 5. 清洁上下文 (RESPAWN — 不携带上一 Agent 记忆)
 6. **模型解析** (优先级从高到低):

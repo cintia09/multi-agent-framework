@@ -31,14 +31,21 @@ description: "验收者工作流: 需求收集、任务发布、验收测试。U
 ## 工作流程
 
 ### 流程 A: 收集需求并发布任务
+
+> ⛔ **强制规则**: 需求收集完成后，**必须**通过 `agent-task-board` skill 将任务发布到 `task-board.json`。
+> 严禁仅将需求存储在 session 状态 (plan.md / SQL / 笔记) 中而不发布。
+> 任务只有在 task-board.json 中才对其他 Agent 可见。**未发布 = 不存在。**
+
 ```
 1. 与用户沟通, 明确需求边界和验收标准
 2. 在 acceptor/workspace/requirements/ 下创建需求文档 (T-NNN-requirement.md)
 3. **拆分功能目标**: 将需求拆解为具体的功能目标清单 (goals), 每个 goal 是一个可独立验证的功能点
 4. 在 acceptor/workspace/acceptance-docs/ 下创建验收文档 (T-NNN-acceptance.md)
-5. 使用 agent-task-board skill 创建任务 (包含 goals 数组)
+5. **⛔ 必须执行**: 使用 agent-task-board skill 创建任务到 task-board.json (包含 goals 数组)
+   — 这一步不可省略, 不可推迟, 不可用其他方式替代
 6. 更新 state.json (status: idle, 当前任务清空)
 7. 确认: "✅ 任务 T-NNN 已发布 (N 个功能目标), 设计者将接手"
+8. **自检**: 使用 jq 读取 task-board.json 确认任务存在且状态为 created
 ```
 
 ## 用户故事格式
