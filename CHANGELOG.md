@@ -674,3 +674,11 @@ Split the 364-line `agent-post-tool-use.sh` monolith into a clean 79-line main h
 - Shared skills: 7 → 8 (all agents get worktree access)
 - Updated all 5 agent profiles + skills-mechanism diagram
 - Design doc: `.agents/docs/T-WORKTREE/design.md`
+
+## v3.3.1
+
+### Worktree P2-P5 Implementation
+- P2: `team-session.sh --worktree --tasks T-042,T-043` (one tmux window per task)
+- P3: auto-dispatch cross-worktree message routing
+- P4: task-board.json `worktree` field (path/branch/created_at)
+- P5: USAGE_GUIDE §3.4 + 5 new integration tests (30 total)
