@@ -23,10 +23,23 @@ BRANCH_NAME="task/${TASK_ID}"
 # 1. 创建 worktree + 分支
 git worktree add "$WORKTREE_DIR" -b "$BRANCH_NAME"
 
-# 2. Symlink 共享 .agents/ → 主 worktree (不在 worktree 中初始化独立的 agents 系统)
-ln -sf "$PROJECT_DIR/.agents" "$WORKTREE_DIR/.agents"
+# 2. 初始化独立的 .agents/ (完全隔离，不与主 worktree 共享)
+mkdir -p "$WORKTREE_DIR/.agents/runtime"/{acceptor,designer,implementer,reviewer,tester}/workspace
+mkdir -p "$WORKTREE_DIR/.agents"/{memory,docs,reviews,inbox}
 
-# 3. 更新 task-board.json — 添加 worktree 字段
+# 3. 创建独立的 config.json 和 task-board.json
+# 从主 worktree 复制配置作为初始值
+cp "$PROJECT_DIR/.agents/config.json" "$WORKTREE_DIR/.agents/config.json" 2>/dev/null || \
+  echo '{"hitl":{"enabled":true,"platform":"local-html"}}' > "$WORKTREE_DIR/.agents/config.json"
+
+# 创建独立 task-board，只包含当前任务
+TASK_JSON=$(jq --arg id "$TASK_ID" '[.tasks[] | select(.id == $id)]' "$PROJECT_DIR/.agents/task-board.json" 2>/dev/null || echo '[]')
+echo "{\"version\":1,\"tasks\":$TASK_JSON}" > "$WORKTREE_DIR/.agents/task-board.json"
+
+# 初始化 events.db
+sqlite3 "$WORKTREE_DIR/.agents/events.db" "CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, agent TEXT, event TEXT, task_id TEXT, details TEXT, created_at DATETIME DEFAULT (datetime('now')));"
+
+# 4. 更新主 worktree 的 task-board — 记录 worktree 位置
 jq --arg id "$TASK_ID" --arg path "$WORKTREE_DIR" --arg branch "$BRANCH_NAME" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   '.tasks = [.tasks[] | if .id == $id then . + {"worktree": {"path": $path, "branch": $branch, "created_at": $ts}} else . end]' \
   "$PROJECT_DIR/.agents/task-board.json" > "$PROJECT_DIR/.agents/task-board.json.tmp" \
@@ -39,7 +52,9 @@ jq --arg id "$TASK_ID" --arg path "$WORKTREE_DIR" --arg branch "$BRANCH_NAME" --
 ━━━━━━━━━━━━━━━━━━
 任务: T-042 | 分支: task/T-042
 目录: ../project--T-042
-.agents/: symlink → 主 worktree ✅
+.agents/: 独立初始化 ✅ (完全隔离)
+task-board: 仅包含 T-042 ✅
+config: 从主 worktree 复制 ✅
 下一步: cd ../project--T-042 && /agent implementer
 ```
 
@@ -94,32 +109,37 @@ PROJECT_NAME="$(basename "$PROJECT_DIR")"
 WORKTREE_DIR="${PROJECT_DIR}/../${PROJECT_NAME}--${TASK_ID}"
 BRANCH_NAME="task/${TASK_ID}"
 
-# 0. 确认任务状态
-STATUS=$(jq -r --arg id "$TASK_ID" '.tasks[] | select(.id == $id) | .status' "$PROJECT_DIR/.agents/task-board.json")
+# 0. 确认任务状态 (从 worktree 的独立 task-board 读取)
+STATUS=$(jq -r --arg id "$TASK_ID" '.tasks[] | select(.id == $id) | .status' "$WORKTREE_DIR/.agents/task-board.json" 2>/dev/null)
 if [ "$STATUS" != "accepted" ] && [ "$STATUS" != "testing" ] && [ "$STATUS" != "reviewing" ]; then
   echo "⚠️ 任务 $TASK_ID 状态为 $STATUS, 建议先完成审查/测试再合并"
   echo "继续合并? (y/N)"
   # 等待用户确认
 fi
 
-# 1. 回到主 worktree
+# 1. 同步 worktree 的任务状态回主 worktree task-board
+WT_TASK=$(jq --arg id "$TASK_ID" '.tasks[] | select(.id == $id)' "$WORKTREE_DIR/.agents/task-board.json" 2>/dev/null)
+if [ -n "$WT_TASK" ]; then
+  jq --arg id "$TASK_ID" --argjson task "$WT_TASK" \
+    '.tasks = [.tasks[] | if .id == $id then $task | del(.worktree) else . end]' \
+    "$PROJECT_DIR/.agents/task-board.json" > "$PROJECT_DIR/.agents/task-board.json.tmp" \
+    && mv "$PROJECT_DIR/.agents/task-board.json.tmp" "$PROJECT_DIR/.agents/task-board.json"
+fi
+
+# 2. 复制 worktree 的 memory/docs/reviews 回主 worktree
+for subdir in memory docs reviews; do
+  if [ -d "$WORKTREE_DIR/.agents/$subdir" ]; then
+    cp -r "$WORKTREE_DIR/.agents/$subdir/"* "$PROJECT_DIR/.agents/$subdir/" 2>/dev/null || true
+  fi
+done
+
+# 3. 回到主 worktree 并合并
 cd "$PROJECT_DIR"
-
-# 2. 删除 worktree 中的 .agents symlink (避免合并冲突)
-[ -L "$WORKTREE_DIR/.agents" ] && rm "$WORKTREE_DIR/.agents"
-
-# 3. 合并分支
 git merge "$BRANCH_NAME" --no-ff -m "Merge task/$TASK_ID: $(jq -r --arg id "$TASK_ID" '.tasks[] | select(.id == $id) | .title' "$PROJECT_DIR/.agents/task-board.json")"
 
 # 4. 清理 worktree
-git worktree remove "$WORKTREE_DIR"
+git worktree remove "$WORKTREE_DIR" --force
 git branch -d "$BRANCH_NAME"
-
-# 5. 更新 task-board — 移除 worktree 字段
-jq --arg id "$TASK_ID" \
-  '.tasks = [.tasks[] | if .id == $id then del(.worktree) else . end]' \
-  "$PROJECT_DIR/.agents/task-board.json" > "$PROJECT_DIR/.agents/task-board.json.tmp" \
-  && mv "$PROJECT_DIR/.agents/task-board.json.tmp" "$PROJECT_DIR/.agents/task-board.json"
 ```
 
 输出:
@@ -127,6 +147,8 @@ jq --arg id "$TASK_ID" \
 ✅ 合并完成
 ━━━━━━━━━━━━
 任务: T-042 | 分支: task/T-042 → main
+状态: 已同步回主 task-board ✅
+记忆/文档/审批: 已复制回主 worktree ✅
 Worktree: 已清理 ✅
 ```
 
