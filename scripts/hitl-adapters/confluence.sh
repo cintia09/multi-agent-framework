@@ -11,6 +11,16 @@
 
 set -euo pipefail
 
+# Dependency checks
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ERROR: python3 is required for HITL confluence adapter but not found" >&2
+  exit 1
+fi
+if ! command -v curl >/dev/null 2>&1; then
+  echo "ERROR: curl is required for HITL confluence adapter but not found" >&2
+  exit 1
+fi
+
 AGENTS_DIR="$(git rev-parse --show-toplevel 2>/dev/null)/.agents"
 [ -d "$AGENTS_DIR" ] || AGENTS_DIR="./.agents"
 REVIEWS_DIR="$AGENTS_DIR/reviews"
@@ -24,10 +34,15 @@ load_config() {
     CONFLUENCE_SPACE_KEY="${CONFLUENCE_SPACE_KEY:-$(python3 -c "import json,sys; c=json.load(open(sys.argv[1])); print(c.get('hitl',{}).get('confluence',{}).get('space_key',''))" "$CONFIG_FILE" 2>/dev/null || echo "")}"
     CONFLUENCE_PARENT_PAGE_ID="${CONFLUENCE_PARENT_PAGE_ID:-$(python3 -c "import json,sys; c=json.load(open(sys.argv[1])); print(c.get('hitl',{}).get('confluence',{}).get('parent_page_id',''))" "$CONFIG_FILE" 2>/dev/null || echo "")}"
     CONFLUENCE_TOKEN="${CONFLUENCE_TOKEN:-$(python3 -c "import json,sys; t=json.load(open(sys.argv[1])).get('hitl',{}).get('confluence',{}).get('auth',''); print(t.replace('env:',''))" "$CONFIG_FILE" 2>/dev/null || echo "")}"
-    # Resolve env: prefix — token value may be an env var name to look up
+    # Resolve env: prefix — only allow reading from whitelisted env var names
+    ALLOWED_TOKEN_VARS="CONFLUENCE_TOKEN CONFLUENCE_API_KEY CONFLUENCE_PAT ATLASSIAN_TOKEN"
     if [ -n "$CONFLUENCE_TOKEN" ] && [ "$CONFLUENCE_TOKEN" != "CONFLUENCE_TOKEN" ]; then
-      resolved=$(printenv "$CONFLUENCE_TOKEN" 2>/dev/null || echo "")
-      [ -n "$resolved" ] && CONFLUENCE_TOKEN="$resolved"
+      if echo " $ALLOWED_TOKEN_VARS " | grep -q " $CONFLUENCE_TOKEN "; then
+        resolved=$(printenv "$CONFLUENCE_TOKEN" 2>/dev/null || echo "")
+        [ -n "$resolved" ] && CONFLUENCE_TOKEN="$resolved"
+      else
+        echo "WARNING: env var '$CONFLUENCE_TOKEN' not in whitelist ($ALLOWED_TOKEN_VARS). Using literal value." >&2
+      fi
     fi
   fi
 }
@@ -59,9 +74,10 @@ case "$cmd" in
       echo "ERROR: Invalid role" >&2; exit 1
     fi
 
-    # Convert markdown to HTML
+    # Convert markdown to HTML (sanitize to prevent XSS)
     if command -v pandoc >/dev/null 2>&1; then
-      content_html=$(pandoc -f markdown -t html "$content_file" 2>/dev/null)
+      # Use pandoc with sandbox to block raw HTML passthrough
+      content_html=$(pandoc -f markdown-raw_html -t html "$content_file" 2>/dev/null)
     else
       content_html="<pre>$(cat "$content_file" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')</pre>"
     fi

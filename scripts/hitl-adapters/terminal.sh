@@ -12,6 +12,12 @@
 
 set -euo pipefail
 
+# Dependency check
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ERROR: python3 is required for HITL terminal adapter but not found" >&2
+  exit 1
+fi
+
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 REVIEWS_DIR="$PROJECT_ROOT/.agents/reviews"
 mkdir -p "$REVIEWS_DIR"

@@ -10,6 +10,16 @@
 
 set -euo pipefail
 
+# Dependency checks
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ERROR: python3 is required for HITL github-issue adapter but not found" >&2
+  exit 1
+fi
+if ! command -v gh >/dev/null 2>&1; then
+  echo "ERROR: gh CLI is required for HITL github-issue adapter but not found" >&2
+  exit 1
+fi
+
 AGENTS_DIR="$(git rev-parse --show-toplevel 2>/dev/null)/.agents"
 [ -d "$AGENTS_DIR" ] || AGENTS_DIR="./.agents"
 REVIEWS_DIR="$AGENTS_DIR/reviews"

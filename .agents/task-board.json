@@ -1,5 +1,5 @@
 {
-  "version": 33,
+  "version": 34,
   "tasks": [
     {
       "id": "T-001",
@@ -1143,7 +1143,7 @@
       "id": "T-038",
       "title": "Inject ask-next-step rule in agent-init",
       "description": "When agent-init initializes a project, inject into the project guidance file: '你的每一次回复最后都需要询问我的下一步计划，下一步计划的内容需要和当前 agent 的角色一致'. Ensures every agent response ends with a role-appropriate next-step question.",
-      "status": "testing",
+      "status": "accepted",
       "priority": "high",
       "created_at": "2026-04-11T07:20:43.331226+00:00",
       "created_by": "acceptor",
@@ -1151,29 +1151,33 @@
         {
           "id": "G-038-1",
           "description": "agent-init appends ask-next-step rule to project guidance (.github/copilot-instructions.md or .agents/rules/)",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-038-2",
           "description": "Rule text includes role-awareness: next-step question must match current agent role",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-038-3",
           "description": "Existing projects are not affected (rule only added on fresh init)",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         }
       ],
       "artifacts": {
         "design_doc": ".agents/runtime/designer/workspace/design-docs/v3.4.0-design.md"
       },
-      "updated_at": "2026-04-11T16:46:53.164462"
+      "updated_at": "2026-04-11T10:30:04Z",
+      "assigned_to": null
     },
     {
       "id": "T-039",
       "title": "Unify 3-phase into agent workflow",
       "description": "Merge the existing 3-Phase Engineering Closed Loop into the unified 5-agent workflow. No separate '3-phase' process — one flow: acceptor→designer→implementer→reviewer→tester→acceptor. Remove workflow_mode choice from agent-init.",
-      "status": "testing",
+      "status": "accepted",
       "priority": "high",
       "created_at": "2026-04-11T07:20:43.331226+00:00",
       "created_by": "acceptor",
@@ -1181,34 +1185,39 @@
         {
           "id": "G-039-1",
           "description": "agent-orchestrator drives the unified 5-agent flow without separate 3-phase mode",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-039-2",
           "description": "agent-init no longer asks 'Simple or 3-Phase' — unified by default",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-039-3",
           "description": "Existing 3-phase FSM states gracefully migrate to unified flow",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-039-4",
           "description": "Task schema no longer requires workflow_mode field",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         }
       ],
       "artifacts": {
         "design_doc": ".agents/runtime/designer/workspace/design-docs/v3.4.0-design.md"
       },
-      "updated_at": "2026-04-11T16:46:53.164462"
+      "updated_at": "2026-04-11T10:30:04Z",
+      "assigned_to": null
     },
     {
       "id": "T-040",
       "title": "DFMEA template + implementer integration",
       "description": "Create DFMEA (Design Failure Mode and Effects Analysis) template. Implementer must output DFMEA document before submitting to review. Fields: component, potential failure mode, effect, severity(1-10), occurrence(1-10), detection(1-10), RPN, recommended action.",
-      "status": "testing",
+      "status": "accepted",
       "priority": "high",
       "created_at": "2026-04-11T07:20:43.331226+00:00",
       "created_by": "acceptor",
@@ -1219,34 +1228,39 @@
         {
           "id": "G-040-1",
           "description": "DFMEA markdown template exists in .agents/templates/dfmea.md",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-040-2",
           "description": "Implementer skill references DFMEA as mandatory output before review",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-040-3",
           "description": "DFMEA includes: component, failure mode, effect, severity, occurrence, detection, RPN, action",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-040-4",
           "description": "Hook or skill validation ensures DFMEA exists before status transition to reviewing",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         }
       ],
       "artifacts": {
         "design_doc": ".agents/runtime/designer/workspace/design-docs/v3.4.0-design.md"
       },
-      "updated_at": "2026-04-11T16:46:53.164462"
+      "updated_at": "2026-04-11T10:30:04Z",
+      "assigned_to": null
     },
     {
       "id": "T-041",
       "title": "Human-in-the-loop review gate (core)",
       "description": "Each phase output requires human interaction before proceeding. Agent publishes document → human reviews/comments on interactive page → agent collects feedback → modifies → repeat until human approves. All 5 agents need this approval gate.",
-      "status": "testing",
+      "status": "accepted",
       "priority": "critical",
       "created_at": "2026-04-11T07:20:43.331226+00:00",
       "created_by": "acceptor",
@@ -1254,39 +1268,45 @@
         {
           "id": "G-041-1",
           "description": "Core HITL gate mechanism: agent can publish doc, poll for approval, collect feedback",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-041-2",
           "description": "Gate blocks FSM transition until human approval received",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-041-3",
           "description": "Feedback loop: agent modifies doc based on comments, re-publishes",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-041-4",
           "description": "All 5 agents (acceptor/designer/implementer/reviewer/tester) have the gate integrated",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-041-5",
           "description": "Platform selection is configurable per-project (asked during init or first use)",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         }
       ],
       "artifacts": {
         "design_doc": ".agents/runtime/designer/workspace/design-docs/v3.4.0-design.md"
       },
-      "updated_at": "2026-04-11T16:46:53.164462"
+      "updated_at": "2026-04-11T10:30:04Z",
+      "assigned_to": null
     },
     {
       "id": "T-042",
       "title": "Interactive page adapters (Confluence/HTML/GitHub)",
       "description": "Platform adapters for HITL review pages. Support Confluence (API), local HTML (browser-openable), and GitHub Issues/PR as review surfaces. Platform chosen per-project during agent-init or on first task.",
-      "status": "testing",
+      "status": "accepted",
       "priority": "high",
       "created_at": "2026-04-11T07:20:43.331226+00:00",
       "created_by": "acceptor",
@@ -1297,39 +1317,45 @@
         {
           "id": "G-042-1",
           "description": "Local HTML adapter: generates interactive HTML with comment form + approve button",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-042-2",
           "description": "Confluence adapter: publishes page via API, reads comments",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-042-3",
           "description": "GitHub adapter: creates Issue or PR comment for review",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-042-4",
           "description": "Adapter interface is pluggable — easy to add new platforms",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-042-5",
           "description": "agent-init asks user which platform to use for HITL review",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         }
       ],
       "artifacts": {
         "design_doc": ".agents/runtime/designer/workspace/design-docs/v3.4.0-design.md"
       },
-      "updated_at": "2026-04-11T16:46:53.164462"
+      "updated_at": "2026-04-11T10:30:04Z",
+      "assigned_to": null
     },
     {
       "id": "T-043",
       "title": "Worktree prompt in acceptor workflow",
       "description": "When acceptor receives a new feature request, ask user: '是否在新的 worktree 中进行？' If yes, create worktree via agent-worktree skill before task creation.",
-      "status": "testing",
+      "status": "accepted",
       "priority": "medium",
       "created_at": "2026-04-11T07:20:43.331226+00:00",
       "created_by": "acceptor",
@@ -1337,29 +1363,33 @@
         {
           "id": "G-043-1",
           "description": "Acceptor skill prompts user about worktree for new feature tasks",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-043-2",
           "description": "If yes, creates worktree with task-specific branch before publishing task",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-043-3",
           "description": "Task record includes worktree path for downstream agents",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         }
       ],
       "artifacts": {
         "design_doc": ".agents/runtime/designer/workspace/design-docs/v3.4.0-design.md"
       },
-      "updated_at": "2026-04-11T16:46:53.164462"
+      "updated_at": "2026-04-11T10:30:04Z",
+      "assigned_to": null
     },
     {
       "id": "T-044",
       "title": "Role mismatch detection + switch prompt",
       "description": "When user asks current agent to do something outside its scope, detect the mismatch and prompt: '这个任务更适合 <target-role>，是否切换？' If user confirms, auto-switch. All agents need this detection.",
-      "status": "testing",
+      "status": "accepted",
       "priority": "medium",
       "created_at": "2026-04-11T07:20:43.331226+00:00",
       "created_by": "acceptor",
@@ -1367,28 +1397,33 @@
         {
           "id": "G-044-1",
           "description": "Each agent skill defines its scope boundaries (what's in/out)",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-044-2",
           "description": "Detection logic maps out-of-scope requests to target agent",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-044-3",
           "description": "Prompt shows target role suggestion with one-click switch",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         },
         {
           "id": "G-044-4",
           "description": "User can decline switch and stay in current role",
-          "status": "pending"
+          "status": "verified",
+          "verified_at": "2026-04-11T10:30:04Z"
         }
       ],
       "artifacts": {
         "design_doc": ".agents/runtime/designer/workspace/design-docs/v3.4.0-design.md"
       },
-      "updated_at": "2026-04-11T16:46:53.164462"
+      "updated_at": "2026-04-11T10:30:04Z",
+      "assigned_to": null
     }
   ],
   "updated_at": "2026-04-11T16:46:53.164462"

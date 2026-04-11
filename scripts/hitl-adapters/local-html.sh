@@ -8,6 +8,12 @@
 
 set -euo pipefail
 
+# Dependency check
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ERROR: python3 is required for HITL local-html adapter but not found" >&2
+  exit 1
+fi
+
 AGENTS_DIR="$(git rev-parse --show-toplevel 2>/dev/null)/.agents"
 [ -d "$AGENTS_DIR" ] || AGENTS_DIR="./.agents"
 REVIEWS_DIR="$AGENTS_DIR/reviews"
@@ -39,32 +45,6 @@ case "$cmd" in
       exit 1
     fi
 
-    # Convert markdown to HTML (basic conversion)
-    content_html=""
-    if command -v pandoc >/dev/null 2>&1; then
-      content_html=$(pandoc -f markdown -t html "$content_file" 2>/dev/null)
-    else
-      # Fallback: wrap in <pre> tag
-      content_html="<pre>$(cat "$content_file" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')</pre>"
-    fi
-
-    # C1 fix: pass role as argument, not embedded in string
-    role_emoji=$(echo "$ROLE_EMOJI_MAP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get(sys.argv[1],'📋'))" "$role" 2>/dev/null || echo "📋")
-
-    # Generate HTML from template
-    output_file="$REVIEWS_DIR/${task_id}-${role}.html"
-    feedback_path="$REVIEWS_DIR/${task_id}-${role}-feedback.json"
-
-    sed \
-      -e "s|{{TASK_ID}}|${task_id}|g" \
-      -e "s|{{ROLE}}|${role}|g" \
-      -e "s|{{ROLE_EMOJI}}|${role_emoji}|g" \
-      -e "s|{{FEEDBACK_PATH}}|${feedback_path}|g" \
-      "$TEMPLATE" > "$output_file.tmp"
-
-    # C2 fix: write content to temp file, read in Python (no string embedding)
-    CONTENT_TMP=$(mktemp)
-    echo "$content_html" > "$CONTENT_TMP"
     # Find available port (8900-8999 range)
     HITL_PORT=""
     for p in $(seq 8900 8999); do
@@ -74,7 +54,9 @@ case "$cmd" in
       fi
     done
     if [ -z "$HITL_PORT" ]; then
-      HITL_PORT=8900
+      echo "ERROR: No available port in range 8900-8999. Close some HITL servers first." >&2
+      echo "  To list: lsof -i :8900-8999" >&2
+      exit 1
     fi
 
     # Start HITL review server in background
@@ -94,8 +76,13 @@ case "$cmd" in
     SERVER_PID=$!
     echo "$SERVER_PID" > "$REVIEWS_DIR/${task_id}-${role}-server.pid"
 
-    # Wait briefly for server to start
+    # Wait briefly and verify server started
     sleep 1
+    if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+      echo "ERROR: HITL server failed to start (PID $SERVER_PID exited). Check python3 and port $HITL_PORT." >&2
+      rm -f "$REVIEWS_DIR/${task_id}-${role}-server.pid"
+      exit 1
+    fi
 
     # Build review URL
     if [ "$BIND_HOST" = "0.0.0.0" ]; then

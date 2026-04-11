@@ -264,15 +264,19 @@ class HITLHandler(http.server.BaseHTTPRequestHandler):
             "by": "human"
         }
 
-        # Write current decision
-        with open(FEEDBACK_FILE, "w") as f:
+        # Write current decision (atomic: write temp file then rename)
+        tmp_feedback = FEEDBACK_FILE + ".tmp"
+        with open(tmp_feedback, "w") as f:
             json.dump(entry, f, indent=2, ensure_ascii=False)
+        os.rename(tmp_feedback, FEEDBACK_FILE)
 
-        # Append to history
+        # Append to history (atomic: write temp file then rename)
         history = read_history()
         history.append(entry)
-        with open(HISTORY_FILE, "w") as f:
+        tmp_history = HISTORY_FILE + ".tmp"
+        with open(tmp_history, "w") as f:
             json.dump(history, f, indent=2, ensure_ascii=False)
+        os.rename(tmp_history, HISTORY_FILE)
 
         # Redirect to main page
         self.send_response(302)
