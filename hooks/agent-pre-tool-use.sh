@@ -133,7 +133,7 @@ case "$TOOL_NAME" in
             # Compare old vs new task statuses to detect FSM transitions
             OLD_CONTENT=$(cat "$AGENTS_DIR/task-board.json" 2>/dev/null || echo '{"tasks":[]}')
             # Transitions that require HITL approval (outgoing from each agent phase)
-            HITL_TRANSITIONS="designing:implementing implementing:reviewing reviewing:testing testing:accepting"
+            HITL_TRANSITIONS="created:designing designing:implementing implementing:reviewing reviewing:testing testing:accepting accepting:accepted"
             for trans in $HITL_TRANSITIONS; do
               FROM_STATUS="${trans%%:*}"
               TO_STATUS="${trans##*:}"
