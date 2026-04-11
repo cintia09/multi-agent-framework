@@ -65,27 +65,36 @@ case "$cmd" in
     # C2 fix: write content to temp file, read in Python (no string embedding)
     CONTENT_TMP=$(mktemp)
     echo "$content_html" > "$CONTENT_TMP"
-    python3 -c "
-import sys
-template = open(sys.argv[1]).read()
-content = open(sys.argv[2]).read()
-result = template.replace('{{CONTENT}}', content)
-with open(sys.argv[3], 'w') as f:
-    f.write(result)
-" "$output_file.tmp" "$CONTENT_TMP" "$output_file" 2>/dev/null || {
-      # Fallback if python fails
-      sed "s|{{CONTENT}}|<p>See source document</p>|g" "$output_file.tmp" > "$output_file"
-    }
-    rm -f "$output_file.tmp" "$CONTENT_TMP"
-
-    # Open in browser
-    if [ "$(uname)" = "Darwin" ]; then
-      open "$output_file" 2>/dev/null || true
-    elif command -v xdg-open >/dev/null 2>&1; then
-      xdg-open "$output_file" 2>/dev/null || true
+    # Find available port (8900-8999 range)
+    HITL_PORT=""
+    for p in $(seq 8900 8999); do
+      if ! lsof -i ":$p" >/dev/null 2>&1; then
+        HITL_PORT=$p
+        break
+      fi
+    done
+    if [ -z "$HITL_PORT" ]; then
+      HITL_PORT=8900
     fi
 
-    echo "file://$output_file"
+    # Start HITL review server in background
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    python3 "$SCRIPT_DIR/hitl-server.py" "$HITL_PORT" "$task_id" "$role" "$content_file" "$REVIEWS_DIR" &
+    SERVER_PID=$!
+    echo "$SERVER_PID" > "$REVIEWS_DIR/${task_id}-${role}-server.pid"
+
+    # Wait briefly for server to start
+    sleep 1
+
+    # Open in browser
+    review_url="http://127.0.0.1:${HITL_PORT}"
+    if [ "$(uname)" = "Darwin" ]; then
+      open "$review_url" 2>/dev/null || true
+    elif command -v xdg-open >/dev/null 2>&1; then
+      xdg-open "$review_url" 2>/dev/null || true
+    fi
+
+    echo "$review_url"
     ;;
 
   poll)
@@ -96,7 +105,7 @@ with open(sys.argv[3], 'w') as f:
 
     feedback_file="$REVIEWS_DIR/${task_id}-${role}-feedback.json"
     if [ -f "$feedback_file" ]; then
-      decision=$(python3 -c "import json; d=json.load(open('$feedback_file')); print(d.get('decision','pending'))" 2>/dev/null || echo "pending")
+      decision=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('decision','pending'))" "$feedback_file" 2>/dev/null || echo "pending")
       echo "$decision"
     else
       echo "pending_review"
@@ -117,8 +126,24 @@ with open(sys.argv[3], 'w') as f:
     fi
     ;;
 
+  stop)
+    if [ -z "$task_id" ] || [ -z "$role" ]; then
+      echo "Usage: hitl-local-html.sh stop <task_id> <role>"
+      exit 1
+    fi
+
+    pid_file="$REVIEWS_DIR/${task_id}-${role}-server.pid"
+    if [ -f "$pid_file" ]; then
+      pid=$(cat "$pid_file")
+      kill "$pid" 2>/dev/null && echo "Server stopped (PID: $pid)" || echo "Server already stopped"
+      rm -f "$pid_file"
+    else
+      echo "No running server found"
+    fi
+    ;;
+
   *)
     echo "HITL Local HTML Adapter"
-    echo "Commands: publish, poll, get_feedback"
+    echo "Commands: publish, poll, get_feedback, stop"
     ;;
 esac
