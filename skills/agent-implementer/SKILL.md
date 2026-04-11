@@ -62,10 +62,11 @@ description: "实现者工作流: TDD 开发、按 goals 实现、Bug 修复。U
    - 输出 `.agents/runtime/implementer/workspace/T-NNN-impl-plan.md`:
      - 技术方案概要、依赖分析、实现顺序
      - 每个 Goal 的预期实现步骤
-7. **HITL 审批门禁** (如已启用):
-   - 发布 DFMEA + 实现计划供人工审批
+7. **HITL 审批门禁** (读取 `.agents/config.json` 的 `hitl.enabled`; 如未配置先询问用户是否启用):
+   - `hitl.enabled: true` → 调用 `agent-hitl-gate` skill 发布 DFMEA + 实现计划供人工审批
    - 等待审批通过后方可开始 coding
    - 审批未通过 → 根据反馈修改 → 重新发布
+   - `hitl.enabled: false` → 跳过此步骤
 
 === 阶段 2: TDD 实现 (审批通过后) ===
 8. 对每个 goal 执行 TDD 循环:

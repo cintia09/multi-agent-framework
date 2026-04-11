@@ -72,7 +72,7 @@ for f in acceptor designer implementer reviewer tester; do
   cat ~/.claude/agents/${f}.agent.md 2>/dev/null || cat ~/.copilot/agents/${f}.agent.md 2>/dev/null
 done
 
-# 全部 18 个 Skills (只读 frontmatter + 前 20 行摘要, 避免上下文溢出)
+# 全部 20 个 Skills (只读 frontmatter + 前 20 行摘要, 避免上下文溢出)
 for d in ~/.claude/skills/agent-*/SKILL.md; do
   head -20 "$d" 2>/dev/null
 done
@@ -206,7 +206,7 @@ orchestrator/daemon.pid
 
 ## 框架信息
 - Multi-Agent Framework v3.4.x
-- 5 Agent 角色 | 19 Skills | 13 Hooks | 统一 FSM
+- 5 Agent 角色 | 20 Skills | 13 Hooks | 统一 FSM
 
 ## ⚡ 角色切换触发规则 (MANDATORY)
 当用户消息包含以下模式时，必须立即执行角色切换（调用 agent-switch skill）：
@@ -227,7 +227,7 @@ orchestrator/daemon.pid
 
 ## 全局资源
 - Agent Profiles: ~/.claude/agents/*.agent.md (含 skills: Per-Agent 隔离)
-- Skills: ~/.claude/skills/agent-*/ (19 个, 两级加载: 摘要列表 + 按需全文)
+- Skills: ~/.claude/skills/agent-*/ (20 个, 两级加载: 摘要列表 + 按需全文)
 - Hooks: ~/.claude/hooks/ (13 个 Shell 脚本)
 - Rules: ~/.claude/rules/ (agent-workflow, commit-standards, security)
 
