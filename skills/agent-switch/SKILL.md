@@ -211,3 +211,26 @@ Set `"auto_advance": false` on task to disable.
 ```json
 {"from":"designer","to":"implementer","task_id":"T-024","type":"handoff","summary":"...","artifacts":["...design-docs/T-024.md","...test-specs/T-024-test-spec.md"]}
 ```
+
+**Implementer → Reviewer Handoff 扩展字段**:
+```json
+{
+  "from": "implementer",
+  "to": "reviewer",
+  "task_id": "T-024",
+  "type": "handoff",
+  "summary": "T-024 实现完成 (5/5 goals done)",
+  "review_location": {
+    "type": "github_pr",
+    "url": "https://github.com/owner/repo/pull/42",
+    "pr_number": 42,
+    "base_commit": "abc1234",
+    "change_id": "Iabc...def"
+  },
+  "artifacts": ["..."]
+}
+```
+- `review_location.type`: `"github_pr"` | `"gerrit"` | `"local"`
+- GitHub PR: reviewer 使用 `gh pr diff` + `gh pr review`
+- Gerrit: reviewer 在 Gerrit Web UI 审查
+- Local: reviewer 使用 `git diff <base_commit>..HEAD`

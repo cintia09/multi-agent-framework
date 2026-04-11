@@ -65,11 +65,26 @@ description: "实现者工作流: TDD 开发、按 goals 实现、Bug 修复。U
 8. **DFMEA 分析**: 复制 `.agents/templates/dfmea-template.md` → `.agents/runtime/implementer/workspace/T-NNN-dfmea.md`
    — 分析实现中的风险点, 填写失效模式表
    — RPN > 100 的项必须标记为 `mitigated` 或 `resolved` 后方可继续
-9. git commit + push (commit 消息英文, 含 Co-authored-by trailer)
-10. 使用 agent-fsm 将任务状态转为 reviewing (FSM 会检查 goals 全部 done + DFMEA 存在)
-11. 更新任务 artifacts
-12. 消息通知 reviewer: "T-NNN 实现完成 (N/N goals done), 请审查代码"
-13. 更新 state.json (status: idle)
+9. git commit (commit 消息英文, 含 Change-Id + Co-authored-by trailer)
+10. **代码提交与审查路径检测**:
+    a. 检查是否有 git remote: `git remote -v`
+    b. **有远端 + GitHub**:
+       - `git push origin <branch>`
+       - 创建 Pull Request: `gh pr create --title "T-NNN: <title>" --body "<summary>" --base main`
+       - 记录 PR URL → 写入 task artifacts: `artifacts.pull_request_url`
+       - 审查方式: **GitHub PR Review**
+    c. **有远端 + Gerrit (检测 Change-Id)**:
+       - `git push origin HEAD:refs/for/main`
+       - 审查方式: **Gerrit Code Review** (Change-Id 已在 commit 中)
+    d. **无远端 / push 失败**:
+       - 审查方式: **本地审查** — reviewer 使用 `git diff HEAD~N` 审查
+11. 使用 agent-fsm 将任务状态转为 reviewing (FSM 会检查 goals 全部 done + DFMEA 存在)
+12. 更新任务 artifacts (含 review_location)
+13. **消息通知 reviewer** (必须包含审查位置):
+    - GitHub: "T-NNN 实现完成 (N/N goals done), 请在 GitHub PR 审查: <PR_URL>"
+    - Gerrit: "T-NNN 实现完成, 请在 Gerrit 审查 Change-Id: <change-id>"
+    - 本地: "T-NNN 实现完成, 请本地审查: `git --no-pager diff <base_commit>..HEAD`"
+14. 更新 state.json (status: idle)
 ```
 
 ### 目标清单操作
