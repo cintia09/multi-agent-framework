@@ -270,6 +270,33 @@ fix-tracking.md 从 `T-NNN-issues.json` 自动生成，格式如下:
 - dev 分支不主动 push (除非用户要求)
 - main 分支正常 push
 
+### Change-Id 规则 (同一任务同一 Change-Id)
+
+> ⛔ **强制**: 同一任务 (T-NNN) 的所有 commit **必须**使用相同的 `Change-Id`。
+
+**流程:**
+1. 任务开始时，生成 Change-Id: `Change-Id: I$(echo "T-NNN-$(date +%s)" | shasum | cut -c1-40)`
+2. 将 Change-Id 记录到 `.agents/runtime/implementer/workspace/T-NNN-change-id.txt`
+3. 后续每次 commit 都从该文件读取，附加到 commit message 末尾
+
+**Commit 格式:**
+```
+feat: T-NNN implement user authentication
+
+- Added login/logout endpoints
+- JWT token refresh
+
+Change-Id: I8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+```
+
+**规则:**
+- Change-Id 以 `I` 开头 + 40位十六进制 (类似 Gerrit 格式)
+- 第一次 commit 时生成，后续 commit 复用
+- Change-Id 放在 Co-authored-by 之前
+- 修复轮次 (fixing round) 也使用同一 Change-Id
+- 不同任务的 Change-Id 必须不同
+
 ## 限制
 - 你不能修改需求文档或验收文档
 - 你不能执行验收测试
