@@ -4,7 +4,7 @@ set -euo pipefail
 # Multi-Agent Framework Installer
 # Usage: curl -sL https://raw.githubusercontent.com/cintia09/multi-agent-framework/main/install.sh | bash
 
-VERSION="3.4.0"  # fallback; overridden after download from VERSION file
+VERSION="latest"  # resolved from VERSION file after download
 REPO="https://github.com/cintia09/multi-agent-framework.git"
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/multi-agent-framework.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -105,11 +105,7 @@ uninstall() {
 install() {
     local dry_run=${1:-false}
     
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🤖 Multi-Agent Framework v${VERSION}"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    
-    # Step 1: Download source
+    # Step 1: Download source (version resolved after download)
     if [ -d "$TMP_DIR" ]; then rm -rf "$TMP_DIR"; fi
     mkdir -p "$TMP_DIR"
     echo "📥 Downloading framework..."
@@ -149,6 +145,13 @@ install() {
         fi
         info "Downloaded successfully (v${VERSION})"
     fi
+    
+    # Show banner with resolved version
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🤖 Multi-Agent Framework v${VERSION}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
     
     # Step 2: Backup existing config
     if [ -d "${CLAUDE_DIR}/skills/agent-fsm" ]; then
