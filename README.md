@@ -12,22 +12,22 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Agents-5-6366f1?style=flat-square" alt="5 Agents">
-  <img src="https://img.shields.io/badge/Skills-19-10b981?style=flat-square" alt="19 Skills">
+  <img src="https://img.shields.io/badge/Skills-20-10b981?style=flat-square" alt="20 Skills">
   <img src="https://img.shields.io/badge/Hooks-13-f59e0b?style=flat-square" alt="13 Hooks">
-  <img src="https://img.shields.io/badge/FSM_States-10+18-ef4444?style=flat-square" alt="10+18 FSM States">
-  <img src="https://img.shields.io/badge/Workflow_Modes-2-8b5cf6?style=flat-square" alt="2 Workflow Modes">
+  <img src="https://img.shields.io/badge/FSM_States-11-ef4444?style=flat-square" alt="11 FSM States">
+  <img src="https://img.shields.io/badge/HITL_Gate-✓-8b5cf6?style=flat-square" alt="HITL Gate">
   <img src="https://img.shields.io/badge/Zero_Dependencies-✓-8b5cf6?style=flat-square" alt="Zero Dependencies">
 </p>
 
 <p align="center">
-  <strong>5 个 AI Agent 角色协作的软件开发框架 — 零依赖、基于文件、FSM 驱动、双模式工作流</strong>
+  <strong>5 个 AI Agent 角色协作的软件开发框架 — 零依赖、FSM 驱动、HITL 审批门禁、DFMEA 风险管理</strong>
 </p>
 
 <p align="center">
   <a href="#安装">安装</a> ·
   <a href="#使用方式">使用</a> ·
-  <a href="#工作流模式">工作流模式</a> ·
-  <a href="#19-个-skills">19 Skills</a> ·
+  <a href="#hitl-审批门禁">HITL 门禁</a> ·
+  <a href="#20-个-skills">20 Skills</a> ·
   <a href="#为什么需要这个框架">为什么</a> ·
   <a href="blog/vibe-coding-and-multi-agent.md">博客</a>
 </p>
@@ -38,28 +38,26 @@
 
 ## 概述
 
-5 个专业 AI Agent 角色通过基于文件的状态机协作，覆盖完整的软件开发生命周期 (SDLC)。支持**双模式工作流**：简单线性 (Simple) 和三阶段工程闭环 (3-Phase)。
+5 个专业 AI Agent 角色通过基于文件的状态机协作，覆盖完整的软件开发生命周期 (SDLC)。统一 11 状态 FSM + Human-in-the-Loop 审批门禁 + DFMEA 风险管理。
 
 | 角色 | Emoji | 职责 |
 |------|-------|------|
 | **验收者** (Acceptor) | 🎯 | 需求收集（用户故事格式）、任务发布、验收测试 |
 | **设计者** (Designer) | 🏗️ | 架构设计（ADR 格式）、技术调研、测试规格、Goal 覆盖自查 |
-| **实现者** (Implementer) | 💻 | TDD 开发（红绿重构 + 80% 覆盖率）、构建修复、提交前验证 |
+| **实现者** (Implementer) | 💻 | TDD 开发（红绿重构 + 80% 覆盖率）、DFMEA 风险分析、构建修复 |
 | **审查者** (Reviewer) | 🔍 | 设计+代码审查、OWASP 安全清单、严重级别评定、置信度过滤 |
 | **测试者** (Tester) | 🧪 | 覆盖率分析、Flaky 检测、E2E Playwright、问题报告 |
-
-| 工作流 | 适用场景 | 复杂度 |
-|--------|----------|--------|
-| **Simple** (默认) | 常规功能、Bug 修复、小型改动 | 10 状态，线性流水线 |
-| **3-Phase** (新) | 复杂功能、硬件/固件、安全关键、多团队协作 | 18 状态，并行轨道 + 反馈环 |
 
 ## 核心特性
 
 - **零依赖** — 纯 Markdown Skills + JSON 状态文件
 - **文件持久化** — 所有状态存储在 Git 可追踪的文件中
-- **FSM 强制工作流** — 非法状态转移会被拒绝
+- **统一 FSM** — 11 状态线性流水线，非法状态转移被拒绝
+- **HITL 审批门禁** — 所有 5 个 Agent 阶段产出需人工审批后才能流转
+- **DFMEA 风险管理** — 实现者强制输出故障模式分析（S×O×D→RPN 评分）
 - **角色隔离** — 每个 Agent 只能在自己的职责范围内操作
 - **Hook 强制执行** — Agent 边界由 Shell Hook 强制执行，不靠 LLM 自律
+- **角色不匹配检测** — 检测用户请求与当前角色不匹配时提示切换
 - **消息收件箱** — Agent 之间通过 `inbox.json` 通信
 - **功能目标清单** — 每个任务有可独立验证的功能目标
 - **自动调度** — 任务状态变更自动通知下一个 Agent
@@ -115,76 +113,41 @@ Acceptor ──→ 基于 acceptance-criteria.md 验收
 - **📄 自动提示**: 切换 Agent 时列出当前任务可用的输入文档
 - **📋 标准模板**: `agent-docs` skill 提供 6 种文档模板
 
-## 工作流模式
+## HITL 审批门禁
 
-### Simple 模式（默认）
-
-标准 SDLC 线性流水线，适合大多数开发场景：
+所有 5 个 Agent 的阶段产出必须经过人工审批（Human-in-the-Loop）才能流转到下一阶段：
 
 ```
-created → designing → implementing → reviewing → testing → accepting → accepted ✅
+Agent 创建文档 → 发布到交互页面 → 人工审阅评论 → Agent 修改 → 人工点击"Approve" → FSM 状态转移
 ```
 
-### 3-Phase 模式（v3.0 新增）
+### 4 种平台适配器
 
-三阶段工程闭环，适合复杂/安全关键功能。初始化时选择 `workflow_mode: "3phase"`：
+| 适配器 | 环境 | 特点 |
+|--------|------|------|
+| 🌐 `local-html` | 本地开发 | HTTP 服务器 + 暗色主题 Web UI + 多轮反馈 |
+| 💻 `terminal` | Docker / SSH / CI | 纯 CLI，零浏览器依赖 |
+| 🐙 `github-issue` | GitHub 项目 | 通过 Issue 评论收集反馈 |
+| 📝 `confluence` | 企业内网 | Confluence REST API 发布 + 评论轮询 |
 
-```
-Phase 1 — 设计                  Phase 2 — 实现                  Phase 3 — 测试验证
-┌─────────────────┐    ┌────────────────────────────┐    ┌──────────────────────┐
-│ requirements    │    │ implementing    (Track A) │    │ deploying           │
-│      ↓          │    │ test_scripting  (Track B) │    │      ↓              │
-│ architecture    │    │ code_reviewing  (Track C) │    │ regression_testing  │
-│      ↓          │    │      ↓                    │    │      ↓              │
-│ tdd_design      │───→│ ci_monitoring             │───→│ feature_testing     │
-│      ↓          │    │      ↓                    │    │      ↓              │
-│ dfmea           │    │ ci_fixing (loop)          │    │ log_analysis        │
-│      ↓          │    │      ↓                    │    │      ↓              │
-│ design_review   │    │ device_baseline           │    │ documentation       │
-└─────────────────┘    └────────────────────────────┘    └──────────────────────┘
-       ↑                        ↑                              │
-       └────── feedback ────────┴───────── feedback ───────────┘
-```
+- **Docker 自动检测**：检测到容器环境时自动绑定 `0.0.0.0`，跳过浏览器打开
+- **多轮反馈**：提交反馈 → Agent 修改文档 → 重新发布 → 再次审阅，循环直到 Approve
+- **原子写入**：使用 `os.rename` 保证并发读写安全
 
-**关键特性：**
-- **并行轨道** — Phase 2 的 3 条轨道（实现、测试脚本、代码审查）并发执行
-- **汇聚门** — 所有并行轨道必须完成后才能进入 device_baseline
-- **反馈环** — 测试失败可回退到实现（Phase 3→2）或设计（Phase 3→1）
-- **安全限制** — 每个任务最多 10 次反馈环，超限自动阻塞
+### DFMEA 风险管理
 
-## Orchestrator Daemon（编排器守护进程）
+实现者在编码前必须输出 DFMEA（Design Failure Mode and Effects Analysis）：
 
-3-Phase 模式由 orchestrator daemon 自动驱动，无需手动切换 Agent：
+| 字段 | 说明 |
+|------|------|
+| 失败模式 | 可能出错的地方 |
+| 影响 (S) | 严重度 1-10 |
+| 原因 (O) | 发生概率 1-10 |
+| 检测 (D) | 检测难度 1-10 |
+| **RPN** | **S × O × D** — 风险优先数 |
+| 缓解措施 | RPN ≥ 100 必须有具体措施 |
 
-```bash
-# 启动编排器
-bash .agents/orchestrator/run.sh T-001
-
-# 查看状态
-bash .agents/orchestrator/run.sh T-001 --status
-
-# 停止编排器
-bash .agents/orchestrator/run.sh T-001 --stop
-```
-
-编排器自动：
-1. 读取任务当前状态
-2. 选择对应 Agent 和 prompt 模板
-3. 通过 AI CLI 调用 Agent 执行
-4. 评估结果并推进 FSM
-5. 管理 Phase 2 并行执行
-6. 处理反馈环和安全限制
-7. 记录所有操作到 events.db
-
-## 可插拔外部系统
-
-3-Phase 模式支持对接任意外部系统，通过 `{PLACEHOLDER}` 在初始化时配置：
-
-| 系统 | 支持的平台 | 配置项 |
-|------|-----------|--------|
-| **CI** | GitHub Actions, Jenkins, GitLab CI, CircleCI | `{CI_SYSTEM}`, `{CI_URL}`, `{CI_STATUS_CMD}` |
-| **代码审查** | GitHub PR, Gerrit, GitLab MR | `{REVIEW_SYSTEM}`, `{REVIEW_CMD}` |
-| **设备/环境** | localhost, staging, 真实硬件 | `{DEVICE_TYPE}`, `{DEPLOY_CMD}`, `{LOG_CMD}` |
+FSM Guard 在状态转移时验证：RPN ≥ 100 的项目必须有缓解措施，否则阻止转换。
 
 ## 安装
 
@@ -205,7 +168,7 @@ curl -sL https://raw.githubusercontent.com/cintia09/multi-agent-framework/main/i
 助手会读取仓库文档并自动执行以下步骤：
 
 1. 克隆仓库到临时目录
-2. 复制 19 个 Skill 目录到目标平台 skills 目录
+2. 复制 20 个 Skill 目录到目标平台 skills 目录
 3. 复制 5 个 `.agent.md` 文件到 agents 目录
 4. 复制 13 个 Hook 脚本 + `hooks/lib/` 模块 + hooks.json 到 hooks 目录
 5. 安装 3 个模块化规则到 rules 目录
@@ -253,7 +216,7 @@ bash install.sh --check
 │   ├── agent-on-goal-verified.sh    # 目标验证进度更新
 │   └── security-scan.sh          # 🔒 密钥扫描（独立于 Agent 系统）
 ├── skills/
-│   └── agent-*/SKILL.md          # 19 个 Skill 目录（每个含 SKILL.md）
+│   └── agent-*/SKILL.md          # 20 个 Skill 目录（每个含 SKILL.md）
 └── agents/
     ├── acceptor.agent.md         # 验收者（原生 Agent Profile）
     ├── designer.agent.md         # 设计者
@@ -344,28 +307,30 @@ bash /tmp/multi-agent-framework/scripts/verify-init.sh
 
 两边全自动循环 — 无需手动 check。通过自动调度 + 收件箱实现自动重入。
 
-## 19 个 Skills
+## 20 个 Skills
 
 | # | Skill | 描述 |
 |---|-------|------|
-| 1 | `agent-fsm` | FSM 引擎 — 双模式 (Simple 10 状态 + 3-Phase 18 状态) + Guard 规则 + hypothesizing 状态 |
+| 1 | `agent-fsm` | FSM 引擎 — 统一 11 状态 + Guard 规则 + DFMEA 验证 + hypothesizing 状态 |
 | 2 | `agent-task-board` | 任务 CRUD + 功能目标 + 阻塞/解阻塞 + 乐观锁 |
 | 3 | `agent-messaging` | Agent 间收件箱消息 + 结构化类型 + 回放 + 优先级 + 线程/回复 + 广播 |
-| 4 | `agent-init` | 项目初始化 + 技术栈检测 + 工作流模式选择 + docs/ 文档模板 |
-| 5 | `agent-switch` | 角色切换 + 状态面板 + 流水线可视化 + 自动流转 + Cron + Webhook |
+| 4 | `agent-init` | 项目初始化 + 技术栈检测 + HITL 平台选择 + ask-next-step 规则注入 |
+| 5 | `agent-switch` | 角色切换 + 状态面板 + FSM 自动转移 + 角色不匹配检测 + Cron + Webhook |
 | 6 | `agent-memory` | 三层记忆（长期/日记/项目）+ FTS5 索引 + 混合检索 + 自动晋升 + Context Engine |
-| 7 | `agent-acceptor` | 验收者工作流 + 用户故事格式 + 活文档维护 |
-| 8 | `agent-designer` | 设计者工作流 + ADR 格式 + Goal 覆盖自查 + 活文档维护 |
-| 9 | `agent-implementer` | TDD 纪律 + 构建修复 + 提交前验证 + 监控模式 + 活文档维护 |
-| 10 | `agent-reviewer` | 设计+代码审查 + OWASP 安全 + 严重级别 + 置信度过滤 + 活文档维护 |
-| 11 | `agent-tester` | 覆盖率分析 + Flaky 检测 + E2E Playwright + Issue JSON + 活文档维护 |
+| 7 | `agent-acceptor` | 验收者工作流 + 用户故事格式 + Worktree 提示 + HITL 门禁 + 活文档维护 |
+| 8 | `agent-designer` | 设计者工作流 + ADR 格式 + Goal 覆盖自查 + HITL 门禁 + 活文档维护 |
+| 9 | `agent-implementer` | TDD 纪律 + DFMEA 强制输出 + 构建修复 + HITL 门禁 + 监控模式 + 活文档维护 |
+| 10 | `agent-reviewer` | 设计+代码审查 + OWASP 安全 + 严重级别 + HITL 门禁 + 活文档维护 |
+| 11 | `agent-tester` | 覆盖率分析 + Flaky 检测 + E2E Playwright + HITL 门禁 + 活文档维护 |
 | 12 | `agent-events` | events.db 查询、分析、清理、导出 |
-| 13 | `agent-hooks` | 13 Hook 生命周期管理 + Block/Approval 语义 + 优先级链 + 工具 Profile + 3-Phase 调度 |
+| 13 | `agent-hooks` | 13 Hook 生命周期管理 + Block/Approval 语义 + 优先级链 + 工具 Profile |
 | 14 | `agent-teams` | Agent Teams 并行执行 — Subagent 派生 + tmux 分屏 + 团队仪表盘 + 竞争假设 |
-| 15 | `agent-orchestrator` | 3-Phase 编排器守护进程 — 自动驱动 + prompt 模板 + 可插拔 CI/Review/Device |
+| 15 | `agent-orchestrator` | 统一 FSM 编排 — 自动驱动 + prompt 模板 + 可插拔 CI/Review/Device |
 | 16 | `agent-config` | Agent 配置工具 — model/tools 管理，动态发现，多平台同步 |
 | 17 | `agent-docs` | 文档流水线 — 阶段性文档模板 + 输入/输出门禁 + 自动加载 |
-| 18 | `agent-hypothesis` | **NEW** 竞争假设探索 — Fork/Evaluate/Promote + 并行方案对比 + 评分矩阵 |
+| 18 | `agent-hypothesis` | 竞争假设探索 — Fork/Evaluate/Promote + 并行方案对比 + 评分矩阵 |
+| 19 | `agent-worktree` | Git Worktree 并行任务管理 — 独立分支/目录 + 合并 + 清理 |
+| 20 | `agent-hitl-gate` | **NEW** HITL 审批门禁 — 4 平台适配器 + 多轮反馈 + Docker 支持 |
 
 ## 问题追踪（测试者 ↔ 实现者）
 
@@ -480,7 +445,7 @@ sqlite3 .agents/events.db "SELECT * FROM events ORDER BY id DESC LIMIT 20;"
 │   ├── agent-on-goal-verified.sh      # 目标验证
 │   └── security-scan.sh              # 🔒 密钥扫描
 ├── skills/
-│   └── agent-*/SKILL.md               # 19 个 Skill 目录
+│   └── agent-*/SKILL.md               # 20 个 Skill 目录
 └── agents/
     └── *.agent.md                     # 5 个角色 Profile
 
@@ -490,14 +455,11 @@ sqlite3 .agents/events.db "SELECT * FROM events ORDER BY id DESC LIMIT 20;"
 ├── task-board.json / .md              # 任务表
 ├── tasks/T-NNN.json                   # 任务详情 + 功能目标
 ├── memory/T-NNN-memory.json           # 任务记忆（跨阶段上下文快照）
-├── orchestrator/                      # 3-Phase 编排器（仅 3-Phase 模式）
-│   ├── run.sh                         # 编排器守护进程脚本
+├── orchestrator/                      # 统一 FSM 编排器
+│   ├── run.sh                         # 编排器脚本
 │   ├── daemon.pid                     # PID 文件
 │   └── logs/                          # 运行日志
-├── prompts/                           # 3-Phase prompt 模板（仅 3-Phase 模式）
-│   ├── phase1-requirements.txt        # Phase 1 步骤模板 (5 个)
-│   ├── phase2-implementing.txt        # Phase 2 步骤模板 (6 个)
-│   └── phase3-regression-testing.txt  # Phase 3 步骤模板 (5 个)
+├── prompts/                           # prompt 模板
 └── runtime/
     ├── active-agent                   # 当前活跃 Agent
     └── <角色>/
@@ -538,6 +500,7 @@ sqlite3 .agents/events.db "SELECT * FROM events ORDER BY id DESC LIMIT 20;"
 - **Phase 11** ✅ Context Engine（预算管理 + 角色注入 + 智能压缩）
 - **Phase 12** ✅ Agent Teams 集成（Subagent 派生 + 并行实现/审查）
 - **Phase 13** ✅ 3-Phase 工程闭环（双模式 FSM + 编排器 + 并行轨道 + 反馈环 + 可插拔 CI/Review/Device）
+- **Phase 14** ✅ Agent 体验增强（统一 FSM + HITL 审批门禁 + DFMEA + 角色不匹配检测 + Worktree 提示）
 
 ---
 
@@ -672,7 +635,7 @@ designing → hypothesizing → evaluate → promote winner → designing
 → 确保 `.agents/docs/T-XXX/` 下有对应文档，`after-switch` hook 会自动列出。
 
 **Q: FSM 报 ILLEGAL transition 但我确定是对的**
-→ 检查 `task-board.json` 中的 `workflow_mode`。`simple` 和 `3phase` 有不同的合法路径，参考 `agent-fsm` skill。
+→ 检查 `task-board.json` 中的任务状态。v3.4.0 使用统一 11 状态 FSM，旧的 3-Phase 状态会自动映射。参考 `agent-fsm` skill。
 
 **Q: `install.sh` 安装后 hook 不生效**
 → 确认 `~/.claude/hooks.json` 或 `~/.copilot/hooks.json` 存在且指向正确路径。运行 `bash install.sh` 会自动修复。

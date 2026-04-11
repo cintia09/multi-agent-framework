@@ -2,6 +2,56 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.0] - 2026-04-13
+
+### 🚀 Agent Experience Enhancement
+
+#### Unified FSM (T-039)
+- Merged 18-state 3-Phase Engineering Closed Loop into **11-state unified FSM**
+- Legacy 3-Phase states auto-migrate via 15-state mapping table
+- Removed `workflow_mode` selection from `agent-init`
+
+#### Human-in-the-Loop Review Gate (T-041, T-042)
+- New `agent-hitl-gate` skill (20th skill)
+- **All 5 agents** have HITL checkpoints before FSM transitions
+- 4 platform adapters:
+  - `local-html`: Interactive HTTP server with dark-themed Web UI + multi-round feedback
+  - `terminal`: Pure CLI for Docker/SSH/headless environments
+  - `github-issue`: GitHub Issue-based review via `gh` CLI
+  - `confluence`: Confluence REST API integration with comment polling
+- Docker auto-detection: binds `0.0.0.0`, skips browser open
+- Atomic file writes (`os.rename`) for race condition prevention
+
+#### DFMEA Integration (T-040)
+- DFMEA template with **S×O×D→RPN** risk scoring
+- Mandatory DFMEA analysis before coding (implementer Phase 1)
+- FSM guard validates RPN ≥ 100 items have mitigation measures
+
+#### Developer Experience
+- **T-038**: Ask-next-step rule injection per agent role in `agent-init`
+- **T-043**: Worktree prompt for feature isolation in acceptor workflow
+- **T-044**: Role mismatch detection + switch prompt in all 5 agents
+
+### 🔒 Security Hardening (3 rounds, 22 issues fixed)
+- Command injection: Python `sys.argv` instead of `open('$file')` string embedding
+- XSS defense: Pandoc `-raw_html` extension strips raw HTML blocks
+- Path traversal: `^T-[0-9]+$` task ID validation
+- Env var whitelist: only `CONFLUENCE_TOKEN/API_KEY/PAT/ATLASSIAN_TOKEN`
+- Atomic file writes in `hitl-server.py` (tmp + `os.rename`)
+- Port exhaustion: exit with error instead of silent fallback
+- PID verification: `kill -0` check after server startup
+- Dependency checks (`python3`, `gh`, `curl`) in all 4 adapters
+
+### 🐛 Bug Fixes
+- Hook false positive on role switch: now checks redirect targets individually, skips `active-agent`
+- FSM auto-transition on switch: when target role has no matching tasks, offer batch transition
+- 3-Phase deprecation notices in `agent-hooks` and `agent-orchestrator`
+
+### 📊 Stats
+- 16 commits since v3.3.6 | 31 files changed | ~2,600 lines added
+- 7 tasks (T-038~T-044), 28 goals — all accepted
+- 36/36 tests passing | 20 skills (was 19)
+
 ## [3.3.6] - 2026-04-11
 
 ### 🔒 Security Hardening — Hook Enforcement
