@@ -4,7 +4,7 @@ set -euo pipefail
 # Multi-Agent Framework Installer
 # Usage: curl -sL https://raw.githubusercontent.com/cintia09/multi-agent-framework/main/install.sh | bash
 
-VERSION="3.3.6"
+VERSION="3.3.6"  # fallback; overridden after download from VERSION file
 REPO="https://github.com/cintia09/multi-agent-framework.git"
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/multi-agent-framework.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -143,7 +143,11 @@ install() {
             done
         fi
         [ "$success" = false ] && error "Failed to download. Check your network connection."
-        info "Downloaded successfully"
+        # Read actual version from downloaded source
+        if [ -f "$TMP_DIR/VERSION" ]; then
+            VERSION=$(cat "$TMP_DIR/VERSION" | tr -d '[:space:]')
+        fi
+        info "Downloaded successfully (v${VERSION})"
     fi
     
     # Step 2: Backup existing config
