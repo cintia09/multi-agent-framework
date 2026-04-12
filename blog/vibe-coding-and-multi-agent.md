@@ -1,244 +1,242 @@
-# Vibe Coding 的本质：自然语言是新的编程语言，但软件工程不会消失
+# The Essence of Vibe Coding: Natural Language Is the New Programming Language, but Software Engineering Isn't Going Away
 
-## 从编译器到 Agent：不变的本质
+## From Compilers to Agents: The Unchanged Essence
 
-Vibe Coding 其实就是自然语言编程。
+Vibe Coding is essentially natural language programming.
 
-传统编程中，我们使用专用语言 —— Java、C++、Python —— 来描述功能，然后通过编译器将其转换为 CPU 可执行的代码。
+In traditional programming, we use specialized languages — Java, C++, Python — to describe functionality, then compilers translate it into executable code.
 
-Vibe Coding 也是同一件事：用自然语言描述功能，由 AI Agent 将其转换为 CPU 可执行的代码。
+Vibe Coding does the same thing: describe functionality in natural language, and an AI Agent translates it into executable code.
 
-**不变的是**：不管你用自然语言还是 Java，它们都只是描述"我需要实现什么功能"的工具。
+**What hasn't changed**: Whether you use natural language or Java, they're just tools for describing "what I need built."
 
-**变的是**：因为 Agent 足够智能，自然语言描述不必像传统语言那样精确，你也不必学习那些晦涩难懂的编程知识。这极大地拉低了编程的门槛。
+**What has changed**: Because Agents are smart enough, natural language descriptions don't need the precision of traditional languages, and you don't need to learn arcane programming concepts. This dramatically lowers the barrier to programming.
 
-但我想说的是 —— **软件工程的本质没有变化**。如果你想构建一个足够好的应用，你仍然需要理解需求分析、架构设计、代码审查、测试验证这些环节。
+But here's my point — **the essence of software engineering hasn't changed**. If you want to build a quality application, you still need requirements analysis, architecture design, code review, and testing.
 
-## 为什么需要？一段痛苦的 Vibe Coding 经历
+## Why This Matters: A Painful Vibe Coding Experience
 
-这个结论不是空想出来的，而是来自我真实的 Vibe Coding 痛苦经历。
+This conclusion isn't theoretical — it comes from real, painful Vibe Coding experience.
 
-典型的场景是这样的：
+A typical session looks like this:
 
 ```
-我: "帮我实现用户登录功能"
-Agent: (一通操作，代码写好了)
-我: (手动测试)...不行，登录后页面空白
-我: "登录后页面空白，帮我修"
-Agent: (又一通操作)
-我: (手动测试)...这次登录行了，但注册不行了
-我: "注册怎么又坏了？"
-Agent: (再一通操作)
-我: (手动测试)...
-...重复 N 次...
+Me: "Implement user login"
+Agent: (codes away, done)
+Me: (manual testing)...nope, blank page after login
+Me: "Blank page after login, fix it"
+Agent: (codes away again)
+Me: (manual testing)...login works now, but registration is broken
+Me: "Why is registration broken?"
+Agent: (codes away yet again)
+Me: (manual testing)...
+...repeat N times...
 ```
 
-这个过程里，你要一直坐在电脑前，不停地和 Agent 交流、打字、手动验证、反复返工。说实话，**很痛苦**。
+You're stuck at your computer, endlessly chatting with the Agent, typing, manually testing, reworking. Frankly, **it's painful**.
 
-问题出在哪？不是 Agent 不够聪明，而是整个过程缺乏**流程**：
-- 没有人在写代码前先想清楚需求和设计
-- 没有自动化测试，全靠人肉验证
-- 没有代码审查，Bug 层出不穷
-- 没有结构化的问题追踪，修了一个又冒出一个
+The problem isn't that the Agent isn't smart enough — the process lacks **structure**:
+- No one thinks through requirements and design before coding
+- No automated tests — everything verified manually
+- No code review — bugs keep piling up
+- No structured issue tracking — fix one, another appears
 
-![传统 Vibe Coding vs Multi-Agent Framework](images/comparison.png)
+![Traditional Vibe Coding vs Multi-Agent Framework](images/comparison.png)
 
-这些不就是传统软件工程早已解决的问题吗？
+Aren't these exactly the problems traditional software engineering already solved?
 
-## 我的实验：用 Agent 驱动完整的软件开发流程
+## My Experiment: Agent-Driven Full SDLC
 
-于是我做了一个项目：**Multi-Agent Software Development Framework**。
+So I built a project: **Multi-Agent Software Development Framework**.
 
-核心理念 —— 既然 Vibe Coding 是"自然语言编程"，那整个软件开发流程也应该能用自然语言来定义和执行。
+Core idea — if Vibe Coding is "natural language programming," then the entire software development lifecycle should be definable and executable in natural language too.
 
-我用 Markdown 文档和 Skills 定义了 5 个 AI Agent 角色，每个角色对应软件开发中的一个真实职责，整个系统完全由 Agent 驱动。
+I defined 5 AI Agent roles using Markdown documents and Skills. Each role corresponds to a real responsibility in software development, and the entire system is Agent-driven.
 
-![Multi-Agent Framework 系统架构](images/architecture.png)
+![Multi-Agent Framework Architecture](images/architecture.png)
 
-## 系统架构
+## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                                                             │
-│   🎯 验收者         🏗️ 设计者         💻 实现者              │
-│   Acceptor         Designer         Implementer            │
-│   (产品经理)        (架构师)          (程序员)                │
+│   🎯 Acceptor          🏗️ Designer         💻 Implementer   │
+│   (Product Manager)    (Architect)         (Developer)      │
 │                                                             │
-│   🔍 审查者         🧪 测试者                                │
-│   Reviewer         Tester                                  │
-│   (代码审查)        (QA 测试)                                │
+│   🔍 Reviewer          🧪 Tester                            │
+│   (Code Review)        (QA)                                 │
 │                                                             │
 │   ┌─────────────────────────────────────────────────────┐   │
-│   │                 基础设施层                            │   │
+│   │                Infrastructure Layer                  │   │
 │   │                                                     │   │
-│   │  📋 任务看板      🔄 状态机       📨 消息系统          │   │
-│   │  task-board.json   FSM 引擎      inbox.json          │   │
+│   │  📋 Task Board      🔄 State Machine  📨 Messaging   │   │
+│   │  task-board.json     FSM Engine       inbox.json     │   │
 │   │                                                     │   │
-│   │  🔒 Hook 边界     📊 审计日志     🐛 Issue 追踪       │   │
-│   │  pre-tool-use     events.db     issues.json         │   │
+│   │  🔒 Hook Boundaries 📊 Audit Log     🐛 Issue Track  │   │
+│   │  pre-tool-use       events.db        issues.json     │   │
 │   │                                                     │   │
-│   │  📡 自动调度      ⏰ 超时检测     🔄 批处理引擎       │   │
-│   │  auto-dispatch    staleness     batch processor      │   │
+│   │  📡 Auto-dispatch   ⏰ Staleness     🔄 Batch Engine │   │
+│   │  auto-dispatch      detection        batch processor │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
-│   全部用 Markdown + JSON + Shell 实现，零依赖               │
+│   Built entirely with Markdown + JSON + Shell, zero deps    │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 一个完整的工作流程
+## A Complete Workflow
 
-以"添加用户登录功能"为例，对比一下传统 Vibe Coding 和使用框架后的区别：
+Take "add user login" as an example — compare traditional Vibe Coding with the framework approach:
 
-### 传统 Vibe Coding（痛苦版）
-
-```
-你: "实现登录" → Agent 写代码 → 你手动测试 → 不行 → 你打字反馈
-→ Agent 修 → 你再测 → 又不行 → 你又反馈 → ... 循环 N 次
-→ 你累了，妥协了，发布了一个半成品
-```
-
-### 使用 Multi-Agent Framework（流程版）
+### Traditional Vibe Coding (Painful)
 
 ```
-                    用户
+You: "Implement login" → Agent codes → you test manually → broken → you type feedback
+→ Agent fixes → you test again → still broken → more feedback → ... repeat N times
+→ you give up and ship a half-baked product
+```
+
+### Using Multi-Agent Framework (Structured)
+
+```
+                    User
                      │
               "创建一个登录任务"
                      │
                      ▼
-     🎯 验收者 ─── 创建任务 ──→ 📋 T-001: 用户登录
-     (定义需求和验收标准)          │
+     🎯 Acceptor ── Create task ──→ 📋 T-001: User Login
+     (Define requirements & criteria)    │
                            自动通知 ▼
-     🏗️ 设计者 ◄── 📥 收到      设计中
+     🏗️ Designer ◄── 📥 Received    Designing
      │                          │
-     ├── 输出: API 设计文档       │
-     ├── 输出: 数据库表设计       │
-     ├── 输出: 测试规格           │
-     │                     自动通知 ▼
-     │                          实现中
-     💻 实现者 ◄── 📥 收到       │
+     ├── Output: API design doc        │
+     ├── Output: DB schema design      │
+     ├── Output: Test specifications   │
+     │                        Auto-notify ▼
+     │                             Implementing
+     💻 Implementer ◄── �� Received  │
      │                          │
-     ├── 读取设计文档             │
-     ├── TDD: 写测试 → 写代码    │
-     ├── 逐个完成功能目标 ✅      │
-     │                     自动通知 ▼
-     │                          审查中
-     🔍 审查者 ◄── 📥 收到       │
+     ├── Read design docs            │
+     ├── TDD: write tests → write code │
+     ├── Complete goals one by one ✅  │
+     │                        Auto-notify ▼
+     │                             Reviewing
+     🔍 Reviewer ◄── 📥 Received    │
      │                          │
-     ├── 审查代码质量             │
-     ├── 检查安全漏洞             │
-     ├── 审查通过 ✅              │
-     │                     自动通知 ▼
-     │                          测试中
-     🧪 测试者 ◄── 📥 收到       │
+     ├── Review code quality          │
+     ├── Check security vulnerabilities │
+     ├── Review passed ✅             │
+     │                        Auto-notify ▼
+     │                             Testing
+     🧪 Tester ◄── 📥 Received      │
      │                          │
-     ├── 运行自动化测试           │
+     ├── Run automated tests          │
      │                          │
-     ├── 发现 Bug？               │
-     │   └── YES: 创建 issues.json
+     ├── Bugs found?                  │
+     │   └── YES: Create issues.json
      │       ┌───────────────────────────────┐
-     │       │  🔄 全自动修复-验证循环         │
+     │       │  🔄 Fully automated fix-verify loop │
      │       │                               │
-     │       │  🧪 测试者: 报告 3 个 Bug       │
+     │       │  🧪 Tester: reports 3 bugs         │
      │       │       ↓                       │
-     │       │  💻 实现者: 自动修复            │
+     │       │  💻 Implementer: auto-fix          │
      │       │       ↓                       │
-     │       │  🧪 测试者: 自动验证            │
+     │       │  🧪 Tester: auto-verify            │
      │       │       ↓                       │
-     │       │  (如有未通过, 自动再来一轮) ↻   │
+     │       │  (if failures remain, loop again) ↻│
      │       │                               │
-     │       │  直到全部 Bug 修复并验证通过 ✅  │
+     │       │  Until all bugs fixed & verified ✅ │
      │       └───────────────────────────────┘
      │                          │
-     ├── 全部通过 ✅              │
-     │                     自动通知 ▼
-     │                          验收中
-     🎯 验收者 ◄── 📥 收到       │
+     ├── All passed ✅               │
+     │                        Auto-notify ▼
+     │                             Accepting
+     🎯 Acceptor ◄── 📥 Received    │
      │                          │
-     ├── 逐项验证功能目标         │
-     └── 验收通过 ✅ ──────→ 🎉 T-001: accepted!
+     ├── Verify goals one by one      │
+     └── Accepted ✅ ──────→ 🎉 T-001: accepted!
 ```
 
-**全程你只需要做两件事：创建任务 + 最终验收。** 中间的设计、实现、审查、测试、修复，全部由 Agent 自动完成。
+**You only do two things: create the task + final acceptance.** Design, implementation, review, testing, and bug fixes are all handled automatically by Agents.
 
-## 好处在哪？
+## Benefits
 
-### 1. 不再需要人肉验证循环
+### 1. No More Manual Testing Loops
 
-传统 Vibe Coding 的最大痛点 —— 手动测试、反复返工 —— 被测试者 Agent 替代了。它会自动运行测试，自动报告 Bug，自动验证修复。**你不用一直坐在电脑前盯着了。**
+The biggest pain point of traditional Vibe Coding — manual testing and endless rework — is replaced by the Tester Agent. It automatically runs tests, reports bugs, and verifies fixes. **You don't need to sit at your computer watching anymore.**
 
-### 2. 质量不再靠运气
+### 2. Quality Is Process-Driven, Not Luck
 
-有了设计者先做设计、审查者做代码审查、测试者做自动化测试，最终产出的代码质量不再取决于"Agent 今天状态好不好"，而是由**流程保证**。
+With the Designer doing upfront design, the Reviewer doing code review, and the Tester running automated tests, code quality no longer depends on "whether the Agent is having a good day" — it's **guaranteed by process**.
 
-### 3. Bug 修复有追踪
+### 3. Structured Bug Tracking
 
-每个 Bug 都有结构化的 JSON 记录（严重性、复现步骤、修复说明、验证结果），不是在聊天记录里翻来翻去找"上次那个问题解决了吗"。
+Every bug has a structured JSON record (severity, reproduction steps, fix description, verification result) — no more scrolling through chat history asking "was that issue fixed?"
 
-### 4. 流程不可绕过
+### 4. Enforceable Process Boundaries
 
-Agent 说"我保证只做这件事"是不够的。框架用 Shell Hook 来**强制执行**规则 —— 测试者不能改代码、实现者不能跳过审查 —— 这是代码级的约束，不是靠 AI 的"自觉"。
+An Agent saying "I promise to only do this" isn't enough. The framework uses Shell Hooks to **enforce** rules — the Tester can't modify code, the Implementer can't skip review — these are code-level constraints, not AI "self-discipline."
 
-### 5. 随时可以接手
+### 5. Resumable at Any Point
 
-所有状态都在文件里（JSON + SQLite），不在 AI 的记忆里。即使 CLI 崩溃、机器重启、换一个会话，Agent 也能从上次中断的地方继续工作。
+All state lives in files (JSON + SQLite), not in AI memory. Even if the CLI crashes, the machine restarts, or you switch sessions, Agents can resume from where they left off.
 
-## 怎么使用
+## How to Use
 
-### 安装（30 秒）
+### Install (30 Seconds)
 
-在 Claude Code / GitHub Copilot 中说：
+In Claude Code / GitHub Copilot, say:
 
-> "根据 cintia09/multi-agent-framework 仓库里的指引, 将 agents 安装到我本地。"
+> "Follow the instructions in the cintia09/multi-agent-framework repo to install agents locally."
 
-AI 助手自动安装 14 个 Skills、5 个 Agent、13 个 Hook。
+The AI assistant auto-installs 14 Skills, 5 Agents, and 13 Hooks.
 
-### 在任何项目中开始
+### Start in Any Project
 
 ```bash
-# 1. 初始化 — AI 自动分析你的技术栈，生成定制化配置
-"初始化 Agent 系统"
+# 1. Initialize — AI auto-analyzes your tech stack and generates custom config
+"Initialize Agent system"
 
-# 2. 创建任务
+# 2. Create a task
 /agent acceptor
-"创建任务：添加用户登录功能"
+"Create task: add user login feature"
 
-# 3. 让每个角色自动处理
+# 3. Let each role handle it automatically
 /agent designer
-"处理任务"                  # 自动生成设计文档 + 测试规格
+"Process task"                  # Auto-generates design docs + test specs
 
 /agent implementer
-"处理任务"                  # 自动 TDD 实现所有功能
+"Process task"                  # Auto TDD implementation
 
 /agent reviewer
-"处理任务"                  # 自动代码审查
+"Process task"                  # Auto code review
 
 /agent tester
-"处理任务"                  # 自动测试
-"监控实现者的修复"            # 全自动修复-验证循环
+"Process task"                  # Auto testing
+"Monitor implementer fixes"      # Fully automated fix-verify loop
 
 /agent acceptor
-"处理任务"                  # 最终验收
+"Process task"                  # Final acceptance
 ```
 
-每个步骤只需要一句话，Agent 自动完成所有工作。
+Each step takes just one sentence — Agents handle everything automatically.
 
-## 最后
+## Conclusion
 
-Vibe Coding 让编程的门槛降到了前所未有的低点。但**写代码只是软件工程的一环**。
+Vibe Coding has lowered the barrier to programming to unprecedented levels. But **writing code is just one part of software engineering**.
 
-传统软件工程中那些"看似繁琐"的环节 —— 需求分析、设计评审、代码审查、测试验证 —— 存在的理由不是为了折腾程序员，而是因为**好的软件就是需要这些步骤**。
+Those "seemingly tedious" steps in traditional software engineering — requirements analysis, design review, code review, testing — exist not to torment developers, but because **good software simply requires them**.
 
-AI 没有改变这个事实，但 AI 可以改变谁来做这些事。
+AI hasn't changed this fact, but AI can change *who* does these things.
 
-以前是人做设计、人写代码、人做测试。现在可以是 Agent 做设计、Agent 写代码、Agent 做测试。人只需要定义"做什么"和验收"做得怎么样"。
+Before: humans design, humans code, humans test. Now: Agents design, Agents code, Agents test. Humans only need to define "what to build" and verify "how well it was built."
 
-这可能就是 Vibe Coding 的最终形态 —— 不是一个人和一个 Agent 在那反复拉扯，而是一个**Agent 团队**各司其职，像一个真正的软件开发团队一样协作。
+This may be the ultimate form of Vibe Coding — not one person endlessly going back and forth with one Agent, but an **Agent team** where each member has a clear role, collaborating like a real software development team.
 
-而有意思的是，连这个框架本身，也是由 Agent 写的。
+And the interesting part? This framework itself was built by Agents.
 
 ---
 
 > 🔗 项目地址: [github.com/cintia09/multi-agent-framework](https://github.com/cintia09/multi-agent-framework)
 > 
-> 零依赖、纯 Markdown + JSON、开箱即用。
+> Zero dependencies, pure Markdown + JSON, works out of the box.

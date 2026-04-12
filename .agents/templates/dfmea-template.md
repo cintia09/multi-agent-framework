@@ -1,50 +1,50 @@
 # DFMEA — T-NNN: [Task Title]
 
 > Design Failure Mode and Effects Analysis
-> 在提交代码审查前，实现者必须完成此文档。
+> The Implementer must complete this document before submitting for code review.
 
-## 风险分析表
+## Risk Analysis Table
 
-| # | 组件/模块 | 潜在失效模式 | 失效影响 | S | O | D | RPN | 建议措施 | 状态 |
-|---|----------|-------------|---------|---|---|---|-----|---------|------|
+| # | Component/Module | Potential Failure Mode | Failure Effect | S | O | D | RPN | Recommended Action | Status |
+|---|-----------------|----------------------|----------------|---|---|---|-----|--------------------|--------|
 | 1 | | | | | | | | | pending |
 | 2 | | | | | | | | | pending |
 | 3 | | | | | | | | | pending |
 
-## 评分标准
+## Scoring Criteria
 
-**S (严重度 Severity)**: 1-10
-- 1-3: 轻微影响, 用户几乎无感知
-- 4-6: 中等影响, 功能降级但可使用
-- 7-8: 严重影响, 功能不可用
-- 9-10: 灾难性, 数据丢失/安全漏洞/系统崩溃
+**S (Severity)**: 1-10
+- 1-3: Minor impact, barely noticeable to user
+- 4-6: Moderate impact, degraded but usable
+- 7-8: Severe impact, feature unusable
+- 9-10: Catastrophic — data loss / security breach / system crash
 
-**O (发生频率 Occurrence)**: 1-10
-- 1-3: 罕见 (<1% 概率)
-- 4-6: 偶尔 (1-10%)
-- 7-8: 频繁 (10-50%)
-- 9-10: 几乎必然 (>50%)
+**O (Occurrence)**: 1-10
+- 1-3: Rare (<1% probability)
+- 4-6: Occasional (1-10%)
+- 7-8: Frequent (10-50%)
+- 9-10: Near certain (>50%)
 
-**D (可检测性 Detection)**: 1-10
-- 1-3: 高检测率 (自动化测试覆盖)
-- 4-6: 中检测率 (需手动测试)
-- 7-8: 低检测率 (需特殊场景触发)
-- 9-10: 几乎不可检测 (仅在生产环境出现)
+**D (Detection)**: 1-10
+- 1-3: High detection rate (automated test coverage)
+- 4-6: Medium detection rate (manual testing required)
+- 7-8: Low detection rate (triggered only in special scenarios)
+- 9-10: Nearly undetectable (only manifests in production)
 
 **RPN = S × O × D**
-- RPN ≤ 50: 低风险 — 记录即可
-- 50 < RPN ≤ 100: 中风险 — 建议采取措施
-- RPN > 100: ⛔ 高风险 — **必须采取措施后方可提交审查**
+- RPN ≤ 50: Low risk — document only
+- 50 < RPN ≤ 100: Medium risk — action recommended
+- RPN > 100: ⛔ High risk — **must take action before submitting for review**
 
-## 状态说明
-- `pending`: 已识别, 待处理
-- `mitigated`: 已采取措施, 风险降低
-- `accepted_risk`: 团队接受该风险 (需说明原因)
-- `resolved`: 完全消除
+## Status Definitions
+- `pending`: Identified, awaiting action
+- `mitigated`: Action taken, risk reduced
+- `accepted_risk`: Team accepts the risk (reason required)
+- `resolved`: Fully eliminated
 
-## 总结
+## Summary
 
-- **高风险项 (RPN>100)**: N 项, 全部 mitigated/resolved ✅ / ⛔ 仍有未处理
-- **总风险项**: N 项
-- **完成日期**: [ISO 8601]
-- **负责人**: implementer
+- **High-risk items (RPN>100)**: N items, all mitigated/resolved ✅ / ⛔ unresolved remain
+- **Total risk items**: N items
+- **Completion date**: [ISO 8601]
+- **Owner**: implementer

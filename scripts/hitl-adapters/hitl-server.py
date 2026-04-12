@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-HITL Local Review Server — Human-in-the-Loop 本地审批服务器
-启动一个轻量 HTTP 服务器，提供文档审批交互页面。
+HITL Local Review Server — Human-in-the-Loop review server.
+Starts a lightweight HTTP server providing a document review UI.
 
 Usage:
     python3 hitl-server.py <port> <task_id> <role> <content_file> <feedback_dir>
 
 Features:
-- 显示 markdown 文档（转为 HTML）
-- 支持多轮反馈：评论 → Agent 修改 → 刷新页面查看新版本
-- Approve / Request Changes 按钮
-- 反馈历史展示
-- 自动写入 feedback JSON 供 Agent 轮询
+- Renders markdown documents as HTML
+- Multi-round feedback: comment → Agent revises → refresh to see new version
+- Approve / Request Changes buttons
+- Feedback history display
+- Writes feedback JSON for Agent polling
 """
 
 import http.server
@@ -144,7 +144,7 @@ def generate_page():
         </div>'''
 
     return f'''<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">

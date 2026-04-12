@@ -1,42 +1,42 @@
 ---
 name: project-implementer
-description: "本项目的编码规范和开发命令。实现者 agent 工作时加载。"
+description: "Project coding standards and dev commands. Loaded when the Implementer agent works."
 ---
 
-# 项目级开发指南
+# Project Development Guide
 
-## 开发命令
-| 操作 | 命令 | 说明 |
-|------|------|------|
-| 运行测试 | `bash tests/run-all.sh` | 3 个测试 (skills/agents/hooks) |
-| 单个测试 | `bash tests/test-skills.sh` | 验证 SKILL.md 格式 |
-| 检查安装 | `bash install.sh --check` | 验证 ~/.claude/ 中的安装状态 |
-| 安装到本地 | `bash install.sh --full` | 从 GitHub 克隆并安装 |
+## Dev Commands
+| Action | Command | Notes |
+|--------|---------|-------|
+| Run tests | `bash tests/run-all.sh` | 3 tests (skills/agents/hooks) |
+| Single test | `bash tests/test-skills.sh` | Verify SKILL.md format |
+| Check install | `bash install.sh --check` | Verify install status in ~/.claude/ |
+| Install locally | `bash install.sh --full` | Clone from GitHub and install |
 
-## 编码规范
-- **Shell**: `set -euo pipefail` 开头, 使用函数封装逻辑
-- **Markdown**: YAML frontmatter 必须有 `name` 和 `description`
-- **JSON**: 2 空格缩进, `ensure_ascii=False` (保留中文)
-- **命名**: kebab-case (文件/目录), snake_case (JSON 字段)
-- **提交**: 英文 commit message + Co-authored-by trailer
+## Coding Standards
+- **Shell**: Start with `set -euo pipefail`; encapsulate logic in functions
+- **Markdown**: YAML frontmatter must have `name` and `description`
+- **JSON**: 2-space indent, `ensure_ascii=False`
+- **Naming**: kebab-case (files/dirs), snake_case (JSON fields)
+- **Commits**: English commit messages + Co-authored-by trailer
 
-## 文件类型指南
-| 文件类型 | 位置 | 规范 |
-|----------|------|------|
-| Skill | `skills/agent-*/SKILL.md` | YAML frontmatter + 步骤化 Markdown |
-| Agent Profile | `agents/*.agent.md` | 角色 persona 定义 |
-| Hook | `hooks/*.sh` | Bash 脚本, 需 `+x`, 读 stdin JSON |
-| Test | `tests/test-*.sh` | Bash, 输出 ✅/❌, 非零退出码表示失败 |
-| Doc | `docs/*.md` | 项目级活文档, 追加模式 |
+## File Type Guide
+| File Type | Location | Rules |
+|-----------|----------|-------|
+| Skill | `skills/agent-*/SKILL.md` | YAML frontmatter + step-based Markdown |
+| Agent Profile | `agents/*.agent.md` | Role persona definition |
+| Hook | `hooks/*.sh` | Bash script, needs `+x`, reads stdin JSON |
+| Test | `tests/test-*.sh` | Bash, outputs ✅/❌, non-zero exit on failure |
+| Doc | `docs/*.md` | Project-level living docs, append mode |
 
-## TDD 工作流 (项目适配)
-1. 测试文件: `tests/test-*.sh`
-2. 写新 test case → `bash tests/run-all.sh` 确认红灯
-3. 实现功能
-4. `bash tests/run-all.sh` 确认绿灯
-5. 重构 (保持绿灯)
+## TDD Workflow
+1. Test files: `tests/test-*.sh`
+2. Write new test case → `bash tests/run-all.sh` to confirm red
+3. Implement feature
+4. `bash tests/run-all.sh` to confirm green
+5. Refactor (keep green)
 
-## 依赖管理
-- **无包管理器**: 框架零外部依赖
-- 所有工具: bash, sqlite3, python3 (系统自带)
-- 新 skill/hook 只需创建文件, 无需安装步骤
+## Dependencies
+- **No package manager**: Zero external dependencies
+- All tools: bash, sqlite3, python3 (system-provided)
+- New skills/hooks only require creating files — no install steps
