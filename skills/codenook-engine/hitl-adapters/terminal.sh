@@ -19,7 +19,15 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-REVIEWS_DIR="$PROJECT_ROOT/.agents/reviews"
+# Detect platform root: .github/codenook/ or .claude/codenook/
+if [ -d "$PROJECT_ROOT/.github/codenook" ]; then
+  CODENOOK_DIR="$PROJECT_ROOT/.github/codenook"
+elif [ -d "$PROJECT_ROOT/.claude/codenook" ]; then
+  CODENOOK_DIR="$PROJECT_ROOT/.claude/codenook"
+else
+  CODENOOK_DIR="$PROJECT_ROOT/.github/codenook"
+fi
+REVIEWS_DIR="$CODENOOK_DIR/reviews"
 mkdir -p "$REVIEWS_DIR"
 
 command="${1:-}"

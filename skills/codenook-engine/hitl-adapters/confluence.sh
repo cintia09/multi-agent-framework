@@ -7,7 +7,7 @@
 #   hitl-confluence.sh get_feedback <task_id> <role>
 #
 # Requires: CONFLUENCE_BASE_URL, CONFLUENCE_SPACE_KEY, CONFLUENCE_PARENT_PAGE_ID, CONFLUENCE_TOKEN env vars
-# Or configured in .agents/config.json under hitl.confluence
+# Or configured in codenook/config.json under hitl.confluence
 
 set -euo pipefail
 
@@ -21,10 +21,17 @@ if ! command -v curl >/dev/null 2>&1; then
   exit 1
 fi
 
-AGENTS_DIR="$(git rev-parse --show-toplevel 2>/dev/null)/.agents"
-[ -d "$AGENTS_DIR" ] || AGENTS_DIR="./.agents"
-REVIEWS_DIR="$AGENTS_DIR/reviews"
-CONFIG_FILE="$AGENTS_DIR/config.json"
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+# Detect platform root: .github/codenook/ or .claude/codenook/
+if [ -d "$PROJECT_ROOT/.github/codenook" ]; then
+  CODENOOK_DIR="$PROJECT_ROOT/.github/codenook"
+elif [ -d "$PROJECT_ROOT/.claude/codenook" ]; then
+  CODENOOK_DIR="$PROJECT_ROOT/.claude/codenook"
+else
+  CODENOOK_DIR="$PROJECT_ROOT/.github/codenook"
+fi
+REVIEWS_DIR="$CODENOOK_DIR/reviews"
+CONFIG_FILE="$CODENOOK_DIR/config.json"
 mkdir -p "$REVIEWS_DIR"
 
 # Load config
@@ -62,7 +69,7 @@ case "$cmd" in
     fi
 
     if [ -z "$CONFLUENCE_BASE_URL" ]; then
-      echo "ERROR: CONFLUENCE_BASE_URL not set. Configure in .agents/config.json or env" >&2
+      echo "ERROR: CONFLUENCE_BASE_URL not set. Configure in codenook/config.json or env" >&2
       exit 1
     fi
 
@@ -183,6 +190,6 @@ print('pending_review')
   *)
     echo "HITL Confluence Adapter"
     echo "Commands: publish, poll, get_feedback"
-    echo "Config: .agents/config.json → hitl.confluence.{base_url, space_key, parent_page_id, auth}"
+    echo "Config: codenook/config.json → hitl.confluence.{base_url, space_key, parent_page_id, auth}"
     ;;
 esac

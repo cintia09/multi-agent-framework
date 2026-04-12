@@ -20,9 +20,16 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 1
 fi
 
-AGENTS_DIR="$(git rev-parse --show-toplevel 2>/dev/null)/.agents"
-[ -d "$AGENTS_DIR" ] || AGENTS_DIR="./.agents"
-REVIEWS_DIR="$AGENTS_DIR/reviews"
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+# Detect platform root: .github/codenook/ or .claude/codenook/
+if [ -d "$PROJECT_ROOT/.github/codenook" ]; then
+  CODENOOK_DIR="$PROJECT_ROOT/.github/codenook"
+elif [ -d "$PROJECT_ROOT/.claude/codenook" ]; then
+  CODENOOK_DIR="$PROJECT_ROOT/.claude/codenook"
+else
+  CODENOOK_DIR="$PROJECT_ROOT/.github/codenook"
+fi
+REVIEWS_DIR="$CODENOOK_DIR/reviews"
 mkdir -p "$REVIEWS_DIR"
 
 # Get repo info
