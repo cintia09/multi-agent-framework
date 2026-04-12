@@ -75,7 +75,10 @@ def md_to_html(md_text):
         code_blocks.append(m.group(2))
         return f"$$CODE_BLOCK_{len(code_blocks) - 1}$$"
     html = re.sub(r"```(\w*)\n(.*?)```", stash_code, html, flags=re.S)
-    # Headers
+    # Headers (h6 → h1 order to avoid ### matching before ######)
+    html = re.sub(r"^###### (.+)$", r"<h6>\1</h6>", html, flags=re.M)
+    html = re.sub(r"^##### (.+)$", r"<h5>\1</h5>", html, flags=re.M)
+    html = re.sub(r"^#### (.+)$", r"<h4>\1</h4>", html, flags=re.M)
     html = re.sub(r"^### (.+)$", r"<h3>\1</h3>", html, flags=re.M)
     html = re.sub(r"^## (.+)$", r"<h2>\1</h2>", html, flags=re.M)
     html = re.sub(r"^# (.+)$", r"<h1>\1</h1>", html, flags=re.M)
@@ -169,7 +172,7 @@ def generate_page():
   .badge.feedback {{ background:var(--blue); color:#fff; }}
   .round-info {{ background:var(--accent); padding:.5rem 1rem; border-radius:4px; margin-bottom:1.5rem; font-size:.9rem; }}
   .content {{ background:var(--card); padding:2rem; border-radius:8px; margin-bottom:2rem; }}
-  .content h1,.content h2,.content h3 {{ color:#7ec8e3; margin:1rem 0 .5rem; }}
+  .content h1,.content h2,.content h3,.content h4,.content h5,.content h6 {{ color:#7ec8e3; margin:1rem 0 .5rem; }}
   .content table {{ width:100%; border-collapse:collapse; margin:1rem 0; }}
   .content th,.content td {{ padding:.5rem; border:1px solid var(--accent); text-align:left; font-size:.9rem; }}
   .content th {{ background:var(--accent); }}
