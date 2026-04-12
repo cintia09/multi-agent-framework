@@ -193,7 +193,65 @@ all memories → acceptor
 
 ## Context Building
 
-When spawning a subagent, build the prompt:
+When spawning a subagent, build the prompt with **phase-specific intelligence**:
+
+### Pre-Spawn Intelligence (MANDATORY before each agent)
+
+Before spawning ANY subagent, gather phase-specific context from the project:
+
+#### Before Implementer:
+1. **Coding Standards Discovery** — scan for convention files:
+   ```
+   .editorconfig, .eslintrc*, eslint.config.*, .prettierrc*, prettier.config.*,
+   .stylelintrc*, pyproject.toml [tool.ruff/black/isort], .rubocop.yml,
+   rustfmt.toml, .clang-format, CONTRIBUTING.md, CODING_STANDARDS.md,
+   docs/coding-*.md, .github/CONTRIBUTING.md
+   ```
+   If found, include a summary: "This project uses ESLint + Prettier. Follow the existing config."
+
+2. **Tech Stack Detection** — read `package.json`, `Cargo.toml`, `pyproject.toml`,
+   `go.mod`, `pom.xml`, etc. to understand the stack.
+
+3. **Existing Patterns** — if the task involves adding to an existing pattern
+   (e.g., new API endpoint), find an existing example and include it as reference.
+
+4. **Ask User** (first run only): "Does this project have coding conventions
+   I should be aware of? Or should I follow the existing codebase patterns?"
+   Save the answer to `config.json` → `preferences.coding_conventions` for reuse.
+
+#### Before Reviewer:
+1. **Review Checklist Discovery** — scan for checklist files:
+   ```
+   REVIEW_CHECKLIST.md, docs/review-checklist.md, .github/review-checklist.md,
+   docs/code-review-guide.md, CONTRIBUTING.md (look for "Review" section)
+   ```
+   If found, include it in the reviewer's context as mandatory checklist items.
+
+2. **Platform Code-Review Agent** — the orchestrator SHOULD use `code-review`
+   as the `agent_type` when spawning the reviewer. This leverages the platform's
+   built-in code review capabilities (extremely high signal-to-noise ratio,
+   focused on bugs/security/logic). The reviewer profile is still loaded as context.
+   ```
+   result = task(agent_type="code-review", prompt=review_context)
+   ```
+
+3. **Ask User** (first run only): "Do you have a review checklist or specific
+   focus areas for code review? (e.g., security, performance, accessibility)"
+   Save to `config.json` → `preferences.review_checklist` for reuse.
+
+4. **CI/Linter Results** — if the implementer ran linters/tests, include the
+   results so the reviewer doesn't re-run them unnecessarily.
+
+#### Before Tester:
+1. **Test Framework Detection** — identify the test runner (`jest`, `pytest`,
+   `cargo test`, `go test`, etc.) and include the run command.
+2. **Coverage Config** — check for coverage thresholds in config files.
+
+#### Before Designer:
+1. **Architecture Context** — scan for `docs/architecture.md`, `ADR/`, `docs/adr/`,
+   existing design documents, to ensure continuity.
+
+### Prompt Template
 
 ```markdown
 # Task Context

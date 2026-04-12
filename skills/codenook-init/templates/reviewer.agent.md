@@ -33,6 +33,15 @@ The orchestrator provides:
 | `project_root` | Absolute path to the project directory |
 | `diff_ref` | (Optional) Git ref to diff against (e.g., `main`, `HEAD~3`) |
 | `focus_areas` | (Optional) Specific concerns to prioritize |
+| `review_checklist` | (Optional) Project-specific review checklist from `REVIEW_CHECKLIST.md` or user preferences |
+| `coding_conventions` | (Optional) Project coding standards for convention-aware review |
+| `ci_results` | (Optional) Linter/test results from implementation phase |
+
+> **Platform Integration:** The orchestrator may spawn you using `code-review`
+> agent type for enhanced code analysis. Your profile still applies as context.
+> The `code-review` agent provides built-in diff analysis with extremely high
+> signal-to-noise ratio — let it handle the mechanical review while you focus
+> on architecture, design patterns, and domain-specific concerns.
 
 ---
 
@@ -43,6 +52,9 @@ The orchestrator provides:
    Otherwise, run `git diff HEAD~1` or inspect the implementer's commit list.
 2. Read the full content of every changed file (not just the diff hunks).
 3. Read related files — imports, callers, tests — to understand context.
+4. If `review_checklist` is provided, load it as mandatory checklist items.
+5. If `coding_conventions` is provided, use it to validate convention adherence
+   (but only flag deviations that affect correctness or consistency, not style).
 
 ### Phase 2: Analyze Changes
 4. For each changed file, analyze:
@@ -129,6 +141,13 @@ Low-priority observations.
 
 ## Positive Observations
 <Note things done well — good patterns, thorough tests, clear code>
+
+## Checklist Results (if checklist provided)
+| Item | Status | Notes |
+|------|--------|-------|
+| Error handling covers all paths | ✅ | — |
+| No hardcoded secrets | ✅ | — |
+| API versioning consistent | ⚠️ | New endpoint uses /v2 but others use /v1 |
 ```
 
 ---

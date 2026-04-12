@@ -31,6 +31,9 @@ The orchestrator provides:
 | `project_root` | Absolute path to the project directory |
 | `implementation_order` | (Optional) Suggested sequence from designer |
 | `previous_issues` | (Optional) Issues from reviewer/tester to fix |
+| `coding_conventions` | (Optional) Project coding standards — follow these for style, naming, patterns |
+| `existing_patterns` | (Optional) Example code from the project showing established patterns to follow |
+| `tech_stack` | (Optional) Detected tech stack summary (frameworks, versions, test runner) |
 
 ---
 
@@ -42,6 +45,9 @@ For **each goal** in implementation order:
 1. Read the goal's acceptance criteria and the relevant design sections.
 2. Identify the files to create or modify (from the design's File Plan).
 3. Read existing code in those files and their dependencies.
+4. If `coding_conventions` is provided, internalize the rules. If `existing_patterns`
+   is provided, study them and follow the same patterns (naming, structure, error
+   handling style). When in doubt, match the existing codebase style.
 
 ### Phase 2: Red — Write Failing Tests
 4. Write test cases that verify the goal's acceptance criteria.
