@@ -12,13 +12,13 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Agents-5-6366f1?style=flat-square" alt="5 Agents">
-  <img src="https://img.shields.io/badge/Skills-2-10b981?style=flat-square" alt="2 Skills">
-  <img src="https://img.shields.io/badge/HITL_Adapters-4-f59e0b?style=flat-square" alt="4 HITL Adapters">
+  <img src="https://img.shields.io/badge/Skill-1-10b981?style=flat-square" alt="1 Skill">
+  <img src="https://img.shields.io/badge/HITL_Scripts-6-f59e0b?style=flat-square" alt="6 HITL Scripts">
   <img src="https://img.shields.io/badge/Zero_Dependencies-✓-8b5cf6?style=flat-square" alt="Zero Dependencies">
 </p>
 
 <p align="center">
-  <strong>5 AI agents, 2 skills, orchestrator-driven workflow — zero dependencies, HITL approval gates, DFMEA risk management</strong>
+  <strong>5 AI agents, 1 skill, orchestrator-driven workflow — zero dependencies, HITL approval gates, DFMEA risk management</strong>
 </p>
 
 <p align="center">
@@ -48,9 +48,9 @@ Five specialized AI agents collaborate through an orchestrator that routes tasks
 
 ## Core Features
 
-- **2 Skills** — `codenook-init` (project setup) + `codenook-engine` (workflow engine)
+- **1 Skill** — `codenook-init` installs agent system + deploys orchestration engine per-project
 - **Subagent Architecture** — Each agent runs in a separate context window, spawned on demand
-- **HITL After Every Phase** — 4 adapters (local-html, terminal, github-issue, confluence)
+- **HITL After Every Phase** — 6 scripts (local-html, terminal, github-issue, confluence, verify, server)
 - **Task Board** — Single JSON file as source of truth; 10 statuses with deterministic routing
 - **Memory Chain** — Each phase writes a snapshot; downstream agents receive upstream context
 - **DFMEA Risk Management** — Implementer outputs failure-mode analysis (S×O×D → RPN)
@@ -67,18 +67,18 @@ Five specialized AI agents collaborate through an orchestrator that routes tasks
 curl -sL https://raw.githubusercontent.com/cintia09/CodeNook/main/install.sh | bash
 ```
 
-Installs 2 skills globally. Auto-detects Claude Code / Copilot CLI.
+Installs 1 skill globally. Auto-detects Claude Code / Copilot CLI.
 
 ### Option 2: Manual Install
 
-Copy the two skill directories to your platform's skills folder:
+Copy the skill directory to your platform's skills folder:
 
 | Platform | Target |
 |----------|--------|
-| Copilot CLI | `~/.copilot/skills/codenook-init/` and `~/.copilot/skills/codenook-engine/` |
-| Claude Code | `~/.claude/skills/codenook-init/` and `~/.claude/skills/codenook-engine/` |
+| Copilot CLI | `~/.copilot/skills/codenook-init/` |
+| Claude Code | `~/.claude/skills/codenook-init/` |
 
-Each skill directory contains `SKILL.md` plus supporting files (templates, HITL adapters).
+The skill directory contains `SKILL.md`, agent templates, HITL adapter scripts, and the orchestration engine template.
 
 ### Verify
 
@@ -113,11 +113,22 @@ It then generates project-level files:
 │   ├── implementer.agent.md
 │   ├── reviewer.agent.md
 │   └── tester.agent.md
-└── codenook/
-    ├── memory/
-    ├── task-board.json
-    └── config.json
+├── codenook/
+│   ├── memory/
+│   ├── task-board.json
+│   ├── config.json
+│   └── hitl-adapters/           # HITL scripts (auto-copied)
+│       ├── terminal.sh
+│       ├── local-html.sh
+│       ├── github-issue.sh
+│       ├── confluence.sh
+│       ├── hitl-verify.sh
+│       └── hitl-server.py
+└── instructions/                # Copilot CLI only
+    └── codenook.instructions.md # Orchestration engine (auto-loaded)
 ```
+
+> For Claude Code, the orchestration engine is appended to the project-root `CLAUDE.md` instead.
 
 ### 2. Create a Task
 
@@ -378,7 +389,7 @@ v4.0 is a ground-up simplification. Key changes:
 
 | v3.x | v4.0 |
 |------|------|
-| 20 global skills | 2 global skills + project-level agents |
+| 20 global skills | 1 global skill + project-level agents & engine |
 | 13 shell hooks | `tools` / `disallowedTools` in frontmatter |
 | Session-level role switching (`/agent`) | Subagent delegation via orchestrator |
 | 11-state FSM | 10-status task-board routing |
