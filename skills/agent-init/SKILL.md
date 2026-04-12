@@ -89,7 +89,10 @@ If **Custom**: loop through 5 agents, ask model for each.
 > "Add runtime files to .gitignore?"
 > Choices: `Yes ★` · `No`
 
-Items to append: `memory/`, `task-board.json`, `config.json`
+Items to append (relative to platform root, e.g. `.github/` or `.claude/`):
+- `memory/` — phase snapshots
+- `task-board.json` — runtime state
+- `task-board.json.bak` — backup
 
 ---
 
