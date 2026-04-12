@@ -2,7 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
-## [4.0.0] - 2026-04-12
+## [4.1.0] - 2025-07-26
+
+### 📄 v4.1 — Document-Driven Workflow
+
+Every agent now produces a planning document before execution. 10 HITL gates per task cycle (up from 5).
+
+#### ✨ New Features
+- **Document-driven workflow**: Plan → Approve → Execute → Report → Approve
+- **10 HITL gates per task**: Every agent phase has a mandatory human approval gate
+- **10 document artifacts per task**: requirement-doc, design-doc, implementation-doc, dfmea-doc, review-prep, review-report, test-plan, test-report, acceptance-plan, acceptance-report
+- **Document storage**: All artifacts saved to `codenook/docs/T-NNN/` for traceability
+- **Verdict-based routing**: Review/test/acceptance verdicts drive status transitions
+- **Mandatory Mermaid diagrams**: All agent documents must include visual diagrams
+- **HITL light theme**: Clean, minimal white UI replacing the dark theme
+- **Init directory confirmation**: User confirms installation directory during setup
+
+#### 🔄 Changed
+- **Acceptor**: Now operates in 3 sub-phases (requirements, accept-plan, accept-exec)
+- **Implementer**: Split into plan phase (implementation document) and execute phase (code + DFMEA)
+- **Reviewer**: Split into plan phase (review prep with standards collection) and execute phase (review report)
+- **Tester**: Split into plan phase (test plan document) and execute phase (test report)
+- **Routing table**: 10 entries with unified agent → HITL pattern (was 10 entries with alternating agent/HITL)
+- **Task board schema**: v4.1 with 10 artifact slots per task
+- **Orchestration engine**: Updated loop with document storage, verdict routing, dual-phase invocation
+- **SKILL.md**: v4.1 schema, docs/ directory, upgrade preserves docs/
+- **highlight.js**: Switched from github-dark to github (light) theme
+- **Mermaid**: Switched from dark to default theme
+
+#### 📊 Phase Matrix
+| Agent | Plan Phase | HITL | Execute Phase | HITL |
+|-------|-----------|------|---------------|------|
+| Acceptor (req) | Requirement Doc | ✅ | — | — |
+| Designer | Design Doc | ✅ | — | — |
+| Implementer | Implementation Doc | ✅ | Code + DFMEA | ✅ |
+| Reviewer | Review Prep | ✅ | Review Report | ✅ |
+| Tester | Test Plan | ✅ | Test Report | ✅ |
+| Acceptor (accept) | Acceptance Plan | ✅ | Acceptance Report | ✅ |
+
+#### 🔍 Deep Code Review (v4.0.1)
+- Fixed 22 issues from 5-agent parallel code review
+- XSS vulnerability patched (html.escape on all user content)
+- Decision values aligned ("approve"/"feedback")
+- Atomic writes with tempfile.mkstemp()
+- install.sh integrity validation
+
+## [4.0.0] - 2025-04-12
 
 ### 🚀 v4.0 — Subagent Architecture Redesign
 

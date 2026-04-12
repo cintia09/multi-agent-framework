@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <strong>5 AI agents, 1 skill, orchestrator-driven workflow — zero dependencies, HITL approval gates, DFMEA risk management</strong>
+  <strong>5 AI agents, 1 skill, document-driven workflow — zero dependencies, 10 HITL approval gates, DFMEA risk management</strong>
 </p>
 
 <p align="center">
@@ -48,10 +48,14 @@ Five specialized AI agents collaborate through an orchestrator that routes tasks
 
 ## Core Features
 
+- **Document-Driven Workflow** — Every agent produces a planning document before executing: Plan → Approve → Act → Report → Approve
 - **1 Skill** — `codenook-init` installs agent system + deploys orchestration engine per-project
 - **Subagent Architecture** — Each agent runs in a separate context window, spawned on demand
-- **HITL After Every Phase** — 6 scripts (local-html, terminal, github-issue, confluence, verify, server)
+- **10 HITL Gates** — Every phase has a HITL gate; 10-row status routing table with deterministic routing
+- **10 Document Artifacts** — Each task produces requirement, design, implementation, DFMEA, review, test, and acceptance docs stored to `codenook/docs/T-NNN/`
 - **Task Board** — Single JSON file as source of truth; 10 statuses with deterministic routing
+- **Verdict-Based Routing** — Review/test/acceptance report verdicts drive the next status transition
+- **Mermaid Diagrams** — Mandatory in all document outputs for visual clarity
 - **Memory Chain** — Each phase writes a snapshot; downstream agents receive upstream context
 - **DFMEA Risk Management** — Implementer outputs failure-mode analysis (S×O×D → RPN)
 - **Tool-Based Boundaries** — `tools` / `disallowedTools` in agent frontmatter (no hooks needed)
@@ -94,10 +98,11 @@ In any project directory, tell your AI assistant:
 
 > "Initialize the agent system"
 
-The `codenook-init` skill walks you through 4 prompts:
+The `codenook-init` skill walks you through 5 prompts:
 
 | Prompt | Options |
 |--------|---------|
+| Install directory | Confirm or change target directory |
 | Platform | Copilot CLI · Claude Code · Both |
 | Agent models | Use defaults · Custom per-agent |
 | HITL adapter | Local HTML · Terminal · GitHub Issue · Confluence |
@@ -114,7 +119,10 @@ It then generates project-level files:
 │   ├── reviewer.agent.md
 │   └── tester.agent.md
 ├── codenook/
+│   ├── docs/                    # Document artifacts per task
+│   │   └── T-NNN/               # 10 docs per task lifecycle
 │   ├── memory/
+│   ├── reviews/                 # Review reports and verdicts
 │   ├── task-board.json
 │   ├── config.json
 │   └── hitl-adapters/           # HITL scripts (auto-copied)
@@ -140,13 +148,22 @@ The orchestrator adds it to `codenook/task-board.json` with status `created`.
 
 > "Run task T-001"
 
-The orchestrator drives the task through the full pipeline:
+The orchestrator drives the task through the full 10-phase pipeline:
 
 ```
-created → designer → [HITL] → implementer → [HITL] → reviewer → [HITL] → tester → [HITL] → acceptor → [HITL] → done
+created → acceptor(req) → [HITL] → req_approved
+       → designer → [HITL] → design_approved
+       → implementer(plan) → [HITL] → impl_planned
+       → implementer(execute) → [HITL] → impl_done
+       → reviewer(plan) → [HITL] → review_planned
+       → reviewer(execute) → [HITL] → review_done
+       → tester(plan) → [HITL] → test_planned
+       → tester(execute) → [HITL] → test_done
+       → acceptor(accept-plan) → [HITL] → accept_planned
+       → acceptor(accept-exec) → [HITL] → done
 ```
 
-You approve or provide feedback at each HITL gate. That's it.
+You approve or provide feedback at each of the 10 HITL gates. That's it.
 
 ## Architecture
 
@@ -168,8 +185,13 @@ You approve or provide feedback at each HITL gate. That's it.
 │  │              │   │  hitl)     │   │              │  │
 │  └──────────────┘   └────────────┘   └───────────────┘  │
 │                                                          │
-│  Route by status → spawn subagent → collect result       │
-│  → HITL gate → update status → next phase                │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │ codenook/docs/T-NNN/   — 10 document artifacts     │  │
+│  │ Plan → Approve → Act → Report → Approve            │  │
+│  └────────────────────────────────────────────────────┘  │
+│                                                          │
+│  Route by status → spawn subagent → collect document     │
+│  → HITL gate (×10) → verdict routing → next phase        │
 └───┬─────────┬─────────┬─────────┬─────────┬─────────────┘
     │         │         │         │         │
     ▼         ▼         ▼         ▼         ▼
@@ -181,26 +203,27 @@ You approve or provide feedback at each HITL gate. That's it.
 └───────┘ └───────┘ └───────┘ └───────┘ └───────┘
 ```
 
-**Key principle:** The orchestrator is the sole writer of `codenook/task-board.json`. Subagents receive context in their prompt and return results in their response — no file-based messaging.
+**Key principle:** The orchestrator is the sole writer of `codenook/task-board.json`. Every agent produces a document before executing — Plan → Approve → Act → Report → Approve. Documents are stored to `codenook/docs/T-NNN/` with Mermaid diagrams mandatory in all outputs.
 
 ## Task Lifecycle
 
 ### Status Routing Table
 
-| Status | Handler | On Approve | On Reject |
-|--------|---------|------------|-----------|
-| `created` | → Designer | `designing_done` | *(agent retries)* |
-| `designing_done` | → **[HITL]** | `implementing` | `created` |
-| `implementing` | → Implementer | `implementing_done` | *(agent retries)* |
-| `implementing_done` | → **[HITL]** | `reviewing` | `implementing` |
-| `reviewing` | → Reviewer | `review_done` | *(agent retries)* |
-| `review_done` | → **[HITL]** | `testing` | `implementing` |
-| `testing` | → Tester | `test_done` | *(agent retries)* |
-| `test_done` | → **[HITL]** | `accepting` | `implementing` |
-| `accepting` | → Acceptor | `accepted` | *(agent retries)* |
-| `accepted` | → **[HITL]** | `done` | `created` |
+| # | Status | Handler | On Approve | On Reject |
+|---|--------|---------|------------|-----------|
+| 1 | `created` | → Acceptor (req) | `req_approved` | *(agent retries)* |
+| 2 | `req_approved` | → **[HITL]** → Designer | `design_approved` | `created` |
+| 3 | `design_approved` | → **[HITL]** → Implementer (plan) | `impl_planned` | `req_approved` |
+| 4 | `impl_planned` | → **[HITL]** → Implementer (execute) | `impl_done` | `design_approved` |
+| 5 | `impl_done` | → **[HITL]** → Reviewer (plan) | `review_planned` | `impl_planned` |
+| 6 | `review_planned` | → **[HITL]** → Reviewer (execute) | `review_done` | `impl_done` |
+| 7 | `review_done` | → **[HITL]** → Tester (plan) | `test_planned` | `impl_done` |
+| 8 | `test_planned` | → **[HITL]** → Tester (execute) | `test_done` | `review_done` |
+| 9 | `test_done` | → **[HITL]** → Acceptor (accept-plan) | `accept_planned` | `impl_done` |
+| 10 | `accept_planned` | → **[HITL]** → Acceptor (accept-exec) | `done` | `created` |
 
-- HITL gates after every agent phase — no auto-advancement
+- **10 HITL gates** — every phase has a HITL gate; no auto-advancement
+- **Verdict-based routing** — review/test/acceptance report verdicts drive the next status
 - Rejection routes backward to the appropriate phase
 - Subagent errors pause the loop and report to the user
 
@@ -208,7 +231,7 @@ You approve or provide feedback at each HITL gate. That's it.
 
 ```json
 {
-  "version": "4.0",
+  "version": "4.1",
   "tasks": [{
     "id": "T-001",
     "title": "Implement user authentication",
@@ -217,13 +240,26 @@ You approve or provide feedback at each HITL gate. That's it.
     "goals": [
       { "id": "G1", "description": "JWT login endpoint", "status": "pending" }
     ],
-    "artifacts": {},
+    "artifacts": {
+      "requirement_doc": null,
+      "design_doc": null,
+      "implementation_doc": null,
+      "dfmea_doc": null,
+      "review_prep": null,
+      "review_report": null,
+      "test_plan": null,
+      "test_report": null,
+      "acceptance_plan": null,
+      "acceptance_report": null
+    },
     "feedback_history": [],
     "created_at": "2025-01-15T10:00:00Z",
     "updated_at": "2025-01-15T10:00:00Z"
   }]
 }
 ```
+
+Documents are stored to disk at `codenook/docs/T-NNN/` with filenames matching the artifact keys (e.g., `requirement-doc.md`, `design-doc.md`, `implementation-doc.md`, `dfmea-doc.md`, `review-prep.md`, `review-report.md`, `test-plan.md`, `test-report.md`, `acceptance-plan.md`, `acceptance-report.md`).
 
 ### Commands
 
@@ -335,7 +371,7 @@ After initialization, `codenook/config.json` lives under the platform directory 
 
 ```json
 {
-  "version": "4.0",
+  "version": "4.1",
   "platform": "copilot-cli",
   "models": {
     "acceptor":    "claude-haiku-4.5",
@@ -347,6 +383,7 @@ After initialization, `codenook/config.json` lives under the platform directory 
   "hitl": {
     "enabled": true,
     "adapter": "local-html",
+    "theme": "light",
     "port": 8765,
     "auto_open_browser": true
   },
@@ -362,6 +399,7 @@ After initialization, `codenook/config.json` lives under the platform directory 
 | `models.*` | AI model per agent role |
 | `hitl.enabled` | Enable/disable HITL gates |
 | `hitl.adapter` | `local-html` · `terminal` · `github-issue` · `confluence` |
+| `hitl.theme` | `light` (clean, minimal white UI) or `dark` |
 | `hitl.port` | Port for local-html adapter (default: 8765) |
 
 ### Platform Directories
@@ -383,27 +421,37 @@ After initialization, `codenook/config.json` lives under the platform directory 
 
 The orchestrator backs up `codenook/task-board.json` to `codenook/task-board.json.bak` before every write. On restart, it reads the task board and resumes from the current status — no in-memory state needed.
 
-## Migrating from v3.x
+## Migrating from v3.x / v4.0
 
-v4.0 is a ground-up simplification. Key changes:
+v4.1 builds on v4.0's simplification with a document-driven workflow. Key changes:
 
-| v3.x | v4.0 |
-|------|------|
-| 20 global skills | 1 global skill + project-level agents & engine |
-| 13 shell hooks | `tools` / `disallowedTools` in frontmatter |
-| Session-level role switching (`/agent`) | Subagent delegation via orchestrator |
-| 11-state FSM | 10-status task-board routing |
-| File-based messaging (`inbox.json`) | Orchestrator context passing |
-| `agent-hitl-gate` skill | Multi-adapter HITL (4 adapters) |
-| `events.db` SQLite audit | Feedback history in `codenook/task-board.json` |
-| `.agents/` project directory | `.github/codenook/` or `.claude/codenook/` (platform-native) |
+| v3.x | v4.0 | v4.1 |
+|------|------|------|
+| 20 global skills | 1 global skill + project-level agents & engine | *(same)* |
+| 13 shell hooks | `tools` / `disallowedTools` in frontmatter | *(same)* |
+| Session-level role switching (`/agent`) | Subagent delegation via orchestrator | Document-driven: Plan → Approve → Act → Report → Approve |
+| 11-state FSM | 10-status task-board routing (5 HITL gates) | 10-status routing with **10 HITL gates** (every phase) |
+| File-based messaging (`inbox.json`) | Orchestrator context passing | *(same)* + 10 document artifacts per task |
+| `agent-hitl-gate` skill | Multi-adapter HITL (4 adapters) | + Light theme, verdict-based routing |
+| `events.db` SQLite audit | Feedback history in `codenook/task-board.json` | *(same)* |
+| `.agents/` project directory | `.github/codenook/` or `.claude/codenook/` | + `codenook/docs/T-NNN/` document storage |
+| — | — | Mermaid diagrams mandatory in all outputs |
+| — | — | Init directory confirmation prompt |
+| — | — | Task board schema v4.1 with 10 artifact slots |
 
 **Migration steps:**
 
+**From v3.x:**
 1. Remove old global skills, hooks, and rules from `~/.claude/` or `~/.copilot/`
-2. Install v4.0 (`curl` one-liner or manual copy)
+2. Install v4.1 (`curl` one-liner or manual copy)
 3. In your project, run "initialize agent system" to generate new files
 4. Migrate existing tasks manually if needed (copy goals to new `codenook/task-board.json`)
+
+**From v4.0:**
+1. Update the skill (`curl` one-liner or re-copy skill directory)
+2. Re-run "initialize agent system" — existing tasks are preserved, schema is upgraded
+3. Existing tasks will gain the 10 artifact slots (initially `null`)
+4. HITL adapter theme defaults to `light` — set `hitl.theme: "dark"` in config to keep the old theme
 
 > 📖 See [MIGRATION.md](docs/MIGRATION.md) for a detailed migration guide.
 
