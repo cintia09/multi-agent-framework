@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skills 加载机制 — 动画演示</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { 
+    font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #0f172a; color: #e2e8f0; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  h1 { margin: 30px 0 10px; font-size: 28px; color: #818cf8; }
+  .subtitle { color: #94a3b8; margin-bottom: 20px; font-size: 14px; }
+  
+  /* Stage container */
+  .stage { 
+    width: 900px; height: 520px; position: relative; 
+    border: 2px solid #334155; border-radius: 16px; 
+    background: #1e293b; overflow: hidden;
+  }
+  
+  /* Controls */
+  .controls {
+    margin: 20px 0; display: flex; gap: 12px; align-items: center;
+  }
+  .controls button {
+    padding: 10px 24px; border: none; border-radius: 8px; cursor: pointer;
+    font-size: 15px; font-weight: 600; transition: all 0.2s;
+  }
+  .btn-primary { background: #6366f1; color: white; }
+  .btn-primary:hover { background: #818cf8; }
+  .btn-secondary { background: #334155; color: #94a3b8; }
+  .btn-secondary:hover { background: #475569; color: white; }
+  .step-label {
+    color: #94a3b8; font-size: 14px; min-width: 120px; text-align: center;
+  }
+  
+  /* Narration bar */
+  .narration {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(15, 23, 42, 0.95); padding: 14px 24px;
+    font-size: 15px; line-height: 1.6; color: #cbd5e1;
+    border-top: 1px solid #334155; min-height: 60px;
+    transition: opacity 0.3s;
+  }
+  .narration em { color: #fbbf24; font-style: normal; font-weight: 600; }
+  .narration strong { color: #34d399; }
+  
+  /* === Entities === */
+  .entity {
+    position: absolute; border-radius: 12px; padding: 12px;
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0; transform: scale(0.8);
+  }
+  .entity.visible { opacity: 1; transform: scale(1); }
+  .entity.highlight { box-shadow: 0 0 20px rgba(99, 102, 241, 0.5); }
+  
+  .entity-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 6px; opacity: 0.7;
+  }
+  .entity-title { font-size: 15px; font-weight: 600; }
+  .entity-detail { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+  
+  /* File system */
+  .fs { background: #1a1a2e; border: 2px solid #7c3aed; left: 20px; top: 20px; width: 180px; }
+  .fs .entity-label { color: #a78bfa; }
+  
+  /* Skill files */
+  .skill-file {
+    position: absolute; background: #312e81; border: 1px solid #6366f1;
+    border-radius: 6px; padding: 4px 8px; font-size: 11px;
+    opacity: 0; transition: all 0.5s; white-space: nowrap;
+    color: #c7d2fe;
+  }
+  .skill-file.visible { opacity: 1; }
+  .skill-file.active { background: #4338ca; border-color: #818cf8; box-shadow: 0 0 10px rgba(99, 102, 241, 0.4); }
+  
+  /* Platform */
+  .platform { background: #0c4a6e; border: 2px solid #0ea5e9; left: 240px; top: 20px; width: 200px; }
+  .platform .entity-label { color: #38bdf8; }
+  
+  /* Summary list */
+  .summary-list {
+    position: absolute; background: #422006; border: 2px solid #f59e0b;
+    border-radius: 8px; padding: 8px; font-size: 11px;
+    opacity: 0; transition: all 0.6s;
+  }
+  .summary-list.visible { opacity: 1; }
+  .summary-item {
+    padding: 2px 6px; margin: 2px 0; border-radius: 4px;
+    background: rgba(245, 158, 11, 0.15); color: #fcd34d;
+  }
+  .summary-item.loaded { background: rgba(52, 211, 153, 0.2); color: #6ee7b7; }
+  
+  /* System Prompt */
+  .sys-prompt { background: #14532d; border: 2px solid #22c55e; left: 480px; top: 20px; width: 190px; }
+  .sys-prompt .entity-label { color: #4ade80; }
+  
+  /* LLM */
+  .llm { background: #7c2d12; border: 2px solid #f97316; right: 20px; top: 20px; width: 170px; }
+  .llm .entity-label { color: #fb923c; }
+  
+  /* Messages */
+  .messages { background: #831843; border: 2px solid #ec4899; right: 20px; top: 200px; width: 170px; }
+  .messages .entity-label { color: #f472b6; }
+  
+  /* Agent profile */
+  .agent-profile { background: #164e63; border: 2px solid #06b6d4; left: 20px; top: 280px; width: 180px; }
+  .agent-profile .entity-label { color: #22d3ee; }
+  
+  /* User */
+  .user-box { background: #3f3f46; border: 2px solid #a1a1aa; left: 240px; top: 280px; width: 200px; }
+  .user-box .entity-label { color: #d4d4d8; }
+  
+  /* Arrows / particles */
+  .arrow {
+    position: absolute; opacity: 0; transition: opacity 0.4s;
+    pointer-events: none;
+  }
+  .arrow.visible { opacity: 1; }
+  
+  .particle {
+    position: absolute; width: 10px; height: 10px; border-radius: 50%;
+    opacity: 0; pointer-events: none;
+  }
+  
+  @keyframes moveRight {
+    0% { transform: translateX(0); opacity: 1; }
+    100% { transform: translateX(160px); opacity: 0; }
+  }
+  @keyframes moveDown {
+    0% { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(100px); opacity: 0; }
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 5px currentColor; }
+    50% { box-shadow: 0 0 20px currentColor; }
+  }
+  
+  .thinking {
+    animation: pulse 1s ease-in-out infinite;
+  }
+  
+  /* Token meter */
+  .token-meter {
+    position: absolute; left: 480px; top: 150px; width: 190px;
+    opacity: 0; transition: all 0.6s;
+  }
+  .token-meter.visible { opacity: 1; }
+  .token-bar { 
+    height: 20px; border-radius: 10px; background: #334155; 
+    overflow: hidden; margin-top: 4px;
+  }
+  .token-fill {
+    height: 100%; border-radius: 10px; transition: width 0.8s, background 0.8s;
+    width: 0%;
+  }
+  .token-label { font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
+  
+  /* SVG arrows */
+  svg.arrows {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  svg.arrows line, svg.arrows path {
+    stroke-dasharray: 8 4;
+    stroke-dashoffset: 0;
+    animation: dashFlow 1s linear infinite;
+  }
+  @keyframes dashFlow {
+    to { stroke-dashoffset: -12; }
+  }
+  .arrow-line { opacity: 0; transition: opacity 0.5s; }
+  .arrow-line.visible { opacity: 1; }
+</style>
+</head>
+<body>
+
+<h1>🧠 Skills 加载机制 · 动画演示</h1>
+<p class="subtitle">Multi-Agent Framework — 两级加载 + Per-Agent 隔离</p>
+
+<div class="stage" id="stage">
+  <!-- SVG arrows layer -->
+  <svg class="arrows">
+    <!-- FS → Platform -->
+    <line id="arr1" class="arrow-line" x1="200" y1="70" x2="240" y2="70" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrowPurple)"/>
+    <!-- Platform → SysPrompt -->
+    <line id="arr2" class="arrow-line" x1="440" y1="70" x2="480" y2="70" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowBlue)"/>
+    <!-- SysPrompt → LLM -->
+    <line id="arr3" class="arrow-line" x1="670" y1="70" x2="710" y2="70" stroke="#4ade80" stroke-width="2" marker-end="url(#arrowGreen)"/>
+    <!-- LLM → Messages (down) -->
+    <line id="arr4" class="arrow-line" x1="795" y1="130" x2="795" y2="200" stroke="#f97316" stroke-width="2" marker-end="url(#arrowOrange)"/>
+    <!-- LLM ← Messages (request full load) -->
+    <path id="arr5" class="arrow-line" d="M 710 230 Q 500 300 440 100" stroke="#ec4899" stroke-width="2" fill="none" marker-end="url(#arrowPink)"/>
+    <!-- Agent → SysPrompt -->
+    <line id="arr6" class="arrow-line" x1="200" y1="310" x2="480" y2="130" stroke="#22d3ee" stroke-width="2" marker-end="url(#arrowCyan)"/>
+    <!-- User → LLM -->
+    <line id="arr7" class="arrow-line" x1="440" y1="310" x2="710" y2="100" stroke="#a1a1aa" stroke-width="2" marker-end="url(#arrowGray)"/>
+    
+    <defs>
+      <marker id="arrowPurple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#a78bfa"/></marker>
+      <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#38bdf8"/></marker>
+      <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#4ade80"/></marker>
+      <marker id="arrowOrange" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f97316"/></marker>
+      <marker id="arrowPink" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#ec4899"/></marker>
+      <marker id="arrowCyan" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#22d3ee"/></marker>
+      <marker id="arrowGray" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#a1a1aa"/></marker>
+    </defs>
+  </svg>
+
+  <!-- File System -->
+  <div class="entity fs" id="fs">
+    <div class="entity-label">📂 文件系统</div>
+    <div class="entity-title">18 个 SKILL.md</div>
+    <div class="entity-detail">~/.claude/skills/</div>
+  </div>
+  
+  <!-- Skill files -->
+  <div class="skill-file" id="sf1" style="left:30px; top:140px">📄 agent-fsm</div>
+  <div class="skill-file" id="sf2" style="left:30px; top:162px">📄 agent-task-board</div>
+  <div class="skill-file" id="sf3" style="left:30px; top:184px">📄 agent-messaging</div>
+  <div class="skill-file" id="sf4" style="left:30px; top:206px">📄 agent-memory</div>
+  <div class="skill-file" id="sf5" style="left:30px; top:228px">📄 agent-hooks</div>
+  <div class="skill-file" id="sf6" style="left:130px; top:140px">📄 agent-tester</div>
+  <div class="skill-file" id="sf7" style="left:130px; top:162px">📄 agent-implementer</div>
+  <div class="skill-file" id="sf8" style="left:130px; top:184px">📄 ... × 18</div>
+
+  <!-- Platform -->
+  <div class="entity platform" id="platform">
+    <div class="entity-label">⚙️ 平台引擎</div>
+    <div class="entity-title" id="platformTitle">Claude Code / Copilot</div>
+    <div class="entity-detail" id="platformDetail">扫描 skills 目录</div>
+  </div>
+
+  <!-- Summary list -->
+  <div class="summary-list" id="summaryList" style="left:250px; top:120px; width:180px;">
+    <div style="font-weight:700; color:#fbbf24; margin-bottom:4px;">📋 摘要列表</div>
+    <div class="summary-item" id="si1">agent-fsm: FSM引擎...</div>
+    <div class="summary-item" id="si2">agent-task-board: 任务管理...</div>
+    <div class="summary-item" id="si3">agent-messaging: 消息...</div>
+    <div class="summary-item" id="si4">agent-memory: 记忆...</div>
+    <div class="summary-item" id="si5">... × 18 (~250字/条)</div>
+  </div>
+
+  <!-- System Prompt -->
+  <div class="entity sys-prompt" id="sysPrompt">
+    <div class="entity-label">📝 System Prompt</div>
+    <div class="entity-title" id="spTitle">平台规则</div>
+    <div class="entity-detail" id="spDetail">+ Skills 摘要</div>
+  </div>
+
+  <!-- Token Meter -->
+  <div class="token-meter" id="tokenMeter">
+    <div class="token-label"><span>Token 用量</span><span id="tokenPct">0%</span></div>
+    <div class="token-bar"><div class="token-fill" id="tokenFill"></div></div>
+  </div>
+
+  <!-- LLM -->
+  <div class="entity llm" id="llm">
+    <div class="entity-label">🧠 大模型 (LLM)</div>
+    <div class="entity-title" id="llmTitle">等待输入</div>
+    <div class="entity-detail" id="llmDetail"></div>
+  </div>
+
+  <!-- Messages -->
+  <div class="entity messages" id="messages">
+    <div class="entity-label">💬 Messages 数组</div>
+    <div class="entity-title" id="msgTitle">对话历史</div>
+    <div class="entity-detail" id="msgDetail"></div>
+  </div>
+
+  <!-- Agent Profile -->
+  <div class="entity agent-profile" id="agentProfile">
+    <div class="entity-label">👤 Agent Profile</div>
+    <div class="entity-title" id="agentTitle">implementer.agent.md</div>
+    <div class="entity-detail" id="agentDetail">skills: [fsm, task-board, ...]</div>
+  </div>
+
+  <!-- User -->
+  <div class="entity user-box" id="userBox">
+    <div class="entity-label">👤 用户</div>
+    <div class="entity-title" id="userTitle">"把 T-042 改为 testing"</div>
+  </div>
+
+  <!-- Narration -->
+  <div class="narration" id="narration">
+    点击 <em>▶ 开始</em> 查看 Skills 加载动画
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn-secondary" onclick="prevStep()">◀ 上一步</button>
+  <span class="step-label" id="stepLabel">Step 0 / 8</span>
+  <button class="btn-primary" id="nextBtn" onclick="nextStep()">▶ 开始</button>
+  <button class="btn-secondary" onclick="autoPlay()" id="autoBtn">⏩ 自动播放</button>
+</div>
+
+<script>
+let step = 0;
+const maxStep = 8;
+let autoTimer = null;
+
+const $ = id => document.getElementById(id);
+
+function show(id) { $(id)?.classList.add('visible'); }
+function hide(id) { $(id)?.classList.remove('visible'); }
+function hl(id) { $(id)?.classList.add('highlight'); }
+function unhl(id) { $(id)?.classList.remove('highlight'); }
+function showArr(id) { $(id)?.classList.add('visible'); }
+function hideArr(id) { $(id)?.classList.remove('visible'); }
+
+function resetAll() {
+  document.querySelectorAll('.entity, .skill-file, .summary-list, .token-meter').forEach(el => {
+    el.classList.remove('visible', 'highlight', 'thinking');
+  });
+  document.querySelectorAll('.arrow-line').forEach(el => el.classList.remove('visible'));
+  document.querySelectorAll('.summary-item').forEach(el => el.classList.remove('loaded'));
+  $('tokenFill').style.width = '0%';
+  $('tokenFill').style.background = '';
+  $('tokenPct').textContent = '0%';
+}
+
+function applyStep(s) {
+  resetAll();
+  
+  switch(s) {
+    case 0:
+      $('narration').innerHTML = '点击 <em>▶ 下一步</em> 查看 Skills 加载动画';
+      $('nextBtn').textContent = '▶ 开始';
+      break;
+      
+    case 1: // Show file system
+      show('fs');
+      ['sf1','sf2','sf3','sf4','sf5','sf6','sf7','sf8'].forEach((id, i) => {
+        setTimeout(() => show(id), i * 100);
+      });
+      hl('fs');
+      $('narration').innerHTML = '📂 <em>18 个 SKILL.md</em> 文件存放在 <strong>~/.claude/skills/</strong> 目录下。每个文件包含 YAML frontmatter（name + description）和完整的 Markdown 指令。';
+      $('nextBtn').textContent = '▶ 下一步';
+      break;
+      
+    case 2: // Platform scans
+      show('fs'); ['sf1','sf2','sf3','sf4','sf5','sf6','sf7','sf8'].forEach(id => show(id));
+      show('platform');
+      hl('platform');
+      showArr('arr1');
+      $('platformDetail').textContent = '提取 name + description';
+      $('narration').innerHTML = '⚙️ 平台启动时，<em>扫描 skills 目录</em>，从每个 SKILL.md 的 frontmatter 中提取 <strong>name</strong> 和 <strong>description</strong>（≤250字符）。<em>不读取全文！</em>';
+      break;
+      
+    case 3: // Summary list + token
+      show('fs'); ['sf1','sf2','sf3','sf4','sf5','sf6','sf7','sf8'].forEach(id => show(id));
+      show('platform');
+      show('summaryList');
+      show('tokenMeter');
+      hl('summaryList');
+      showArr('arr1');
+      showArr('arr2');
+      $('tokenFill').style.width = '1%';
+      $('tokenFill').style.background = '#22c55e';
+      $('tokenPct').textContent = '~1%';
+      $('narration').innerHTML = '📋 <em>第一级加载</em>：将 18 个 skill 的摘要（name + description）构建为列表，注入到 System Prompt。Token 开销仅 <strong>~1%</strong> —— 就像一本书的<em>目录页</em>，而非整本书。';
+      break;
+      
+    case 4: // System Prompt + Agent Profile
+      show('fs'); ['sf1','sf2','sf3','sf4','sf5','sf6','sf7','sf8'].forEach(id => show(id));
+      show('platform'); show('summaryList'); show('tokenMeter');
+      show('sysPrompt'); show('agentProfile');
+      hl('sysPrompt'); hl('agentProfile');
+      showArr('arr1'); showArr('arr2'); showArr('arr6');
+      $('tokenFill').style.width = '5%';
+      $('tokenFill').style.background = '#22c55e';
+      $('tokenPct').textContent = '~5%';
+      $('spTitle').textContent = '平台规则 + 摘要';
+      $('spDetail').textContent = '+ Agent Profile (隔离)';
+      $('narration').innerHTML = '📝 System Prompt 组装完成：<em>平台规则</em> + <em>18 个 Skill 摘要</em> + <strong>Agent Profile</strong>（含 skills: 隔离清单）。每个 Agent 只被告知自己<em>允许调用</em>的 skills。';
+      break;
+      
+    case 5: // User message → LLM thinks
+      show('fs'); ['sf1','sf2','sf3','sf4','sf5','sf6','sf7','sf8'].forEach(id => show(id));
+      show('platform'); show('summaryList'); show('tokenMeter');
+      show('sysPrompt'); show('agentProfile'); show('llm'); show('userBox');
+      hl('llm'); $('llm').classList.add('thinking');
+      showArr('arr1'); showArr('arr2'); showArr('arr3'); showArr('arr6'); showArr('arr7');
+      $('tokenFill').style.width = '5%';
+      $('tokenFill').style.background = '#22c55e';
+      $('tokenPct').textContent = '~5%';
+      $('llmTitle').textContent = '🤔 思考中...';
+      $('llmDetail').textContent = '从摘要中识别需求';
+      $('narration').innerHTML = '🧠 用户说<em>"把 T-042 改为 testing"</em>。LLM 收到 System Prompt（含摘要列表），从中识别出需要 <strong>agent-fsm</strong>（状态验证）和 <strong>agent-task-board</strong>（任务操作）。';
+      break;
+      
+    case 6: // On-demand full load
+      show('fs'); ['sf1','sf2','sf3','sf4','sf5','sf6','sf7','sf8'].forEach(id => show(id));
+      $('sf1').classList.add('active'); $('sf2').classList.add('active');
+      show('platform'); show('summaryList'); show('tokenMeter');
+      $('si1').classList.add('loaded'); $('si2').classList.add('loaded');
+      show('sysPrompt'); show('agentProfile'); show('llm'); show('userBox'); show('messages');
+      hl('messages');
+      showArr('arr1'); showArr('arr2'); showArr('arr3'); showArr('arr4'); showArr('arr5'); showArr('arr6'); showArr('arr7');
+      $('tokenFill').style.width = '15%';
+      $('tokenFill').style.background = '#f59e0b';
+      $('tokenPct').textContent = '~15%';
+      $('llmTitle').textContent = '📖 加载 Skill 全文';
+      $('llmDetail').textContent = 'agent-fsm + task-board';
+      $('msgTitle').textContent = '+ Skill 全文';
+      $('msgDetail').textContent = 'FSM规则 + 任务操作';
+      $('narration').innerHTML = '📚 <em>第二级加载</em>：LLM 请求调用 agent-fsm 和 agent-task-board → 平台<strong>按需读取完整 SKILL.md</strong>，注入到 Messages 数组。其余 16 个 skill 的全文<em>不会加载</em>，节省大量 token！';
+      break;
+      
+    case 7: // LLM executes
+      show('fs'); ['sf1','sf2','sf3','sf4','sf5','sf6','sf7','sf8'].forEach(id => show(id));
+      $('sf1').classList.add('active'); $('sf2').classList.add('active');
+      show('platform'); show('summaryList'); show('tokenMeter');
+      $('si1').classList.add('loaded'); $('si2').classList.add('loaded');
+      show('sysPrompt'); show('agentProfile'); show('llm'); show('userBox'); show('messages');
+      hl('llm'); $('llm').classList.add('thinking');
+      showArr('arr1'); showArr('arr2'); showArr('arr3'); showArr('arr4'); showArr('arr6'); showArr('arr7');
+      $('tokenFill').style.width = '15%';
+      $('tokenFill').style.background = '#f59e0b';
+      $('tokenPct').textContent = '~15%';
+      $('llmTitle').textContent = '✍️ 执行操作';
+      $('llmDetail').textContent = '修改 task-board.json';
+      $('msgTitle').textContent = '对话 + Skill 全文';
+      $('narration').innerHTML = '✅ LLM 现在拥有<em>完整的 FSM 规则和任务操作知识</em>，精确执行状态转换。Hook 脚本在工具调用前后<strong>强制验证</strong>合法性。Agent Profile 确保<em>只调用允许的 skills</em>。';
+      break;
+      
+    case 8: // Summary
+      show('fs'); ['sf1','sf2','sf3','sf4','sf5','sf6','sf7','sf8'].forEach(id => show(id));
+      show('platform'); show('summaryList'); show('tokenMeter');
+      show('sysPrompt'); show('agentProfile'); show('llm'); show('userBox'); show('messages');
+      showArr('arr1'); showArr('arr2'); showArr('arr3'); showArr('arr4'); showArr('arr6'); showArr('arr7');
+      $('tokenFill').style.width = '15%';
+      $('tokenFill').style.background = '#22c55e';
+      $('tokenPct').textContent = '~15%';
+      $('llmTitle').textContent = '✅ 完成';
+      $('llmDetail').textContent = '';
+      $('narration').innerHTML = '🎯 <em>总结</em>：Skills 采用<strong>两级加载</strong> —— 摘要列表(~1% token)始终可见如目录，全文按需加载(5-15%)。配合 <em>Per-Agent 隔离</em>（skills: 白名单）和 <em>Hook 强制验证</em>，三层机制确保 Agent 行为既高效又安全。';
+      $('nextBtn').textContent = '🔄 重播';
+      break;
+  }
+  
+  $('stepLabel').textContent = `Step ${s} / ${maxStep}`;
+}
+
+function nextStep() {
+  if (step >= maxStep) { step = 0; } else { step++; }
+  applyStep(step);
+}
+
+function prevStep() {
+  if (step > 0) { step--; applyStep(step); }
+}
+
+function autoPlay() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; $('autoBtn').textContent = '⏩ 自动播放'; return; }
+  $('autoBtn').textContent = '⏸ 暂停';
+  step = 0; applyStep(0);
+  autoTimer = setInterval(() => {
+    if (step >= maxStep) { clearInterval(autoTimer); autoTimer = null; $('autoBtn').textContent = '⏩ 自动播放'; return; }
+    step++; applyStep(step);
+  }, 3500);
+}
+
+// Keyboard controls
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextStep(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prevStep(); }
+});
+
+// Init
+applyStep(0);
+</script>
+</body>
+</html>
