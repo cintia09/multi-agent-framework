@@ -100,7 +100,7 @@ Enhanced Implementer Workflow:
 - Coverage report saved to `.agents/runtime/implementer/workspace/coverage-report.txt`
 ```
 
-#### 2. Build Fix 工作流
+#### 2. Build Fix Workflow
 
 ```markdown
 ### Build Fix Workflow
@@ -119,7 +119,7 @@ When build/compilation fails, follow this process:
 ⚠️ Never fix multiple unrelated errors at once — fixing one at a time avoids introducing new issues.
 ```
 
-#### 3. Pre-Review Verification 清单
+#### 3. Pre-Review Verification Checklist
 
 ```markdown
 ### Pre-Review Verification Checklist

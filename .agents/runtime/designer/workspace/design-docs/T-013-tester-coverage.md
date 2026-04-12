@@ -1,78 +1,80 @@
-# T-013: 增强 Tester 的覆盖率分析和 Flaky 检测
+# T-013: Enhance Tester Coverage Analysis and Flaky Detection
 
 ## Context
 
-当前 `agent-tester SKILL.md` 定义了完整的测试流程（Flow A/B）和 issue 跟踪机制，但缺乏：
-1. **覆盖率分析**：没有系统化的覆盖率检测、解析和高优先级未覆盖区域识别
-2. **Flaky 测试检测**：间歇性失败的测试会导致 CI 不稳定，当前没有检测和隔离机制
-3. **E2E 测试指导**：缺少端到端测试的最佳实践，如 Page Object Model、Playwright 集成
+The current `agent-tester SKILL.md` defines complete test workflows (Flow A/B) and issue tracking, but lacks:
+1. **Coverage analysis**: No systematic coverage detection, parsing, or high-priority uncovered area identification
+2. **Flaky test detection**: Intermittent test failures destabilize CI, with no current detection or isolation mechanism
+3. **E2E test guidance**: Missing end-to-end testing best practices such as Page Object Model and Playwright integration
 
 ## Decision
 
-增强 `agent-tester SKILL.md`，新增三个核心章节：覆盖率分析工作流 + Flaky 检测与隔离 + E2E 测试最佳实践。
+Enhance `agent-tester SKILL.md` with three core sections: Coverage Analysis Workflow + Flaky Detection & Isolation + E2E Testing Best Practices.
 
 ## Alternatives Considered
 
-| 方案 | 优点 | 缺点 | 决定 |
-|------|------|------|------|
-| **A: SKILL.md 增强（选中）** | 框架一致，语言无关 | 依赖 Agent 遵守 | ✅ 选中 |
-| **B: 集成 Codecov/Coveralls** | 自动化覆盖率追踪 | 需要外部服务和 CI | ❌ 外部依赖 |
-| **C: 自定义覆盖率脚本** | 精确控制 | 每种语言需要单独实现 | ❌ 维护成本 |
-| **D: 仅在 Implementer 中处理** | 减少 Tester 负担 | 职责不清，Tester 应验证质量 | ❌ 职责错位 |
+| Option | Pros | Cons | Decision |
+|--------|------|------|----------|
+| **A: SKILL.md enhancement (selected)** | Framework-consistent, language-agnostic | Relies on Agent compliance | ✅ Selected |
+| **B: Integrate Codecov/Coveralls** | Automated coverage tracking | Requires external service and CI | ❌ External dependency |
+| **C: Custom coverage scripts** | Precise control | Separate implementation per language | ❌ Maintenance cost |
+| **D: Handle only in Implementer** | Reduces Tester burden | Unclear responsibility; Tester should verify quality | ❌ Wrong ownership |
 
 ## Design
 
 ### Architecture
 
 ```
-Tester 增强后的工作流：
+Enhanced Tester Workflow:
 
 ┌─────────────────────────────────────────────┐
-│  现有 Flow A: 新任务测试                      │
+│  Existing Flow A: New Task Testing           │
 │  ...                                         │
-│  新增步骤: 覆盖率分析                          │
+│  New step: Coverage Analysis                 │
 │  ┌────────────────────────────────────┐       │
-│  │ 检测测试框架                         │      │
+│  │ Detect test framework              │       │
 │  │    ▼                               │       │
-│  │ 运行覆盖率命令                       │      │
+│  │ Run coverage command               │       │
 │  │    ▼                               │       │
-│  │ 解析覆盖率报告                       │      │
+│  │ Parse coverage report              │       │
 │  │    ▼                               │       │
-│  │ 识别高优先级未覆盖区域                │      │
+│  │ Identify high-priority uncovered   │       │
+│  │ areas                              │       │
 │  │    ▼                               │       │
-│  │ 输出覆盖率摘要                       │      │
+│  │ Output coverage summary            │       │
 │  └────────────────────────────────────┘       │
 └─────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────┐
-│  Flaky 检测流程                               │
+│  Flaky Detection Flow                        │
 │  ┌────────────────────────────────────┐       │
-│  │ 测试失败?                           │      │
-│  │    │是                             │       │
+│  │ Test failed?                       │       │
+│  │    │yes                            │       │
 │  │    ▼                               │       │
-│  │ 重新运行 3-5 次                     │       │
+│  │ Re-run 3-5 times                   │       │
 │  │    ▼                               │       │
-│  │ 结果不一致? ──是──→ 标记为 Flaky     │      │
-│  │    │否                ▼            │       │
-│  │    ▼            test.fixme() 隔离   │      │
-│  │ 确认为真实失败                       │      │
+│  │ Results inconsistent?              │       │
+│  │  ──yes──→ Mark as Flaky            │       │
+│  │    │no          ▼                  │       │
+│  │    ▼       test.fixme() quarantine │       │
+│  │ Confirmed real failure             │       │
 │  │    ▼                               │       │
-│  │ 报告 issue                         │       │
+│  │ Report issue                       │       │
 │  └────────────────────────────────────┘       │
 └─────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────┐
-│  E2E 测试最佳实践                             │
-│  ├── Page Object Model 模式                  │
-│  ├── data-testid 选择器策略                    │
-│  ├── Playwright 推荐配置                      │
-│  └── 失败时截图/视频                           │
+│  E2E Testing Best Practices                  │
+│  ├── Page Object Model pattern               │
+│  ├── data-testid selector strategy           │
+│  ├── Playwright recommended config           │
+│  └── Screenshots/video on failure            │
 └─────────────────────────────────────────────┘
 ```
 
 ### Data Model
 
-**覆盖率报告格式**：
+**Coverage report format**:
 
 ```json
 {
@@ -89,13 +91,13 @@ Tester 增强后的工作流：
     {
       "file": "src/hooks/agent-post-tool-use.ts",
       "lines": "45-62",
-      "reason": "auto-dispatch 逻辑分支未覆盖"
+      "reason": "auto-dispatch logic branch not covered"
     }
   ]
 }
 ```
 
-**Flaky 测试记录格式**：
+**Flaky test record format**:
 
 ```json
 {
@@ -117,78 +119,78 @@ Tester 增强后的工作流：
 
 ### API / Interface
 
-**agent-tester SKILL.md 新增章节**：
+**New sections in agent-tester SKILL.md**:
 
-#### 1. 覆盖率分析工作流
+#### 1. Coverage Analysis Workflow
 
 ```markdown
-### 覆盖率分析工作流
+### Coverage Analysis Workflow
 
-在测试执行后，执行覆盖率分析：
+After test execution, perform coverage analysis:
 
-#### Step 1: 检测测试框架
-自动识别项目使用的测试框架和覆盖率工具：
-| 框架 | 覆盖率命令 | 报告格式 |
-|------|-----------|---------|
-| Jest | `npx jest --coverage --coverageReporters=text` | 终端文本 |
-| Vitest | `npx vitest run --coverage` | 终端文本 |
-| pytest | `pytest --cov=src --cov-report=term-missing` | 终端文本 |
-| Go | `go test -cover -coverprofile=coverage.out ./...` | 文本 |
+#### Step 1: Detect Test Framework
+Auto-detect the project's test framework and coverage tool:
+| Framework | Coverage Command | Report Format |
+|-----------|-----------------|---------------|
+| Jest | `npx jest --coverage --coverageReporters=text` | Terminal text |
+| Vitest | `npx vitest run --coverage` | Terminal text |
+| pytest | `pytest --cov=src --cov-report=term-missing` | Terminal text |
+| Go | `go test -cover -coverprofile=coverage.out ./...` | Text |
 
-#### Step 2: 运行覆盖率
-执行上表对应的命令，捕获输出。
+#### Step 2: Run Coverage
+Execute the corresponding command from the table above, capture output.
 
-#### Step 3: 解析报告
-提取关键指标：行覆盖率、分支覆盖率、函数覆盖率。
+#### Step 3: Parse Report
+Extract key metrics: line coverage, branch coverage, function coverage.
 
-#### Step 4: 识别高优先级未覆盖区域
-优先级排序：
-1. 本次修改的文件（files_modified）中未覆盖的行 — 最高优先
-2. 核心业务逻辑文件中的未覆盖分支
-3. 错误处理路径（catch/error/reject）
+#### Step 4: Identify High-Priority Uncovered Areas
+Priority order:
+1. Uncovered lines in modified files (files_modified) — highest priority
+2. Uncovered branches in core business logic files
+3. Error handling paths (catch/error/reject)
 
-#### Step 5: 输出摘要
-将覆盖率摘要写入测试报告，若低于 80% 则标记为需关注。
+#### Step 5: Output Summary
+Write coverage summary to test report; flag as "needs attention" if below 80%.
 ```
 
-#### 2. Flaky 测试检测与隔离
+#### 2. Flaky Test Detection and Isolation
 
 ```markdown
-### Flaky 测试检测与隔离
+### Flaky Test Detection and Isolation
 
-当测试失败时，先判断是否为 Flaky（间歇性失败）：
+When a test fails, first determine if it's Flaky (intermittent failure):
 
-#### 检测流程
-1. 测试失败 → 不立即报告 issue
-2. 重新运行该测试 3-5 次（使用 `--bail` 或单独运行）
-3. 统计通过率：
-   - 通过率 100% → 原始失败为偶发，标记为疑似 Flaky，继续观察
-   - 通过率 0% → 确认为真实失败，报告 issue
-   - 通过率 1-99% → 确认为 Flaky
+#### Detection Flow
+1. Test fails → do NOT immediately report issue
+2. Re-run the test 3-5 times (using `--bail` or running individually)
+3. Calculate pass rate:
+   - Pass rate 100% → original failure was sporadic, mark as suspected Flaky, continue monitoring
+   - Pass rate 0% → confirmed as real failure, report issue
+   - Pass rate 1-99% → confirmed as Flaky
 
-#### 隔离操作
-确认为 Flaky 的测试：
-1. 标记为 `test.fixme()` / `test.skip()` + 注释说明
-2. 创建 Flaky issue 到 `T-NNN-issues.json`，severity 为 MEDIUM
-3. 记录 Flaky 详情到 `.agents/runtime/tester/workspace/flaky-tests.json`
+#### Isolation Actions
+For confirmed Flaky tests:
+1. Mark with `test.fixme()` / `test.skip()` + explanatory comment
+2. Create Flaky issue in `T-NNN-issues.json`, severity MEDIUM
+3. Record Flaky details to `.agents/runtime/tester/workspace/flaky-tests.json`
 
-#### 根因分析提示
-常见 Flaky 根因：
-- 时间依赖（setTimeout, Date.now）
-- 网络依赖（外部 API 调用）
-- 状态泄漏（测试间共享状态）
-- 竞态条件（异步操作顺序不确定）
+#### Root Cause Analysis Hints
+Common Flaky root causes:
+- Time dependency (setTimeout, Date.now)
+- Network dependency (external API calls)
+- State leakage (shared state between tests)
+- Race conditions (non-deterministic async operation order)
 ```
 
-#### 3. E2E 测试最佳实践
+#### 3. E2E Testing Best Practices
 
 ```markdown
-### E2E 测试最佳实践
+### E2E Testing Best Practices
 
-对于 Web 应用的端到端测试，遵循以下实践：
+For web application end-to-end testing, follow these practices:
 
 #### Page Object Model (POM)
-每个页面创建对应的 Page Object 类：
+Create a corresponding Page Object class for each page:
 ```typescript
 // pages/LoginPage.ts
 export class LoginPage {
@@ -202,14 +204,14 @@ export class LoginPage {
 }
 ```
 
-#### 选择器策略
-优先级（从高到低）：
-1. `data-testid` — 最稳定，不受 UI 变化影响
-2. `role` + `name` — 语义化，支持无障碍
-3. `text` — 用户可见文本
-4. ❌ 避免: CSS class、XPath、DOM 结构
+#### Selector Strategy
+Priority (high to low):
+1. `data-testid` — most stable, unaffected by UI changes
+2. `role` + `name` — semantic, supports accessibility
+3. `text` — user-visible text
+4. ❌ Avoid: CSS class, XPath, DOM structure
 
-#### Playwright 推荐配置
+#### Playwright Recommended Config
 ```typescript
 // playwright.config.ts
 export default defineConfig({
@@ -222,88 +224,88 @@ export default defineConfig({
 });
 ```
 
-#### 失败时证据收集
-测试失败时自动收集：
-- 截图（screenshot）
-- 视频录制（video）
-- 网络日志（HAR）
-- 控制台日志（console log）
-保存到 `.agents/runtime/tester/workspace/e2e-artifacts/`
+#### Evidence Collection on Failure
+Automatically collect on test failure:
+- Screenshot
+- Video recording
+- Network logs (HAR)
+- Console logs
+Save to `.agents/runtime/tester/workspace/e2e-artifacts/`
 ```
 
 ### Implementation Steps
 
-1. **更新 `skills/agent-tester/SKILL.md` — 覆盖率分析章节**：
-   - 在现有 Flow A 流程末尾新增"覆盖率分析"步骤
-   - 定义 4 种主流测试框架的覆盖率命令
-   - 定义高优先级未覆盖区域的识别规则
-   - 定义覆盖率摘要输出格式
+1. **Update `skills/agent-tester/SKILL.md` — Coverage analysis section**:
+   - Add "Coverage Analysis" step at end of existing Flow A workflow
+   - Define coverage commands for 4 mainstream test frameworks
+   - Define identification rules for high-priority uncovered areas
+   - Define coverage summary output format
 
-2. **新增 Flaky 测试检测章节**：
-   - 定义检测流程：失败 → 重跑 3-5 次 → 判定
-   - 定义通过率阈值和对应动作
-   - 定义隔离操作（test.fixme + issue + 记录文件）
-   - 列出常见 Flaky 根因
+2. **Add Flaky test detection section**:
+   - Define detection flow: failure → re-run 3-5 times → determination
+   - Define pass rate thresholds and corresponding actions
+   - Define isolation actions (test.fixme + issue + record file)
+   - List common Flaky root causes
 
-3. **新增 E2E 测试最佳实践章节**：
-   - 定义 Page Object Model 模式和代码示例
-   - 定义选择器优先级策略
-   - 提供 Playwright 推荐配置
-   - 定义失败时证据收集规则
+3. **Add E2E testing best practices section**:
+   - Define Page Object Model pattern with code examples
+   - Define selector priority strategy
+   - Provide Playwright recommended config
+   - Define evidence collection rules on failure
 
-4. **定义输出文件路径**：
-   - 覆盖率报告：`.agents/runtime/tester/workspace/coverage-summary.json`
-   - Flaky 记录：`.agents/runtime/tester/workspace/flaky-tests.json`
-   - E2E 证据：`.agents/runtime/tester/workspace/e2e-artifacts/`
+4. **Define output file paths**:
+   - Coverage report: `.agents/runtime/tester/workspace/coverage-summary.json`
+   - Flaky records: `.agents/runtime/tester/workspace/flaky-tests.json`
+   - E2E evidence: `.agents/runtime/tester/workspace/e2e-artifacts/`
 
-5. **更新现有 Flow A 流程**：
-   - 在"运行测试"步骤后，增加"覆盖率分析"子步骤
-   - 在"报告 issue"步骤前，增加"Flaky 检测"判断
-   - 在测试报告模板中增加覆盖率摘要和 Flaky 统计
+5. **Update existing Flow A workflow**:
+   - After "run tests" step, add "coverage analysis" sub-step
+   - Before "report issue" step, add "Flaky detection" check
+   - Add coverage summary and Flaky statistics to test report template
 
-6. **更新测试报告模板**：
-   - 新增"覆盖率摘要"分节
-   - 新增"Flaky 测试"分节
-   - 新增"E2E 测试结果"分节（含截图链接）
+6. **Update test report template**:
+   - Add "Coverage Summary" section
+   - Add "Flaky Tests" section
+   - Add "E2E Test Results" section (with screenshot links)
 
 ## Test Spec
 
-### 单元测试
+### Unit Tests
 
-| # | 测试场景 | 预期结果 |
-|---|---------|---------|
-| 1 | SKILL.md 包含覆盖率分析章节 | 4 种框架覆盖率命令均存在 |
-| 2 | SKILL.md 包含 Flaky 检测章节 | 重跑次数和判定阈值明确 |
-| 3 | SKILL.md 包含 E2E 章节 | POM 模式、选择器策略、Playwright 配置均存在 |
-| 4 | Flaky 记录格式定义 | JSON 格式包含 runs, pass_rate, verdict |
+| # | Test Scenario | Expected Result |
+|---|--------------|-----------------|
+| 1 | SKILL.md contains coverage analysis section | All 4 framework coverage commands present |
+| 2 | SKILL.md contains Flaky detection section | Re-run count and determination thresholds clearly defined |
+| 3 | SKILL.md contains E2E section | POM pattern, selector strategy, Playwright config all present |
+| 4 | Flaky record format defined | JSON format includes runs, pass_rate, verdict |
 
-### 集成测试
+### Integration Tests
 
-| # | 测试场景 | 预期结果 |
-|---|---------|---------|
-| 5 | 测试失败后重跑 3 次，2 次通过 | 标记为 Flaky，隔离到 test.fixme() |
-| 6 | 测试失败后重跑 3 次，0 次通过 | 确认为真实失败，报告 issue |
-| 7 | 覆盖率 < 80% | 测试报告标注"需关注"，列出未覆盖区域 |
-| 8 | E2E 测试失败 | 自动收集截图和视频到 e2e-artifacts/ |
+| # | Test Scenario | Expected Result |
+|---|--------------|-----------------|
+| 5 | Test fails, re-run 3 times, 2 pass | Marked as Flaky, isolated with test.fixme() |
+| 6 | Test fails, re-run 3 times, 0 pass | Confirmed as real failure, issue reported |
+| 7 | Coverage < 80% | Test report flagged "needs attention", uncovered areas listed |
+| 8 | E2E test fails | Screenshots and video auto-collected to e2e-artifacts/ |
 
-### 验收标准
+### Acceptance Criteria
 
-- [ ] G1: 覆盖率分析工作流包含框架检测、运行、解析、高优区域识别
-- [ ] G2: Flaky 检测包含 3-5 次重跑、通过率判定、test.fixme() 隔离
-- [ ] G3: E2E 章节包含 POM 模式、data-testid 策略、Playwright 配置、失败截图
+- [ ] G1: Coverage analysis workflow includes framework detection, execution, parsing, high-priority area identification
+- [ ] G2: Flaky detection includes 3-5 re-runs, pass rate determination, test.fixme() isolation
+- [ ] G3: E2E section includes POM pattern, data-testid strategy, Playwright config, failure screenshots
 
 ## Consequences
 
-**正面**：
-- 覆盖率可量化追踪，高优先级盲区优先补充测试
-- Flaky 测试不再阻塞 CI 流水线，但仍被跟踪修复
-- E2E 测试有标准化实践，新 Agent 可快速上手
+**Positive**:
+- Coverage is quantitatively trackable; high-priority blind spots get tests first
+- Flaky tests no longer block CI pipeline, but are still tracked for fixing
+- E2E testing has standardized practices; new Agents can quickly get started
 
-**负面/风险**：
-- 覆盖率命令因项目配置不同可能需要调整
-- Flaky 重跑 3-5 次增加测试时间
-- POM 模式增加初始编写成本（但减少维护成本）
+**Negative/Risks**:
+- Coverage commands may need adjustment due to project-specific configurations
+- Flaky re-runs (3-5 times) increase test execution time
+- POM pattern increases initial writing cost (but reduces maintenance cost)
 
-**后续影响**：
-- T-011 Implementer 的覆盖率门槛可与 Tester 的覆盖率分析协同
-- Flaky 记录可用于项目级质量分析
+**Future Impact**:
+- T-011 Implementer's coverage threshold can work in concert with Tester's coverage analysis
+- Flaky records can be used for project-level quality analysis
