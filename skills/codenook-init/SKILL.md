@@ -212,3 +212,20 @@ Next steps:
 ```
 
 If any file is missing or empty, report the failure and offer to retry.
+
+---
+
+## Uninstall — Remove Agent System from Project
+
+> Trigger: "remove agent system" | "uninstall agents" | "clean codenook"
+
+1. Detect platform root (`.github/` or `.claude/`)
+2. Confirm with user: "Remove agent system from this project? This deletes agents/ and codenook/ directories."
+3. If confirmed:
+   - `rm -rf <root>/agents/`
+   - `rm -rf <root>/codenook/`
+   - Remove framework block from instructions file (if present)
+   - Remove agent-related entries from `.gitignore` (if added by init)
+4. Print: "✅ Agent system removed from project."
+
+This only removes project-level files. Global skills (`~/.copilot/skills/`, `~/.claude/skills/`) are managed by `install.sh --uninstall`.
