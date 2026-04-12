@@ -1,217 +1,218 @@
 ---
 name: agent-switch
-description: "Agent 角色切换与状态面板。触发词: '切换到验收者/设计者/实现者/审查者/测试者', 'switch to acceptor/designer/implementer/reviewer/tester', '/agent <name>', '当验收者/做验收者/我是验收者', 'act as acceptor', '查看 Agent 状态'。Must trigger on ANY role-switch phrase."
+description: "Agent role switching and status panel. Trigger patterns: 'switch to acceptor/designer/implementer/reviewer/tester', '/agent <name>', 'act as acceptor', 'agent status'. Must trigger on ANY role-switch phrase."
 ---
 
-# Agent 角色管理
+# Agent Role Management
 
-## ⛔ 意图自动路由 (Intent Auto-Router) — 无角色状态必读
+## ⛔ Intent Auto-Router — Read When No Active Role
 
-> **当没有活跃角色时** (`.agents/runtime/active-agent` 不存在或为空)，检测用户意图并**自动切换到对应角色**:
+> **When no active role exists** (`.agents/runtime/active-agent` missing or empty), detect user intent and **auto-switch to the matching role**:
 
-| 用户意图关键词 | 自动路由到 | 说明 |
-|-------------|-----------|------|
-| "新功能", "新需求", "开发", "new feature", "develop", "build" | 🎯 **acceptor** | 新功能从验收者开始 |
-| "设计", "架构", "方案", "design", "architecture" | 🏗️ **designer** | 设计类意图 |
-| "实现", "修bug", "写代码", "implement", "fix", "code" | 💻 **implementer** | 编码类意图 |
-| "审查", "review", "检查代码", "code review" | 🔍 **reviewer** | 审查类意图 |
-| "测试", "test", "跑测试", "验证", "QA" | 🧪 **tester** | 测试类意图 |
-| "验收", "accept", "上线", "发布" | 🎯 **acceptor** | 验收类意图 |
+| Intent Keywords | Routes To | Note |
+|----------------|-----------|------|
+| "new feature", "develop", "build", "新功能", "新需求" | 🎯 **acceptor** | New features start with acceptor |
+| "design", "architecture", "设计", "架构" | 🏗️ **designer** | Design intent |
+| "implement", "fix", "code", "实现", "修bug" | 💻 **implementer** | Coding intent |
+| "review", "code review", "审查" | 🔍 **reviewer** | Review intent |
+| "test", "QA", "verify", "测试", "验证" | 🧪 **tester** | Testing intent |
+| "accept", "release", "deploy", "验收" | 🎯 **acceptor** | Acceptance intent |
 
-**路由流程:**
-1. 检查 `.agents/runtime/active-agent` — 如不存在/为空，进入意图检测
-2. 匹配用户消息中的关键词 → 确定目标角色
-3. **提示**: "🔀 检测到意图 → 建议切换到 <角色>，是否确认？"
-4. 用户确认后执行完整的角色切换流程 (见下方)
-5. 如果已有活跃角色，走正常的"角色越界检测"流程 (在各 agent skill 中)
+**Routing flow:**
+1. Check `.agents/runtime/active-agent` — if missing/empty, enter intent detection
+2. Match keywords in user message → determine target role
+3. **Prompt**: "🔀 Detected intent → suggesting switch to <role>. Confirm?"
+4. On confirmation, execute the full role switch flow (below)
+5. If a role is already active, use the "role boundary detection" flow (in each agent skill)
 
-> 💡 **默认路由**: 如果无法明确匹配意图，默认路由到 **acceptor** (验收者)，因为大多数新对话从需求开始。
+> 💡 **Default route**: If intent is unclear, default to **acceptor** since most new conversations start with requirements.
 
-## ⚡ 强制触发规则 (MANDATORY)
+## ⚡ Mandatory Trigger Rules
 
-以下任何表达方式**必须**立即触发角色切换，不得忽略或仅作为建议处理：
+Any of these expressions **must** immediately trigger a role switch — never ignore or treat as suggestion:
 
-| 触发模式 | 示例 |
-|----------|------|
-| `/agent <name>` | `/agent acceptor`, `/agent 验收者` |
-| `切换到<角色>` | "切换到验收者", "切换到实现者" |
+| Trigger Pattern | Example |
+|----------------|---------|
+| `/agent <name>` | `/agent acceptor`, `/agent designer` |
+| `切换到<role>` | "切换到验收者", "切换到实现者" |
 | `switch to <role>` | "switch to acceptor", "switch to tester" |
-| `当<角色>` / `做<角色>` | "当验收者", "做实现者" |
+| `当<role>` / `做<role>` | "当验收者", "做实现者" |
 | `act as <role>` | "act as reviewer" |
-| `我是<角色>` | "我是测试者" |
-| `以<角色>身份` | "以设计者身份工作" |
+| `我是<role>` | "我是测试者" |
+| `以<role>身份` | "以设计者身份工作" |
 
-**角色名映射：**
+**Role name mapping:**
 
-| 中文 | English | ID |
-|------|---------|-----|
+| Chinese | English | ID |
+|---------|---------|-----|
 | 验收者 | acceptor | acceptor |
 | 设计者 | designer | designer |
 | 实现者 | implementer | implementer |
-| 审查者/代码审查 | reviewer | reviewer |
+| 审查者 | reviewer | reviewer |
 | 测试者/QA | tester | tester |
 
-**检测到触发词后的强制动作：**
-1. 立即读取 `agents/<role>.agent.md` — 加载角色定义
-2. 写入 `.agents/runtime/active-agent` — 记录当前角色
-3. 读取该角色的 inbox — 显示未读消息
-4. 加载任务看板 — 显示该角色负责的任务
-5. 宣布切换完成: "🔄 已切换到 <角色名>"
+**Mandatory actions on trigger detection:**
+1. Read `agents/<role>.agent.md` — load role definition
+2. Write `.agents/runtime/active-agent` — record current role
+3. Read role's inbox — display unread messages
+4. Load task board — show tasks assigned to this role
+5. Announce: "🔄 Switched to <role>"
 
-> ⚠️ 不要将角色切换请求理解为"模拟"或"扮演"，而是框架的正式角色切换操作。
+> ⚠️ Role switch requests are formal framework operations, not "simulation" or "role-play".
 
-## 查看所有 Agent 状态 (/agent status)
-读取每个 Agent 的 state.json, 汇总显示:
+## View All Agent Status (/agent status)
+
+Read each agent's state.json and display summary:
 
 ```
-🤖 Agent 状态面板
+🤖 Agent Status Panel
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-角色       状态     当前任务    队列        最后活动
+Role         Status   Task       Queue       Last Active
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎯 验收者   idle     —          —          10:00
-🏗️ 设计者   busy     T-002      —          10:30
-💻 实现者   idle     —          [T-003]    09:45
-🔍 审查者   idle     —          —          09:00
-🧪 测试者   busy     T-001      —          10:15
+🎯 Acceptor   idle     —          —          10:00
+🏗️ Designer   busy     T-002      —          10:30
+💻 Implementer idle    —          [T-003]    09:45
+🔍 Reviewer   idle     —          —          09:00
+🧪 Tester     busy     T-001      —          10:15
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📋 任务流水线 (每个进行中的任务):
+📋 Task Pipeline (each in-progress task):
   T-008: ┌Acceptor✅┐→┌Designer✅┐→┌Implemen⏳┐→┌Reviewer⏸️┐→┌Tester⏸️┐
 
-📊 近 24h 活动 (events.db) | 🚨 阻塞任务 (如有)
+📊 Last 24h Activity (events.db) | 🚨 Blocked Tasks (if any)
 ```
 
-实现:
+Implementation:
 ```bash
-AGENTS_DIR="$(git rev-parse --show-toplevel 2>/dev/null)/.agents"
-[ -d "$AGENTS_DIR" ] || AGENTS_DIR="./.agents"
+AGENTS_DIR="\/Volumes/MacData/MyData/Documents/project/multi-agent-framework/.agents"
+[ -d "" ] || AGENTS_DIR="./.agents"
 for agent in acceptor designer implementer reviewer tester; do
-  cat "$AGENTS_DIR/runtime/$agent/state.json"
+  cat "\/runtime/\/state.json"
 done
-cat "$AGENTS_DIR/task-board.json"
-[ -f "$AGENTS_DIR/events.db" ] && sqlite3 "$AGENTS_DIR/events.db" \
+cat "\/task-board.json"
+[ -f "\/events.db" ] && sqlite3 "\/events.db" \
   "SELECT agent, count(*) FROM events WHERE created_at > datetime('now', '-24 hours') GROUP BY agent ORDER BY 2 DESC;"
 ```
 
-流水线状态图标: ✅已完成 | ⏳进行中 | ⏸️未到达 | ⛔阻塞
+Pipeline icons: ✅ Done | ⏳ In Progress | ⏸️ Not Reached | ⛔ Blocked
 
-## 切换角色 (/agent <name>)
+## Switch Role (/agent <name>)
 
-1. 确认目标角色: acceptor | designer | implementer | reviewer | tester
-2. **前置条件预检**: 检查 task-board 是否有匹配状态的任务:
-   | 角色 | 需要状态 | 例外 |
-   |------|---------|------|
-   | acceptor | `accepting` / 新需求 | 始终可切换 |
+1. Confirm target role: acceptor | designer | implementer | reviewer | tester
+2. **Precondition check** — verify task-board has tasks in matching status:
+   | Role | Required Status | Exception |
+   |------|----------------|-----------|
+   | acceptor | `accepting` / new requirements | Always switchable |
    | designer | `created` / `accept_fail` | — |
    | implementer | `implementing` / `fixing` | — |
    | reviewer | `reviewing` | — |
    | tester | `testing` | — |
-   - 无匹配 → **检查是否可以自动转移** (见下方 FSM Auto-Transition)
-   - 仍无匹配 → 警告 + 询问是否仍要切换
-2a. **FSM Auto-Transition on Switch** (切换时自动状态转移):
-   当目标角色没有匹配状态的任务，但**前一角色的任务已完成**时，自动执行 FSM 转移:
-   | 切换方向 | 检测条件 | 自动转移 |
-   |---------|---------|---------|
-   | → designer | 有 `created` 任务 | 无需转移 (已匹配) |
-   | → implementer | 有 `designing` 任务 (设计已完成) | `designing` → `implementing` |
-   | → reviewer | 有 `implementing` 任务 (实现已完成) | `implementing` → `reviewing` |
-   | → tester | 有 `reviewing` 任务 (审查已通过) | `reviewing` → `testing` |
-   | → acceptor | 有 `testing` 任务 (测试已通过) | `testing` → `accepting` |
-   - 转移前提示: "📋 发现 N 个任务在前一阶段已完成，是否自动转移到 <目标状态>？"
-   - 用户确认 → 批量执行 FSM 转移 → 继续切换
-   - 用户拒绝 → 仅切换角色，不改变任务状态
-3. **保存并检查当前 Agent 状态**
-   - 保存 state.json
-   - **⛔ 切出守卫** (switch-away guard): 检查当前角色是否有未完成的关键输出:
-     | 当前角色 | 检查项 | 警告条件 |
-     |---------|--------|---------|
-     | acceptor | task-board.json | 用户已提出需求但未发布任务到 task-board |
-     | designer | design docs | 设计文档已起草但任务未转 implementing |
-     | implementer | code + DFMEA | 代码已修改但未提交/未写 DFMEA |
-     | reviewer | review report | 审查已进行但未出报告 |
-     | tester | test report | 测试已执行但未出报告 |
-   - 若检测到未完成输出 → 警告: "⚠️ 当前角色有未完成的工作: [描述]。确定要切换吗？"
-   - 用户确认后才继续切换
-4. 写入 active-agent: `echo "<name>" > .agents/runtime/active-agent`
-5. 清洁上下文 (RESPAWN — 不携带上一 Agent 记忆)
-6. **模型解析** (优先级从高到低):
-   - 任务级: task-board.json 中当前任务的 `model_override` 字段
-   - Agent 级: `~/.claude/agents/<name>.agent.md` frontmatter 的 `model` 字段
-   - 项目级: `.agents/skills/project-agents-context/SKILL.md` 中的推荐模型
-   - 系统默认: 不指定, 使用平台默认模型
-   - 如果解析到非空 model → 提示: "📌 当前 Agent 使用模型: <model>"
-7. 加载目标 Agent skill
-7. **处理 inbox**: 读取未读消息, 显示, 标记已读
-8. **任务概览**: 显示分配的任务
-9. **加载任务记忆**: 自动读取 `.agents/memory/T-NNN-memory.json`, 按角色过滤
-10. **Staleness 警告**: >24h 未活动任务提醒
-11. 执行启动流程, 打印 "🔄 已切换到 <角色>"
+   - No match → **check for auto-transition** (see below)
+   - Still no match → warn + ask whether to proceed
+2a. **FSM Auto-Transition on Switch**:
+   When target role has no matching tasks but **previous role's tasks are complete**, auto-execute FSM transition:
+   | Switch Direction | Detection | Auto-Transition |
+   |-----------------|-----------|-----------------|
+   | → designer | Has `created` tasks | None needed (already matched) |
+   | → implementer | Has `designing` tasks (design done) | `designing` → `implementing` |
+   | → reviewer | Has `implementing` tasks (impl done) | `implementing` → `reviewing` |
+   | → tester | Has `reviewing` tasks (review passed) | `reviewing` → `testing` |
+   | → acceptor | Has `testing` tasks (tests passed) | `testing` → `accepting` |
+   - Prompt: "📋 Found N tasks completed in previous phase. Auto-transition to <target status>?"
+   - Confirmed → batch FSM transition → continue switch
+   - Declined → switch role only, no task status change
+3. **Save and check current agent state**
+   - Save state.json
+   - **⛔ Switch-Away Guard** — check if current role has unfinished critical outputs:
+     | Current Role | Check | Warning Condition |
+     |-------------|-------|-------------------|
+     | acceptor | task-board.json | Requirements gathered but no task published |
+     | designer | design docs | Design drafted but task not moved to implementing |
+     | implementer | code + DFMEA | Code modified but uncommitted / no DFMEA |
+     | reviewer | review report | Review started but no report generated |
+     | tester | test report | Tests executed but no report generated |
+   - If unfinished output detected → warn: "⚠️ Current role has unfinished work: [desc]. Switch anyway?"
+   - Continue only after user confirmation
+4. Write active-agent: `echo "<name>" > .agents/runtime/active-agent`
+5. Clean context (RESPAWN — no carry-over from previous agent memory)
+6. **Model resolution** (priority high → low):
+   - Task-level: `model_override` in task-board.json for current task
+   - Agent-level: `model` in `~/.claude/agents/<name>.agent.md` frontmatter
+   - Project-level: recommended model in `.agents/skills/project-agents-context/SKILL.md`
+   - System default: unspecified, use platform default
+   - If model resolved → prompt: "📌 Current agent using model: <model>"
+7. Load target agent skill
+8. **Process inbox**: Read unread messages, display, mark as read
+9. **Task overview**: Show assigned tasks
+10. **Load task memory**: Auto-read `.agents/memory/T-NNN-memory.json`, filter by role
+11. **Staleness warning**: Alert for tasks inactive > 24h
+12. Execute startup flow, print "🔄 Switched to <role>"
 
-### 退出角色
+### Exit Role
 ```bash
 rm -f .agents/runtime/active-agent
 ```
 
-## 批处理模式 (自动处理所有待办)
+## Batch Processing Mode
 
-用户说 "处理任务" / "process tasks" / "开始工作" 时进入循环:
+Triggered by "process tasks" / "start working" / "处理任务":
 
-1. 检查 inbox — 读取未读消息, 标记已读
-2. 扫描 task-board — 筛选当前角色负责状态的任务, 按 priority 排序
-3. 处理最高优先级任务
-4. 更新状态 (FSM 转移) → 保存记忆 → 写入下游 inbox → auto-dispatch
-5. 报告进度 → 回到步骤 2
+1. Check inbox — read unread messages, mark as read
+2. Scan task-board — filter tasks in current role's responsible statuses, sort by priority
+3. Process highest priority task
+4. Update status (FSM transition) → save memory → write downstream inbox → auto-dispatch
+5. Report progress → return to step 2
 
-| 角色 | 负责状态 | 完成后转移到 |
-|------|---------|-------------|
+| Role | Responsible Statuses | Transitions To |
+|------|---------------------|----------------|
 | 🎯 acceptor | `accepting` | `accepted` / `accept_fail` |
 | 🏗️ designer | `created`, `accept_fail` | `implementing` |
 | 💻 implementer | `implementing`, `fixing` | `reviewing` |
-| 🔍 reviewer | `reviewing` | `testing` / 退回 `implementing` |
+| 🔍 reviewer | `reviewing` | `testing` / back to `implementing` |
 | 🧪 tester | `testing` | `accepting` / `fixing` |
 
-**安全规则**: 单任务隔离 | 失败不阻塞 (标记 blocked 继续) | 乐观锁保护 | 自动通知
+**Safety rules**: Single-task isolation | Failure doesn't block (mark blocked, continue) | Optimistic lock protection | Auto-notify
 
-## 事件管理
+## Event Management
 ```bash
-# 查看近24h活动
+# View last 24h activity
 sqlite3 .agents/events.db "SELECT agent, count(*) FROM events WHERE created_at > datetime('now', '-24 hours') GROUP BY agent ORDER BY 2 DESC;"
-# 清理30天前事件
+# Purge events older than 30 days
 sqlite3 .agents/events.db "DELETE FROM events WHERE created_at < datetime('now', '-30 days');"
-# 重置所有
+# Reset all
 sqlite3 .agents/events.db "DELETE FROM events; DELETE FROM sqlite_sequence WHERE name='events';"
 ```
 
-## 可用角色
-| 命令 | 角色 | Emoji |
-|------|------|-------|
-| `/agent acceptor` | 验收者 | 🎯 |
-| `/agent designer` | 设计者 | 🏗️ |
-| `/agent implementer` | 实现者 | 💻 |
-| `/agent reviewer` | 审查者 | 🔍 |
-| `/agent tester` | 测试者 | 🧪 |
-| `/agent status` | 状态面板 | 🤖 |
+## Available Roles
+| Command | Role | Emoji |
+|---------|------|-------|
+| `/agent acceptor` | Acceptor | 🎯 |
+| `/agent designer` | Designer | 🏗️ |
+| `/agent implementer` | Implementer | 💻 |
+| `/agent reviewer` | Reviewer | 🔍 |
+| `/agent tester` | Tester | 🧪 |
+| `/agent status` | Status Panel | 🤖 |
 
-## 周期时间追踪 (Cycle Time)
+## Cycle Time Tracking
 
-每次 FSM 转移时在 `tasks/T-NNN.json` 记录:
+Record in `tasks/T-NNN.json` on each FSM transition:
 ```json
 {"cycle_time":{"created_at":"...","stages":{"designing":{"entered_at":"...","exited_at":"...","duration_minutes":90},"implementing":{"entered_at":"...","exited_at":null,"duration_minutes":null}},"blocked_time":[{"from":"...","to":"...","duration_minutes":60,"reason":"..."}],"total_elapsed_minutes":null}}
 ```
 
-**记录规则**: 进入→写`entered_at` | 离开→写`exited_at`+计算duration | 重入→追加`rounds`数组 | accepted→计算total | blocked时间不计入阶段duration
+**Recording rules**: Enter → write `entered_at` | Exit → write `exited_at` + calc duration | Re-enter → append `rounds` array | Accepted → calc total | Blocked time excluded from stage duration
 
-| 阶段 | 停滞阈值 | 2x→🔴严重 | 3x→⛔建议 block |
-|------|---------|----------|----------------|
+| Stage | Stale Threshold | 2x → 🔴 Critical | 3x → ⛔ Suggest Block |
+|-------|----------------|-------------------|----------------------|
 | designing | 2h | 4h | 6h |
 | implementing | 4h | 8h | 12h |
 | reviewing | 1h | 2h | 3h |
 | testing | 2h | 4h | 6h |
 | accepting | 1h | 2h | 3h |
 
-在 `/agent status` 底部显示周期时间摘要表 + 停滞警告。
+Display cycle time summary + stale warnings at the bottom of `/agent status`.
 
-## 自动化集成
+## Automation Integration
 
 ### Cron Scheduling
 ```
@@ -232,29 +233,29 @@ Set `"auto_advance": false` on task to disable.
 
 ## Role Bootstrap Protocol
 
-切换角色时自动注入 (按顺序):
-1. 全局 Skill: `~/.claude/skills/agent-{role}/SKILL.md`
-2. 项目 Skill: `.agents/skills/project-{role}/SKILL.md`
-3. 当前任务: goals, status, design doc
-4. 记忆 Top-6: `bash scripts/memory-search.sh "<task>" --role {role} --limit 6`
-5. 上游 Handoff: inbox 消息
-6. 项目上下文: `project-agents-context/SKILL.md`
+Auto-injected on role switch (in order):
+1. Global Skill: `~/.claude/skills/agent-{role}/SKILL.md`
+2. Project Skill: `.agents/skills/project-{role}/SKILL.md`
+3. Current task: goals, status, design doc
+4. Top-6 memories: `bash scripts/memory-search.sh "<task>" --role {role} --limit 6`
+5. Upstream handoff: inbox messages
+6. Project context: `project-agents-context/SKILL.md`
 
-**Phase-specific 额外上下文**: designing→架构约束+ADR | implementing→编码规范+TDD | reviewing→审查清单+质量阈值 | testing→测试命令+覆盖率 | accepting→验收标准+质量红线
+**Phase-specific extra context**: designing → architecture constraints + ADR | implementing → coding standards + TDD | reviewing → review checklist + quality thresholds | testing → test commands + coverage | accepting → acceptance criteria + quality gates
 
-**Handoff 消息格式**:
+**Handoff message format**:
 ```json
 {"from":"designer","to":"implementer","task_id":"T-024","type":"handoff","summary":"...","artifacts":["...design-docs/T-024.md","...test-specs/T-024-test-spec.md"]}
 ```
 
-**Implementer → Reviewer Handoff 扩展字段**:
+**Implementer → Reviewer Handoff extended fields**:
 ```json
 {
   "from": "implementer",
   "to": "reviewer",
   "task_id": "T-024",
   "type": "handoff",
-  "summary": "T-024 实现完成 (5/5 goals done)",
+  "summary": "T-024 implementation complete (5/5 goals done)",
   "review_location": {
     "type": "github_pr",
     "url": "https://github.com/owner/repo/pull/42",
@@ -266,6 +267,6 @@ Set `"auto_advance": false` on task to disable.
 }
 ```
 - `review_location.type`: `"github_pr"` | `"gerrit"` | `"local"`
-- GitHub PR: reviewer 使用 `gh pr diff` + `gh pr review`
-- Gerrit: reviewer 在 Gerrit Web UI 审查
-- Local: reviewer 使用 `git diff <base_commit>..HEAD`
+- GitHub PR: reviewer uses `gh pr diff` + `gh pr review`
+- Gerrit: reviewer reviews in Gerrit Web UI
+- Local: reviewer uses `git diff <base_commit>..HEAD`
