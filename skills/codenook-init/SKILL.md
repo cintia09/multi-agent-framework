@@ -3,11 +3,11 @@ name: codenook-init
 description: "Initialize the multi-agent development framework in a project. Detects platform, generates agent profiles, creates task board and config."
 ---
 
-# Agent System Initialization (v4.0)
+# Agent System Initialization (v4.1)
 
 > Trigger: "initialize agent system" | "agent init" | "codenook-init"
 
-## Step 1 — Platform Detection
+## Step 1 — Platform Detection & Directory Confirmation
 
 Detect which AI coding platform is available:
 
@@ -31,6 +31,21 @@ Platform determines the **root directory** for all generated files:
 |--------------|------------|------------------------|--------------------------|--------------------------------------------------------|
 | copilot-cli  | `.github/` | `.github/agents/`      | `.github/codenook/`      | `.github/instructions/codenook.instructions.md`        |
 | claude-code  | `.claude/` | `.claude/agents/`      | `.claude/codenook/`      | Append to project-root `CLAUDE.md`                     |
+
+### Directory Confirmation (MANDATORY)
+
+After platform detection, **always** ask the user to confirm the installation directory:
+
+```
+ask_user "Install CodeNook agent system to: <project_root>/<detected_root>/"
+  choices:
+    "<detected_root>/ (Recommended)" → proceed with detected
+    "Custom path"                    → ask for custom root path
+    "Cancel"                         → abort
+```
+
+This confirmation is mandatory even if the platform was auto-detected.
+Show the full resolved path (e.g., `/Users/dev/my-project/.github/`).
 
 ---
 
@@ -58,6 +73,7 @@ IF <root>/codenook/config.json exists:
       "<root>/codenook/config.json",           # user preferences (models, HITL, etc.)
       "<root>/codenook/memory/*",              # all memory snapshots
       "<root>/codenook/reviews/*",             # HITL review history
+      "<root>/codenook/docs/*",                # all document artifacts per task
     ]
 
     # ── Regenerate framework files ──
@@ -153,6 +169,7 @@ Create the full tree under `<root>`:
 │   ├── reviewer.agent.md
 │   └── tester.agent.md
 ├── codenook/
+│   ├── docs/                  ← document artifacts per task (created per-task)
 │   ├── memory/                ← empty directory (with .gitkeep)
 │   ├── reviews/               ← empty directory (with .gitkeep), HITL history files
 │   ├── task-board.json        ← seed content below
@@ -166,6 +183,22 @@ Create the full tree under `<root>`:
 │       └── hitl-verify.sh
 └── instructions/              ← Copilot CLI only
     └── codenook.instructions.md  ← orchestration engine (auto-loaded)
+```
+
+**docs/ directory structure** — created per-task during orchestration:
+```
+<root>/codenook/docs/
+└── T-001/
+    ├── requirement-doc.md         ← Acceptor (requirements)
+    ├── design-doc.md              ← Designer
+    ├── implementation-doc.md      ← Implementer (plan)
+    ├── dfmea-doc.md               ← Implementer (execute)
+    ├── review-prep.md             ← Reviewer (plan)
+    ├── review-report.md           ← Reviewer (execute)
+    ├── test-plan.md               ← Tester (plan)
+    ├── test-report.md             ← Tester (execute)
+    ├── acceptance-plan.md         ← Acceptor (accept-plan)
+    └── acceptance-report.md       ← Acceptor (accept-exec)
 ```
 
 For Claude Code: append engine content to project-root `CLAUDE.md` instead of instructions/.
@@ -203,7 +236,7 @@ No separate global skill needed — the engine lives entirely in the project.
 
 ```json
 {
-  "version": "4.0",
+  "version": "4.1",
   "tasks": []
 }
 ```
@@ -215,7 +248,7 @@ No separate global skill needed — the engine lives entirely in the project.
 
 ```json
 {
-  "version": "4.0",
+  "version": "4.1",
   "platform": "<copilot-cli|claude-code>",
   "models": {
     "acceptor":    "<model>",
@@ -252,8 +285,9 @@ After all files are written:
 Platform:  Copilot CLI
 Directory: .github/
 Agents:    5 (acceptor, designer, implementer, reviewer, tester)
-HITL:      local-html (port 8765)
+HITL:      local-html (port 8765) — 10 gates per task cycle
 Engine:    .github/instructions/codenook.instructions.md (auto-loaded)
+Workflow:  Document-driven (plan → approve → execute → report → approve)
 Models:
   acceptor:    claude-haiku-4.5
   designer:    claude-sonnet-4
@@ -262,14 +296,14 @@ Models:
   tester:      claude-haiku-4.5
 
 # Upgrade mode only:
-Preserved: task-board.json (N tasks), memory/ (M snapshots), config.json
+Preserved: task-board.json (N tasks), memory/ (M snapshots), docs/ (D documents), config.json
 Updated:   5 agent profiles, 6 HITL scripts, engine instructions
 
 Next steps:
   1. Say "create task <title>" to create your first task
   2. Say "run task T-001" to start orchestration
-  3. HITL gates will pause for your approval between each phase
-  4. The orchestration engine is auto-loaded — no extra setup needed
+  3. Documents are saved to codenook/docs/T-NNN/ for traceability
+  4. Each phase produces a document → HITL approval → next phase
 ```
 
 If any file is missing or empty, report the failure and offer to retry.

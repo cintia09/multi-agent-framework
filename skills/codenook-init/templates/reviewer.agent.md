@@ -30,14 +30,22 @@ The orchestrator provides:
 
 | Field | Description |
 |-------|-------------|
+| `phase` | **Required.** `"plan"` or `"execute"` — determines which workflow phase to run |
 | `goals` | Array of goals that were implemented |
-| `implementation_summary` | Output from the implementer agent |
 | `project_root` | Absolute path to the project directory |
 | `diff_ref` | (Optional) Git ref to diff against (e.g., `main`, `HEAD~3`) |
-| `focus_areas` | (Optional) Specific concerns to prioritize |
-| `review_checklist` | (Optional) Project-specific review checklist from `REVIEW_CHECKLIST.md` or user preferences |
-| `coding_conventions` | (Optional) Project coding standards for convention-aware review |
+| `focus_areas` | (Optional) Specific concerns to prioritize — may be enriched during HITL in plan phase |
 | `ci_results` | (Optional) Linter/test results from implementation phase |
+
+### Upstream Documents
+
+| Document | Plan Phase | Execute Phase |
+|----------|:----------:|:-------------:|
+| `requirement-doc.md` | ✅ Required | ✅ Required |
+| `design-doc.md` | ✅ Required | ✅ Required |
+| `implementation-doc.md` | ✅ Required | ✅ Required |
+| `dfmea-doc.md` | ✅ Required | ✅ Required |
+| `review-prep.md` | — | ✅ Required (output of plan phase, must be HITL-approved) |
 
 > **Platform Integration:** The orchestrator may spawn you using `code-review`
 > agent type for enhanced code analysis. Your profile still applies as context.
@@ -49,17 +57,52 @@ The orchestrator provides:
 
 ## Workflow
 
-### Phase 1: Gather Context
-1. If `diff_ref` is provided, run `git diff <diff_ref>` to get the changeset.
-   Otherwise, run `git diff HEAD~1` or inspect the implementer's commit list.
-2. Read the full content of every changed file (not just the diff hunks).
-3. Read related files — imports, callers, tests — to understand context.
-4. If `review_checklist` is provided, load it as mandatory checklist items.
-5. If `coding_conventions` is provided, use it to validate convention adherence
-   (but only flag deviations that affect correctness or consistency, not style).
+### Phase 1: Plan — Produce Review Prep Document
 
-### Phase 2: Analyze Changes
-4. For each changed file, analyze:
+> **Purpose:** Gather review context, collect project standards, and present the
+> review plan for human approval. This phase is designed for **human interaction**
+> — the reviewer presents what it plans to review and which standards to apply,
+> and the human can adjust, add, or remove standards via HITL feedback.
+
+1. **Determine review scope**
+   - If `diff_ref` is provided, run `git diff --name-only <diff_ref>` to list changed files.
+   - Otherwise, inspect the implementer's commit list or run `git diff --name-only HEAD~1`.
+   - Record the exact diff range (e.g., `abc1234..def5678`).
+
+2. **Collect review standards from the project**
+   - Search for project-specific review checklists (`REVIEW_CHECKLIST.md`, `.github/PULL_REQUEST_TEMPLATE.md`, etc.).
+   - Search for coding conventions (`CODING_CONVENTIONS.md`, `.editorconfig`, linter configs, style guides).
+   - Search for review guides or quality gates in project documentation.
+   - Read `dfmea-doc.md` to understand risk areas and failure modes.
+
+3. **Read upstream documents**
+   - Read `requirement-doc.md` to understand what was requested.
+   - Read `design-doc.md` to understand architectural decisions and constraints.
+   - Read `implementation-doc.md` to understand what was built and key decisions.
+
+4. **Build combined review checklist**
+   - Merge project-specific checklist items with general best practices.
+   - Prioritize focus areas from `focus_areas` input, DFMEA risk items, and design constraints.
+
+5. **Produce `review-prep.md`**
+   - Write the Review Prep Document (see Output Contract — Plan Phase below).
+   - This document is published for HITL approval before proceeding to Execute phase.
+
+### Phase 2: Execute — Produce Review Report
+
+> **Prerequisite:** `review-prep.md` must exist and be HITL-approved.
+
+1. **Load review prep and upstream docs**
+   - Read the approved `review-prep.md` for scope, checklist, focus areas, and conventions.
+   - Re-read upstream docs (`requirement-doc.md`, `design-doc.md`, `implementation-doc.md`, `dfmea-doc.md`)
+     for reference during analysis.
+
+2. **Gather code context**
+   - Run `git diff <diff_ref>` to get the full changeset.
+   - Read the full content of every changed file (not just the diff hunks).
+   - Read related files — imports, callers, tests — to understand context.
+
+3. **Analyze changes** (for each changed file):
 
    **Correctness**
    - Logic errors, off-by-one, wrong conditions
@@ -86,22 +129,110 @@ The orchestrator provides:
    - Duplicated logic that will cause divergence bugs
    - Missing or misleading documentation on public APIs
 
-### Phase 3: Verify Tests
-5. Check that new code has corresponding tests.
-6. Verify tests actually test the stated behavior (not just coverage padding).
-7. Run the test suite: confirm all tests pass.
+4. **Verify tests**
+   - Check that new code has corresponding tests.
+   - Verify tests actually test the stated behavior (not just coverage padding).
+   - Run the test suite: confirm all tests pass.
 
-### Phase 4: Run Static Analysis
-8. If the project has a linter or type checker, run it.
-9. Note any new warnings or errors introduced by the changes.
+5. **Run static analysis**
+   - If the project has a linter or type checker, run it.
+   - Note any new warnings or errors introduced by the changes.
+
+6. **Evaluate against review-prep checklist**
+   - Walk through every checklist item from `review-prep.md` and record pass/fail/N/A.
+
+7. **Produce `review-report.md`**
+   - Write the Review Report (see Output Contract — Execute Phase below).
 
 ---
 
-## Output Contract
+## Output Contract — Plan Phase
 
-Return a review report in your response:
+Return `review-prep.md` in your response:
 
-```markdown
+````markdown
+# Review Prep Document
+
+## Collected Review Standards
+
+### Project-Specific Checklists
+<List every review checklist, quality gate, or PR template found in the project.
+Quote file path and key items.>
+
+### Coding Conventions
+<List coding conventions discovered: linter configs, style guides, naming rules,
+architectural patterns enforced by the project.>
+
+### Review Guides
+<Any review-specific documentation found in the project (e.g., CONTRIBUTING.md
+review sections, ADRs with review criteria).>
+
+## Review Scope
+- **Diff range**: `<base_ref>..<head_ref>`
+- **Files to review** (N files):
+
+| # | File | Change Type | Lines Changed |
+|---|------|-------------|---------------|
+| 1 | `src/services/user.ts` | Modified | +47 / -12 |
+| 2 | `src/auth/token.ts` | Added | +82 / -0 |
+
+## Review Checklist
+Combined checklist from project standards and general best practices.
+
+| # | Item | Source | Priority |
+|---|------|--------|----------|
+| 1 | No SQL injection in user inputs | Project: REVIEW_CHECKLIST.md | Critical |
+| 2 | All error paths handled | General best practice | Major |
+| 3 | Public API functions documented | Project: CODING_CONVENTIONS.md | Minor |
+
+## Focus Areas
+Prioritized review concerns (from `focus_areas` input, DFMEA risk items,
+design constraints, and human HITL feedback):
+
+1. **Security** — <rationale from DFMEA or focus_areas>
+2. **Correctness** — <rationale>
+3. **Performance** — <rationale>
+
+## Coding Conventions to Verify
+Specific conventions that will be checked during Execute phase
+(only those affecting correctness or consistency, not style):
+
+| Convention | Source | How to Verify |
+|------------|--------|---------------|
+| Parameterized queries for all DB access | CODING_CONVENTIONS.md | Grep for string interpolation in queries |
+| Error responses use RFC 7807 format | Design doc | Check error handler output shape |
+
+## Review Coverage Map
+
+```mermaid
+graph LR
+    subgraph Scope
+        A[src/services/user.ts] -->|imports| B[src/db/queries.ts]
+        A -->|tested by| C[tests/services/user.test.ts]
+        D[src/auth/token.ts] -->|imports| E[src/config/jwt.ts]
+        D -->|tested by| F[tests/auth/token.test.ts]
+    end
+    style A fill:#ff9,stroke:#333
+    style D fill:#ff9,stroke:#333
+```
+````
+
+> **HITL Interaction:** After producing this document, the reviewer pauses for
+> human approval. The human may:
+> - Add or remove checklist items
+> - Adjust focus area priorities
+> - Provide additional coding conventions to verify
+> - Narrow or expand the review scope
+>
+> The approved `review-prep.md` becomes the binding contract for the Execute phase.
+
+---
+
+## Output Contract — Execute Phase
+
+Return `review-report.md` in your response:
+
+````markdown
 # Code Review Report
 
 ## Summary
@@ -144,26 +275,48 @@ Low-priority observations.
 ## Positive Observations
 <Note things done well — good patterns, thorough tests, clear code>
 
-## Checklist Results (if checklist provided)
-| Item | Status | Notes |
-|------|--------|-------|
-| Error handling covers all paths | ✅ | — |
-| No hardcoded secrets | ✅ | — |
-| API versioning consistent | ⚠️ | New endpoint uses /v2 but others use /v1 |
+## Checklist Results
+Results from the review-prep.md checklist:
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 1 | No SQL injection in user inputs | ❌ FAIL | See C-1 |
+| 2 | All error paths handled | ⚠️ PARTIAL | See M-1 |
+| 3 | Public API functions documented | ✅ PASS | — |
+
+## Issue Distribution
+
+```mermaid
+pie title Issues by Category
+    "Security" : 1
+    "Reliability" : 1
+    "Maintainability" : 1
 ```
+````
 
 ---
 
 ## Quality Gates
 
-Before signaling completion, verify:
+### Plan Phase — before publishing `review-prep.md`:
 
+- [ ] All upstream documents have been read (`requirement-doc.md`, `design-doc.md`, `implementation-doc.md`, `dfmea-doc.md`).
+- [ ] Project-specific review standards have been searched for and collected.
+- [ ] Review scope lists every changed file with change type and line counts.
+- [ ] Combined checklist includes both project-specific and general items.
+- [ ] Focus areas are prioritized with rationale.
+- [ ] Mermaid diagram shows review coverage map.
+
+### Execute Phase — before publishing `review-report.md`:
+
+- [ ] The approved `review-prep.md` was loaded and followed.
 - [ ] Every changed file has been reviewed (not just sampled).
 - [ ] Every issue has: file path + line, category, description, and evidence.
 - [ ] Critical issues are genuinely critical (security, data loss, crashes).
 - [ ] No style nitpicks — nothing about formatting, naming conventions, or
       subjective preferences.
 - [ ] The test suite was actually run (not just assumed to pass).
+- [ ] Every checklist item from `review-prep.md` has a pass/fail/N/A result.
 - [ ] The verdict matches the issues: `CHANGES_REQUESTED` if any critical
       issues exist; `APPROVED_WITH_NOTES` if only major/minor; `APPROVED`
       if clean.

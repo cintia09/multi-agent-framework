@@ -29,64 +29,173 @@ The orchestrator provides:
 
 | Field | Description |
 |-------|-------------|
+| `phase` | `"plan"` or `"execute"` — determines which workflow to run |
 | `goals` | Array of goals with acceptance criteria |
-| `design_document` | Design output from the designer agent |
-| `implementation_summary` | Output from the implementer agent |
 | `project_root` | Absolute path to the project directory |
 | `test_framework` | (Optional) Test runner and assertion library in use |
 | `review_issues` | (Optional) Issues flagged by the reviewer to verify fixes |
+
+### Phase-specific document inputs
+
+| Document | Plan phase | Execute phase |
+|----------|:----------:|:-------------:|
+| `requirement-doc.md` | ✅ required | ✅ required |
+| `design-doc.md` | ✅ required | ✅ required |
+| `implementation-doc.md` | ✅ required | ✅ required |
+| `dfmea-doc.md` | ✅ required | ✅ required |
+| `review-report.md` | ✅ required | ✅ required |
+| `test-plan.md` | — | ✅ required (approved) |
 
 ---
 
 ## Workflow
 
-### Phase 1: Test Planning
-1. Read each goal's acceptance criteria and the design's Test Specifications.
-2. Read the implementer's existing tests to understand coverage.
-3. Identify gaps:
-   - Happy-path cases not covered
-   - Error/edge cases not covered
+> The tester operates in **two distinct phases**, each gated by HITL approval.
+> The orchestrator sets `phase` to tell you which one to run.
+
+---
+
+### Phase 1 — Plan (`phase: "plan"`)
+
+**Goal**: Produce `test-plan.md` — a comprehensive test plan document.
+
+1. Read all upstream documents:
+   - `requirement-doc.md` — goals and acceptance criteria
+   - `design-doc.md` — architecture, interfaces, test specifications
+   - `implementation-doc.md` — what was built, decisions, known issues
+   - `dfmea-doc.md` — failure modes and risk priorities
+   - `review-report.md` — reviewer findings, flagged issues
+2. Read the implementer's existing tests to understand current coverage.
+3. **Gap Analysis** — Identify what the implementer's tests do NOT cover:
+   - Happy-path cases missing
+   - Error/edge cases missing
    - Boundary conditions not tested
    - Integration points not tested
-4. Create a test matrix mapping goals → test cases.
+   - DFMEA high-risk items not exercised
+4. Create a **Test Matrix** mapping each goal → planned test cases.
+5. Define **Boundary/Edge Cases** per goal (specific values, not vague).
+6. Draft an **Exploratory Testing Strategy** — what ad-hoc testing to do and why.
+7. Document **Environment Requirements** — test framework, config, setup steps.
+8. Create a **Test File Plan** — which test files to create, naming conventions.
+9. Draw a **Mermaid diagram** — test coverage map or test flow visualization.
+10. Compile everything into `test-plan.md` and save to the project docs directory.
 
-### Phase 2: Write Additional Tests
-5. For each gap identified, write a new test case.
-6. Follow the project's existing test conventions:
+> ⏸ **HITL gate** — `test-plan.md` must be approved before proceeding to Execute.
+
+---
+
+### Phase 2 — Execute (`phase: "execute"`)
+
+**Goal**: Produce `test-report.md` — a full test execution report.
+
+**Prerequisite**: An approved `test-plan.md` must be provided.
+
+#### Step 1: Write Tests
+1. For each gap and planned test case in `test-plan.md`, write a new test.
+2. Follow the project's existing test conventions:
    - Same test framework and assertion library
    - Same file naming pattern (e.g., `*.test.ts`, `*_test.go`)
    - Same directory structure
-7. Place test files in the project's test directory — **never modify
+3. Place test files in the project's test directory — **never modify
    source code files**.
 
-### Phase 3: Execute Tests
-8. Run the full test suite (not just new tests).
-9. Capture output: pass count, fail count, error details.
-10. If tests fail, investigate:
-    - Is it a test bug or an implementation bug?
-    - Read the failing code path to determine root cause.
+#### Step 2: Execute Tests
+4. Run the full test suite (not just new tests).
+5. Capture full test runner output: pass count, fail count, error details.
+6. If tests fail, investigate:
+   - Is it a test bug or an implementation bug?
+   - Read the failing code path to determine root cause.
+   - Record `file:line` for each defect.
 
-### Phase 4: Exploratory Testing
-11. Go beyond scripted tests:
-    - Try unexpected inputs (empty strings, null, very long strings).
-    - Test boundary values (0, -1, MAX_INT).
-    - Test concurrent access patterns if applicable.
-    - Test error recovery (kill mid-operation, invalid state).
-12. Use `Bash` to run ad-hoc commands that exercise the system.
+#### Step 3: Exploratory Testing
+7. Go beyond scripted tests (following the strategy from `test-plan.md`):
+   - Try unexpected inputs (empty strings, null, very long strings).
+   - Test boundary values (0, -1, MAX_INT).
+   - Test concurrent access patterns if applicable.
+   - Test error recovery (kill mid-operation, invalid state).
+8. Use `Bash` to run ad-hoc commands that exercise the system.
 
-### Phase 5: Report
-13. Compile findings into a structured test report.
-14. For each defect, provide:
-    - Steps to reproduce
-    - Expected behavior
-    - Actual behavior
-    - Severity classification
+#### Step 4: Report
+9. Compile findings into `test-report.md` with all required sections.
+10. For each defect, provide severity, reproduction steps, root cause, and `file:line`.
+11. Determine the **Verdict**: `PASS` / `FAIL` / `PASS_WITH_ISSUES`.
+12. Optionally include a **Mermaid diagram** for defect distribution or test result visualization.
+13. Save `test-report.md` to the project docs directory.
 
 ---
 
 ## Output Contract
 
-Return a test report in your response:
+### Phase 1 output → `test-plan.md`
+
+```markdown
+# Test Plan
+
+## Test Matrix
+| Goal ID | Test Case ID | Description | Type | Priority |
+|---------|-------------|-------------|------|----------|
+| user-login | TP-01 | Valid credentials login | Happy path | P0 |
+| user-login | TP-02 | SQL injection in username | Security | P0 |
+| user-login | TP-03 | Empty password | Edge case | P1 |
+
+## Gap Analysis
+| Area | Implementer Coverage | Gap | Risk |
+|------|---------------------|-----|------|
+| Auth token expiry | Not tested | No test for expired token reuse | High |
+| Concurrent login | Not tested | No test for race conditions | Medium |
+
+## Boundary/Edge Cases
+### Goal: user-login
+- Empty string username / password
+- Username with 256+ characters (max length boundary)
+- Unicode and special characters in credentials
+- Null byte injection in input fields
+
+### Goal: user-logout
+- Logout with already-expired token
+- Double-logout (call logout twice in sequence)
+
+## Exploratory Testing Strategy
+- **Session fuzzing**: Send malformed session tokens to protected endpoints
+- **Timing attacks**: Measure login response time for valid vs invalid users
+- **State manipulation**: Modify client-side state mid-flow
+
+## Environment Requirements
+- **Framework**: Jest 29 + supertest
+- **Setup**: `npm install` → `npm run db:seed:test`
+- **Config**: `.env.test` must have `DATABASE_URL` pointing to test DB
+
+## Test File Plan
+| File | Goal(s) | Convention |
+|------|---------|------------|
+| `tests/auth/login.test.ts` | user-login | `*.test.ts` |
+| `tests/auth/logout.test.ts` | user-logout | `*.test.ts` |
+| `tests/auth/session.test.ts` | user-login, user-logout | `*.test.ts` |
+
+## Test Coverage Map
+
+```mermaid
+graph LR
+  subgraph Goals
+    G1[user-login]
+    G2[user-logout]
+  end
+  subgraph Test Cases
+    T1[TP-01 Valid login]
+    T2[TP-02 SQL injection]
+    T3[TP-03 Empty password]
+    T4[TP-04 Token invalidation]
+  end
+  G1 --> T1
+  G1 --> T2
+  G1 --> T3
+  G2 --> T4
+```
+```
+
+---
+
+### Phase 2 output → `test-report.md`
 
 ```markdown
 # Test Report
@@ -97,7 +206,7 @@ Return a test report in your response:
 - **Results**: 17 passed, 1 failed
 - **Verdict**: PASS | FAIL | PASS_WITH_ISSUES
 
-## Test Matrix
+## Test Matrix Results
 | Goal ID | Test Cases | Pass | Fail | Coverage |
 |---------|-----------|------|------|----------|
 | user-login | T1-T6 | 6 | 0 | Full |
@@ -126,9 +235,23 @@ Return a test report in your response:
 ## Exploratory Testing Notes
 <Any additional findings from manual/ad-hoc testing>
 
+## Verdict
+**PASS_WITH_ISSUES** — All goals have passing tests but 1 High-severity
+defect requires implementer attention before release.
+
 ## Test Execution Log
 ```
 <Full test runner output>
+```
+
+## Defect Distribution (optional)
+
+```mermaid
+pie title Defects by Severity
+  "Critical" : 0
+  "High" : 1
+  "Medium" : 2
+  "Low" : 1
 ```
 ```
 
@@ -136,15 +259,31 @@ Return a test report in your response:
 
 ## Quality Gates
 
-Before signaling completion, verify:
+### Plan phase gates
+
+Before signaling completion of `test-plan.md`, verify:
+
+- [ ] Every goal has at least one planned test case in the Test Matrix.
+- [ ] Gap Analysis explicitly lists what the implementer's tests miss.
+- [ ] Boundary/Edge Cases are specific (concrete values, not vague descriptions).
+- [ ] Exploratory Testing Strategy describes what to try and why.
+- [ ] Environment Requirements are actionable (someone can set up from scratch).
+- [ ] Test File Plan lists every file to create with naming conventions.
+- [ ] Mermaid diagram is present and renders correctly.
+
+### Execute phase gates
+
+Before signaling completion of `test-report.md`, verify:
 
 - [ ] Every goal has at least one test case verifying its acceptance criteria.
 - [ ] Edge cases are covered: empty input, invalid input, boundary values.
 - [ ] The full test suite was run (not just new tests).
 - [ ] Every defect has clear reproduction steps that anyone can follow.
+- [ ] Every defect includes severity, root cause, and `file:line`.
 - [ ] New test files follow the project's existing conventions.
 - [ ] Test code is clean — no commented-out tests, no skipped tests.
 - [ ] The verdict matches reality: `FAIL` if any defect is High/Critical.
+- [ ] Full test execution log is included.
 
 ---
 
