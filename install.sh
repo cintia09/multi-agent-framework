@@ -223,18 +223,19 @@ uninstall() {
 clean_v3() {
     echo "🧹 Cleaning v3.x legacy files..."
 
+    # Known v3.x skill names (exhaustive list)
+    local v3_skills="agent-acceptor agent-config agent-designer agent-docs agent-events agent-fsm agent-hitl-gate agent-hooks agent-hypothesis agent-implementer agent-init agent-memory agent-messaging agent-orchestrator agent-reviewer agent-switch agent-task-board agent-teams agent-tester agent-worktree"
+
     for dir in "${HOME}/.copilot" "${HOME}/.claude"; do
         if [ -d "$dir" ]; then
             echo "  Scanning ${dir}..."
-            # v3.x skills (agent-fsm, agent-switch, agent-messaging, etc.)
             local removed=0
-            for skill in "${dir}/skills/agent-"*; do
-                local name=$(basename "$skill")
-                # Keep v4.0 skills
-                [ "$name" = "codenook-init" ] && continue
-                [ "$name" = "codenook-engine" ] && continue
-                rm -rf "$skill"
-                removed=$((removed + 1))
+            # v3.x skills (exact names only — won't touch user-created skills)
+            for name in $v3_skills; do
+                if [ -d "${dir}/skills/${name}" ]; then
+                    rm -rf "${dir}/skills/${name}"
+                    removed=$((removed + 1))
+                fi
             done
             # v3.x agents
             rm -f "${dir}/agents/"*.agent.md 2>/dev/null && removed=$((removed + 1))
