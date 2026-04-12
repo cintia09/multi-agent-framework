@@ -13,8 +13,6 @@ Closes #
 
 ## Testing
 
-- [ ] `tests/run-all.sh` passes
-- [ ] New skill/hook has YAML frontmatter
+- [ ] `bash install.sh --check` passes
+- [ ] Skill files have correct structure
 - [ ] Documentation updated
-
-## Screenshots (if applicable)

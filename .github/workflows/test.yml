@@ -15,24 +15,30 @@ jobs:
       - name: Verify install script (dry run)
         run: bash install.sh --dry-run
 
-      - name: Verify skills-v4 structure
+      - name: Verify skill structure
         run: |
-          # Check required files exist
-          test -f skills-v4/codenook-init/SKILL.md
-          test -f skills-v4/codenook-engine/SKILL.md
-          test -f skills-v4/codenook-init/templates/acceptor.agent.md
-          test -f skills-v4/codenook-init/templates/designer.agent.md
-          test -f skills-v4/codenook-init/templates/implementer.agent.md
-          test -f skills-v4/codenook-init/templates/reviewer.agent.md
-          test -f skills-v4/codenook-init/templates/tester.agent.md
-          echo "✅ All skill files present"
+          # codenook-init core
+          test -f skills/codenook-init/SKILL.md
+          echo "✅ SKILL.md present"
 
-      - name: Verify HITL adapters
-        run: |
-          for f in skills-v4/codenook-engine/hitl-adapters/*.sh; do
-            bash -n "$f" && echo "✅ $f syntax OK"
+          # Agent templates
+          for agent in acceptor designer implementer reviewer tester; do
+            test -f "skills/codenook-init/templates/${agent}.agent.md"
           done
-          echo "✅ All adapters valid"
+          echo "✅ 5 agent templates present"
+
+          # Engine template
+          test -f skills/codenook-init/templates/codenook.instructions.md
+          echo "✅ Engine template present"
+
+      - name: Verify HITL scripts
+        run: |
+          for f in skills/codenook-init/hitl-adapters/*.sh; do
+            bash -n "$f" && echo "✅ $(basename $f) syntax OK"
+          done
+          python3 -c "import ast; ast.parse(open('skills/codenook-init/hitl-adapters/hitl-server.py').read())"
+          echo "✅ hitl-server.py syntax OK"
+          echo "✅ All HITL scripts valid"
 
       - name: Verify VERSION
         run: |
