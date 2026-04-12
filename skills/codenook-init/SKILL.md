@@ -110,13 +110,22 @@ Create the full tree under `<root>`:
 │   ├── implementer.agent.md
 │   ├── reviewer.agent.md
 │   └── tester.agent.md
-└── codenook/
-    ├── memory/                ← empty directory (with .gitkeep)
-    ├── task-board.json        ← seed content below
-    └── config.json            ← seed content below
+├── codenook/
+│   ├── memory/                ← empty directory (with .gitkeep)
+│   ├── task-board.json        ← seed content below
+│   ├── config.json            ← seed content below
+│   └── hitl-adapters/         ← copied from skill's hitl-adapters/ directory
+│       ├── terminal.sh
+│       ├── local-html.sh
+│       ├── github-issue.sh
+│       ├── confluence.sh
+│       ├── hitl-server.py
+│       └── hitl-verify.sh
+└── instructions/              ← Copilot CLI only
+    └── codenook.instructions.md  ← orchestration engine (auto-loaded)
 ```
 
-Plus platform-specific instructions file (see Step 1 table).
+For Claude Code: append engine content to project-root `CLAUDE.md` instead of instructions/.
 
 ### Agent Profile Templates
 
@@ -127,6 +136,22 @@ For each template:
 1. Read the file content
 2. Replace `${MODEL}` with the user's model choice for that agent
 3. Write to `<root>/agents/<role>.agent.md`
+
+### HITL Adapter Scripts
+
+Copy all files from the `hitl-adapters/` subdirectory relative to this SKILL.md file
+to `<root>/codenook/hitl-adapters/`. Ensure all `.sh` files are executable (chmod +x).
+
+### Instructions File (Orchestration Engine)
+
+Read `templates/codenook.instructions.md` and replace `${ROOT}` with the platform root
+(`.github` or `.claude`), then write to the appropriate location:
+- **Copilot CLI:** Write to `<root>/instructions/codenook.instructions.md` (auto-loaded by platform)
+- **Claude Code:** Append content to project-root `CLAUDE.md`
+
+This instructions file contains the **full orchestration engine**: routing table, HITL enforcement,
+memory management, task commands. It is automatically loaded as part of every session context.
+No separate global skill needed — the engine lives entirely in the project.
 
 ### Seed: `task-board.json`
 ```json
@@ -160,42 +185,13 @@ For each template:
 }
 ```
 
-### Instructions File Content
-
-The framework instructions file (Copilot) or CLAUDE.md append block contains:
-
-```markdown
-## Multi-Agent Framework v4.0 (CodeNook)
-
-This project uses the CodeNook multi-agent development framework.
-
-### Orchestration Rules
-1. All development tasks flow through the task board (codenook/task-board.json)
-2. Each phase is handled by a specialized subagent (designer → implementer → reviewer → tester → acceptor)
-3. **HITL gates are MANDATORY** — pause between every phase for human approval
-4. Use the `codenook-engine` skill for task management and orchestration
-5. NEVER advance task status from *_done without completing the HITL gate first
-
-### HITL Enforcement
-- Statuses ending in `_done` and `accepted` are LOCKED states
-- You MUST present output to the human, collect approval, record in feedback_history
-- Run hitl-verify.sh before any status transition from a locked state
-- Skipping HITL is a framework violation — always pause for human review
-
-### Quick Commands
-- "Create task <title>" — add a new task
-- "Show task board" — view all tasks
-- "Run task T-XXX" — start orchestration for a task
-- "Agent status" — show current state
-```
-
 ---
 
 ## Step 5 — Post-Init Verification
 
 After all files are written:
 
-1. **Enumerate** every expected file path
+1. **Enumerate** every expected file path (agents, hitl-adapters, seeds, instructions)
 2. **Assert** each exists and has size > 0
 3. **Print summary** to the user:
 
@@ -206,6 +202,7 @@ Platform:  Copilot CLI
 Directory: .github/
 Agents:    5 (acceptor, designer, implementer, reviewer, tester)
 HITL:      local-html (port 8765)
+Engine:    .github/instructions/codenook.instructions.md (auto-loaded)
 Models:
   acceptor:    claude-haiku-4.5
   designer:    claude-sonnet-4
@@ -214,10 +211,10 @@ Models:
   tester:      claude-haiku-4.5
 
 Next steps:
-  1. Use the `codenook-engine` skill to manage tasks
-  2. Say "create task <title>" to create your first task
-  3. Say "run task T-001" to start orchestration
-  4. HITL gates will pause for your approval between each phase
+  1. Say "create task <title>" to create your first task
+  2. Say "run task T-001" to start orchestration
+  3. HITL gates will pause for your approval between each phase
+  4. The orchestration engine is auto-loaded — no extra setup needed
 ```
 
 If any file is missing or empty, report the failure and offer to retry.
@@ -229,12 +226,12 @@ If any file is missing or empty, report the failure and offer to retry.
 > Trigger: "remove agent system" | "uninstall agents" | "clean codenook"
 
 1. Detect platform root (`.github/` or `.claude/`)
-2. Confirm with user: "Remove agent system from this project? This deletes agents/ and codenook/ directories."
+2. Confirm with user: "Remove agent system from this project? This deletes agents/, codenook/, and instructions."
 3. If confirmed:
    - `rm -rf <root>/agents/`
    - `rm -rf <root>/codenook/`
-   - Remove framework block from instructions file (if present)
+   - Remove `<root>/instructions/codenook.instructions.md` (Copilot) or the framework block from `CLAUDE.md` (Claude Code)
    - Remove agent-related entries from `.gitignore` (if added by init)
 4. Print: "✅ Agent system removed from project."
 
-This only removes project-level files. Global skills (`~/.copilot/skills/`, `~/.claude/skills/`) are managed by `install.sh --uninstall`.
+This only removes project-level files. The global `codenook-init` skill (`~/.copilot/skills/`, `~/.claude/skills/`) is managed by `install.sh --uninstall`.

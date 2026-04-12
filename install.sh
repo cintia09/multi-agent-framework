@@ -65,17 +65,20 @@ install_platform() {
 
     echo -e "  ${CYAN}${name}${NC} → ${dir}/skills/"
 
-    # codenook-init (SKILL.md + templates/)
+    # codenook-init (SKILL.md + templates/ + hitl-adapters/)
     mkdir -p "${dir}/skills/codenook-init/templates"
+    mkdir -p "${dir}/skills/codenook-init/hitl-adapters"
     cp "${src}/codenook-init/SKILL.md" "${dir}/skills/codenook-init/"
-    cp "${src}/codenook-init/templates/"*.agent.md "${dir}/skills/codenook-init/templates/"
+    cp "${src}/codenook-init/templates/"* "${dir}/skills/codenook-init/templates/"
+    cp "${src}/codenook-init/hitl-adapters/"* "${dir}/skills/codenook-init/hitl-adapters/"
+    chmod +x "${dir}/skills/codenook-init/hitl-adapters/"*.sh 2>/dev/null || true
+    chmod +x "${dir}/skills/codenook-init/hitl-adapters/"*.py 2>/dev/null || true
 
-    # codenook-engine (SKILL.md + hitl-adapters/)
-    mkdir -p "${dir}/skills/codenook-engine/hitl-adapters"
-    cp "${src}/codenook-engine/SKILL.md" "${dir}/skills/codenook-engine/"
-    cp "${src}/codenook-engine/hitl-adapters/"* "${dir}/skills/codenook-engine/hitl-adapters/"
-    chmod +x "${dir}/skills/codenook-engine/hitl-adapters/"*.sh 2>/dev/null || true
-    chmod +x "${dir}/skills/codenook-engine/hitl-adapters/"*.py 2>/dev/null || true
+    # Remove old codenook-engine if present (v4.0 consolidation)
+    if [ -d "${dir}/skills/codenook-engine" ]; then
+        rm -rf "${dir}/skills/codenook-engine"
+        echo -e "    ${YELLOW}Removed old codenook-engine (now built into codenook-init)${NC}"
+    fi
 }
 
 install() {
@@ -96,9 +99,7 @@ install() {
     if [ "$dry_run" = true ]; then
         echo "  [DRY RUN] Would install:"
         echo "    ~/.copilot/skills/codenook-init/"
-        echo "    ~/.copilot/skills/codenook-engine/"
         echo "    ~/.claude/skills/codenook-init/"
-        echo "    ~/.claude/skills/codenook-engine/"
         return
     fi
 
@@ -107,7 +108,7 @@ install() {
     # Copilot CLI
     if [ -d "${HOME}/.copilot" ] || command -v copilot &>/dev/null; then
         install_platform "${HOME}/.copilot" "Copilot CLI"
-        info "Copilot CLI: 2 skills installed"
+        info "Copilot CLI: skill installed"
     else
         warn "Copilot CLI not detected (skipped)"
     fi
@@ -115,7 +116,7 @@ install() {
     # Claude Code
     if [ -d "${HOME}/.claude" ] || command -v claude &>/dev/null; then
         install_platform "${HOME}/.claude" "Claude Code"
-        info "Claude Code: 2 skills installed"
+        info "Claude Code: skill installed"
     else
         warn "Claude Code not detected (skipped)"
     fi
@@ -131,9 +132,9 @@ install() {
     echo ""
     echo "  What's installed:"
     echo "    codenook-init     — Initialize agent system in any project"
-    echo "    codenook-engine   — Task routing, HITL gates, memory"
     echo "    5 agent templates — acceptor, designer, implementer, reviewer, tester"
-    echo "    4 HITL adapters   — local-html, terminal, confluence, github-issue"
+    echo "    6 HITL scripts    — local-html, terminal, confluence, github-issue, verify, server"
+    echo "    1 engine template — orchestration instructions (deployed per-project)"
     echo ""
     echo "  Quick start:"
     echo "    cd your-project"
@@ -152,18 +153,18 @@ check_platform() {
 
     if [ -f "${dir}/skills/codenook-init/SKILL.md" ]; then
         local templates=$(ls "${dir}/skills/codenook-init/templates/"*.agent.md 2>/dev/null | wc -l | tr -d ' ')
-        echo "    codenook-init:    ✅ (${templates} templates)"
+        local adapters=$(ls "${dir}/skills/codenook-init/hitl-adapters/"* 2>/dev/null | wc -l | tr -d ' ')
+        local has_engine="❌"
+        [ -f "${dir}/skills/codenook-init/templates/codenook.instructions.md" ] && has_engine="✅"
+        echo "    codenook-init:    ✅ (${templates} agent templates, ${adapters} HITL scripts, engine ${has_engine})"
     else
         echo "    codenook-init:    ❌ missing"
         ok=false
     fi
 
-    if [ -f "${dir}/skills/codenook-engine/SKILL.md" ]; then
-        local adapters=$(ls "${dir}/skills/codenook-engine/hitl-adapters/"* 2>/dev/null | wc -l | tr -d ' ')
-        echo "    codenook-engine:  ✅ (${adapters} HITL adapters)"
-    else
-        echo "    codenook-engine:  ❌ missing"
-        ok=false
+    # Warn about old codenook-engine
+    if [ -d "${dir}/skills/codenook-engine" ]; then
+        echo "    codenook-engine:  ⚠️  obsolete (run --install to clean up)"
     fi
 
     $ok
@@ -194,7 +195,7 @@ uninstall() {
         if [ -d "${dir}/skills/codenook-init" ] || [ -d "${dir}/skills/codenook-engine" ]; then
             echo "  Removing from ${dir}..."
             rm -rf "${dir}/skills/codenook-init"
-            rm -rf "${dir}/skills/codenook-engine"
+            rm -rf "${dir}/skills/codenook-engine"  # Clean old engine if present
             info "Removed from $(basename $dir)"
         fi
     done

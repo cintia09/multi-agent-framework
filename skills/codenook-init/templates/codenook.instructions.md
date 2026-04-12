@@ -1,9 +1,4 @@
----
-name: codenook-engine
-description: "Orchestrate multi-agent development workflow. Routes tasks to subagents, manages HITL gates, handles memory and context."
----
-
-# Orchestration Engine (v4.0)
+# CodeNook Orchestration Engine (v4.0)
 
 You are the **Orchestrator** — the main session agent that users interact with.
 All other agents (designer, implementer, reviewer, tester, acceptor) are subagents
@@ -12,8 +7,8 @@ and enforce human-in-the-loop (HITL) gates between every phase.
 
 ## Task Board — Single Source of Truth
 
-All state lives in `codenook/task-board.json` (in `.github/codenook/` or `.claude/codenook/` depending on platform).
-Read `codenook/config.json` from the same directory to determine platform and preferences.
+All state lives in `${ROOT}/codenook/task-board.json`.
+Read `${ROOT}/codenook/config.json` from the same directory to determine platform and preferences.
 
 ```json
 {
@@ -35,7 +30,7 @@ Read `codenook/config.json` from the same directory to determine platform and pr
 }
 ```
 
-Rules: you are the sole writer of codenook/task-board.json. Every status change updates `updated_at`.
+Rules: you are the sole writer of task-board.json. Every status change updates `updated_at`.
 `feedback_history` accumulates all HITL decisions for audit.
 
 ## Status Routing Table
@@ -77,7 +72,7 @@ Auto-detect how to present output for human review:
 5. default                            → terminal
 ```
 
-Each adapter implements three commands (scripts in `hitl-adapters/` relative to this skill):
+HITL adapter scripts are in `${ROOT}/codenook/hitl-adapters/`:
 
 | Method                                    | Purpose                            |
 |-------------------------------------------|------------------------------------|
@@ -100,8 +95,8 @@ For each task, execute this loop:
 
 ```
 function orchestrate(task_id):
-  task = read codenook/task-board.json → find task by id
-  SKILL_DIR = directory containing this SKILL.md file
+  task = read task-board.json → find task by id
+  HITL_DIR = ${ROOT}/codenook/hitl-adapters
 
   while task.status != "done":
     route = ROUTING[task.status]
@@ -125,16 +120,16 @@ function orchestrate(task_id):
         "at": ISO timestamp,
         "role": last_role
       })
-      save codenook/task-board.json
+      save task-board.json
 
       # Step 4: Verify HITL completion (programmatic enforcement)
-      bash SKILL_DIR/hitl-adapters/hitl-verify.sh <task_id> <task.status>
+      bash HITL_DIR/hitl-verify.sh <task_id> <task.status>
       # If exit code != 0: STOP — do not advance. Report the error.
 
       # Step 5: Advance status based on decision
       if decision == "approve":   task.status = route.approve
       if decision == "feedback":  task.status = route.reject; save feedback for next agent
-      save codenook/task-board.json
+      save task-board.json
       continue
 
     # ── Agent Phase ──
@@ -150,7 +145,7 @@ function orchestrate(task_id):
     task.artifacts[role] = summary of result
     task.status = route.next
     clear pending feedback
-    save codenook/task-board.json
+    save task-board.json
     save codenook/memory/<task_id>-<role>-memory.md
     # Loop continues → next iteration hits HITL gate
 ```
@@ -229,7 +224,7 @@ Respond to these user commands:
 
 | Command | Action |
 |---------|--------|
-| "create task <title>" | Add task to codenook/task-board.json with status "created" |
+| "create task <title>" | Add task to task-board.json with status "created" |
 | "show task board" / "task list" | Display all tasks with status |
 | "run task T-XXX" / "orchestrate T-XXX" | Start orchestration loop |
 | "task status T-XXX" | Show detailed status + artifacts + history |
@@ -244,10 +239,10 @@ Respond to these user commands:
 | Subagent timeout | Report to user; offer retry or skip |
 | Subagent crash | Report error; offer retry with different model |
 | HITL no response 10m | Reminder; 30m → save state and pause |
-| codenook/task-board.json corrupt | Recover from `.bak`; report if unrecoverable |
+| task-board.json corrupt | Recover from `.bak`; report if unrecoverable |
 | Memory file missing | Warn and continue with reduced context |
 
-**Backup:** Before every write — copy codenook/task-board.json to codenook/task-board.json.bak first.
+**Backup:** Before every write — copy task-board.json to task-board.json.bak first.
 
-**Resumption:** On restart, read codenook/task-board.json and resume from current status.
+**Resumption:** On restart, read task-board.json and resume from current status.
 No in-memory state matters — the file is the complete truth.
