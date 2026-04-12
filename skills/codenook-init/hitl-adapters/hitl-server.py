@@ -143,11 +143,25 @@ def generate_page():
 
     history_html = ""
     for item in history:
-        decision_label = "✅ APPROVED" if item.get("decision") == "approved" else "💬 FEEDBACK"
-        history_html += f'''
+        entry_by = item.get("by", "human")
+        if entry_by == "agent":
+            # Agent response entry
+            agent_role = item.get("role", "agent")
+            history_html += f'''
+        <div class="history-item agent-response">
+            <div class="history-header">
+                <strong>🤖 {agent_role.upper()} RESPONSE</strong>
+                <span class="time">{item.get("at", "")}</span>
+            </div>
+            <p>{item.get("summary", item.get("feedback", "Agent revised the document."))}</p>
+        </div>'''
+        else:
+            # Human feedback entry
+            decision_label = "✅ APPROVED" if item.get("decision") == "approved" else "💬 FEEDBACK"
+            history_html += f'''
         <div class="history-item {'approved' if item.get('decision') == 'approved' else 'feedback'}">
             <div class="history-header">
-                <strong>{decision_label}</strong>
+                <strong>👤 {decision_label}</strong>
                 <span class="time">{item.get("at", "")}</span>
             </div>
             {"<p>" + item.get("feedback", "") + "</p>" if item.get("feedback") else ""}
@@ -191,6 +205,7 @@ def generate_page():
   .history-item {{ background:rgba(0,0,0,.2); padding:1rem; border-radius:4px; margin-bottom:.5rem; }}
   .history-item.approved {{ border-left:3px solid var(--green); }}
   .history-item.feedback {{ border-left:3px solid var(--yellow); }}
+  .history-item.agent-response {{ border-left:3px solid var(--blue); background:rgba(33,150,243,.08); }}
   .history-header {{ display:flex; justify-content:space-between; margin-bottom:.5rem; }}
   .time {{ color:#888; font-size:.85rem; }}
   .result {{ padding:1rem; border-radius:4px; margin-top:1rem; font-weight:600; background:rgba(76,175,80,.2); border:1px solid var(--green); }}

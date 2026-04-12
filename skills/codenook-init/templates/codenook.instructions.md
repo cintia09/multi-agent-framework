@@ -112,15 +112,19 @@ function orchestrate(task_id):
       # For other adapters: poll until decision received
       decision, feedback = adapter.get_feedback(task_id)
 
-      # Step 3: Record decision in feedback_history (REQUIRED for verification)
+      # Step 3: Record HUMAN decision in feedback_history (REQUIRED for verification)
       task.feedback_history.append({
         "from_status": task.status,
         "decision": decision,         // "approve" or "feedback"
         "feedback": feedback,
         "at": ISO timestamp,
-        "role": last_role
+        "role": last_role,
+        "by": "human"
       })
       save task-board.json
+
+      # Also write to HITL adapter history file (for local-html UI):
+      # Append same entry to <root>/codenook/reviews/<task_id>-<role>-history.json
 
       # Step 4: Verify HITL completion (programmatic enforcement)
       bash HITL_DIR/hitl-verify.sh <task_id> <task.status>
@@ -145,6 +149,18 @@ function orchestrate(task_id):
     task.artifacts[role] = summary of result
     task.status = route.next
     clear pending feedback
+
+    # Record AGENT response in feedback_history (for HITL UI display)
+    task.feedback_history.append({
+      "from_status": route.current,
+      "summary": brief summary of agent output (1-2 sentences),
+      "at": ISO timestamp,
+      "role": role,
+      "by": "agent"
+    })
+    # Also append to HITL adapter history file for local-html display:
+    # Append to <root>/codenook/reviews/<task_id>-<role>-history.json
+
     save task-board.json
     save codenook/memory/<task_id>-<role>-memory.md
     # Loop continues → next iteration hits HITL gate
