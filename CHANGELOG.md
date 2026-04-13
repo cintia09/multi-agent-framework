@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.2.0] - 2025-07-27
+
+### 🛡️ v4.2 — HITL Enforcement & Adapter Fixes
+
+Systematic fix for HITL gate enforcement bugs and adapter architecture issues.
+
+#### 🐛 Bug Fixes
+- **Terminal adapter self-contained**: Added `record_feedback` command — terminal adapter no longer depends on `ask_user` or any LLM-specific tool
+- **HITL status mismatch**: Fixed `hitl-verify.sh` status names to match actual routing table (`impl_planned`, `impl_done`, etc. instead of wrong `designing_done`, `implementing_done`)
+- **Agent frontmatter**: Removed invalid `disallowedTools` field from all 5 agent `.agent.md` files (not a valid Copilot CLI YAML field)
+
+#### ✨ New Features
+- **Mandatory Bootstrap Rule**: Orchestrator MUST read `task-board.json` before ANY agent action
+- **Agent Phase Summary table**: Quick-reference routing table in instructions
+- **HITL Concrete Steps**: Exact bash command sequences for local-html and terminal adapters (replaces abstract pseudo-code)
+- **"DO NOT substitute ask_user" guard**: Explicit prohibition against shortcutting local-html adapter
+
+#### 🔄 Changed
+- **All adapters now follow symmetric bash-based interface**: publish → poll → get_feedback (+ record_feedback for terminal)
+- **`ask_user` downgraded to optional**: Referenced only as convenience for terminal adapter step 2, never as a requirement
+- **Orchestration loop pseudo-code**: `ask_user()` calls replaced with `get_user_decision()` (environment-agnostic)
+
 ## [4.1.0] - 2025-07-26
 
 ### 📄 v4.1 — Document-Driven Workflow
