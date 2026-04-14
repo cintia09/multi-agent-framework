@@ -32,7 +32,7 @@
 
 ---
 
-Zero-dependency, orchestrator-driven multi-agent framework for Claude Code and GitHub Copilot CLI.
+Zero-dependency, orchestrator-driven multi-agent framework for Claude Code.
 
 ## Overview
 
@@ -61,7 +61,7 @@ Five specialized AI agents collaborate through an orchestrator that routes tasks
 - **Tool-Based Boundaries** — `tools` / `disallowedTools` in agent frontmatter (no hooks needed)
 - **Per-Agent Models** — Each role can use a different AI model
 - **Zero Dependencies** — Pure Markdown profiles + JSON state files
-- **Multi-Platform** — Copilot CLI (`.github/`) and Claude Code (`.claude/`)
+- **Claude Code Only** — Single-platform `.claude/` directory structure
 
 ## Installation
 
@@ -71,7 +71,7 @@ Five specialized AI agents collaborate through an orchestrator that routes tasks
 curl -sL https://raw.githubusercontent.com/cintia09/CodeNook/main/install.sh | bash
 ```
 
-Installs 1 skill globally. Auto-detects Claude Code / Copilot CLI.
+Installs 1 skill globally for Claude Code.
 
 ### Option 2: Manual Install
 
@@ -79,7 +79,6 @@ Copy the skill directory to your platform's skills folder:
 
 | Platform | Target |
 |----------|--------|
-| Copilot CLI | `~/.copilot/skills/codenook-init/` |
 | Claude Code | `~/.claude/skills/codenook-init/` |
 
 The skill directory contains `SKILL.md`, agent templates, HITL adapter scripts, and the orchestration engine template.
@@ -103,7 +102,7 @@ The `codenook-init` skill walks you through 5 prompts:
 | Prompt | Options |
 |--------|---------|
 | Install directory | Confirm or change target directory |
-| Platform | Copilot CLI · Claude Code · Both |
+| Platform | Claude Code |
 | Agent models | Use defaults · Custom per-agent |
 | HITL adapter | Local HTML · Terminal · GitHub Issue · Confluence |
 | Gitignore | Yes · No |
@@ -111,7 +110,7 @@ The `codenook-init` skill walks you through 5 prompts:
 It then generates project-level files:
 
 ```
-<root>/                          # .github/ or .claude/
+<root>/                          # .claude/
 ├── agents/
 │   ├── acceptor.agent.md
 │   ├── designer.agent.md
@@ -132,11 +131,9 @@ It then generates project-level files:
 │       ├── confluence.sh
 │       ├── hitl-verify.sh
 │       └── hitl-server.py
-└── instructions/                # Copilot CLI only
-    └── codenook.instructions.md # Orchestration engine (auto-loaded)
 ```
 
-> For Claude Code, the orchestration engine is appended to the project-root `CLAUDE.md` instead.
+> The orchestration engine is appended to the project-root `CLAUDE.md`.
 
 ### 2. Create a Task
 
@@ -231,7 +228,7 @@ You approve or provide feedback at each of the 10 HITL gates. That's it.
 
 ```json
 {
-  "version": "4.1",
+  "version": "4.2",
   "tasks": [{
     "id": "T-001",
     "title": "Implement user authentication",
@@ -367,12 +364,12 @@ Memory snapshots include: input summary, key decisions, artifacts produced, issu
 
 ## Configuration
 
-After initialization, `codenook/config.json` lives under the platform directory (`.github/codenook/` or `.claude/codenook/`):
+After initialization, `codenook/config.json` lives under `.claude/codenook/`:
 
 ```json
 {
-  "version": "4.1",
-  "platform": "copilot-cli",
+  "version": "4.2",
+  "platform": "claude-code",
   "models": {
     "acceptor":    "claude-haiku-4.5",
     "designer":    "claude-sonnet-4",
@@ -395,7 +392,7 @@ After initialization, `codenook/config.json` lives under the platform directory 
 
 | Field | Description |
 |-------|-------------|
-| `platform` | `copilot-cli` or `claude-code` |
+| `platform` | `claude-code` |
 | `models.*` | AI model per agent role |
 | `hitl.enabled` | Enable/disable HITL gates |
 | `hitl.adapter` | `local-html` · `terminal` · `github-issue` · `confluence` |
@@ -406,7 +403,6 @@ After initialization, `codenook/config.json` lives under the platform directory 
 
 | Platform | Root | Agents | CodeNook Dir | Skills |
 |----------|------|--------|--------------|--------|
-| Copilot CLI | `.github/` | `.github/agents/` | `.github/codenook/` | `~/.copilot/skills/` |
 | Claude Code | `.claude/` | `.claude/agents/` | `.claude/codenook/` | `~/.claude/skills/` |
 
 ## Error Handling
@@ -423,9 +419,9 @@ The orchestrator backs up `codenook/task-board.json` to `codenook/task-board.jso
 
 ## Migrating from v3.x / v4.0
 
-v4.1 builds on v4.0's simplification with a document-driven workflow. Key changes:
+v4.2 builds on v4.0's simplification with a document-driven workflow. Key changes:
 
-| v3.x | v4.0 | v4.1 |
+| v3.x | v4.0 | v4.2 |
 |------|------|------|
 | 20 global skills | 1 global skill + project-level agents & engine | *(same)* |
 | 13 shell hooks | `tools` / `disallowedTools` in frontmatter | *(same)* |
@@ -434,16 +430,16 @@ v4.1 builds on v4.0's simplification with a document-driven workflow. Key change
 | File-based messaging (`inbox.json`) | Orchestrator context passing | *(same)* + 10 document artifacts per task |
 | `agent-hitl-gate` skill | Multi-adapter HITL (4 adapters) | + Light theme, verdict-based routing |
 | `events.db` SQLite audit | Feedback history in `codenook/task-board.json` | *(same)* |
-| `.agents/` project directory | `.github/codenook/` or `.claude/codenook/` | + `codenook/docs/T-NNN/` document storage |
+| `.agents/` project directory | `.github/codenook/` or `.claude/codenook/` | `.claude/codenook/` only + `docs/T-NNN/` storage |
 | — | — | Mermaid diagrams mandatory in all outputs |
 | — | — | Init directory confirmation prompt |
-| — | — | Task board schema v4.1 with 10 artifact slots |
+| — | — | Task board schema v4.2 with 10 artifact slots |
 
 **Migration steps:**
 
 **From v3.x:**
 1. Remove old global skills, hooks, and rules from `~/.claude/` or `~/.copilot/`
-2. Install v4.1 (`curl` one-liner or manual copy)
+2. Install v4.2 (`curl` one-liner or manual copy)
 3. In your project, run "initialize agent system" to generate new files
 4. Migrate existing tasks manually if needed (copy goals to new `codenook/task-board.json`)
 
