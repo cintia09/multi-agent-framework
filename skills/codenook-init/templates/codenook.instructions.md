@@ -616,7 +616,7 @@ CONFIDENCE_LEVELS = { "HIGH": 3, "MEDIUM": 2, "LOW": 1 }
 |----------|----------|
 | `ensure_knowledge_dirs()` | `mkdir -p` for `KNOWLEDGE_DIR/{by-role,by-topic}`, `touch` all 11 files (5 role + 5 topic + index.md) |
 | `reason_about(prompt)` | Orchestrator's internal LLM reasoning (NOT a sub-agent). Returns markdown string or `"NO_KNOWLEDGE"` |
-| `parse_knowledge_items(text)` | Split by `### [` headers → array of `{task_id, title, tags[], confidence, markdown}` |
+| `parse_knowledge_items(text)` | Split by `### [` headers; for each block: extract `task_id`+`title` via `### \[(.+?)\] (.+)`, `tags[]` via `#[\w-]+` regex, `confidence` from `**Confidence:** X` line → array of `{task_id, title, tags[], confidence, markdown}` |
 | `meets_threshold(conf, thresh)` | Compare via CONFIDENCE_LEVELS map (HIGH≥MEDIUM≥LOW) |
 | `count_items(path)` | Count `### [` headers in file. Returns 0 if file missing |
 | `rotate_oldest(path)` | Remove first `### [` block (oldest item) from file |
@@ -633,13 +633,27 @@ function extract_knowledge(task_id, role, phase, document_content, config):
   if not document_content or not document_content.strip(): return 0
   ensure_knowledge_dirs()
 
-  # Orchestrator internally reasons about the document to extract knowledge:
-  # Prompt: "Extract reusable cross-task knowledge from this {role}/{phase} document.
-  #   Format: ### [{task_id}] Title + Source/Date/Context/Lesson/Tags/Confidence fields.
-  #   Tags from: code-convention, naming, style, architecture, adr, pitfall, gotcha,
-  #   best-practice, performance, security, config, ci-cd, tooling, build.
-  #   Return NO_KNOWLEDGE if nothing worth extracting."
-  items = reason_about(extraction_prompt_with(document_content, task_id, role, phase))
+  # Orchestrator builds an extraction prompt from the document and reasons about it:
+  extraction_prompt = f"""Extract reusable cross-task knowledge from this {role}/{phase} document for task {task_id}.
+  Only extract genuinely reusable knowledge — skip task-specific details.
+  Each item must be self-contained (understandable without this task's context).
+  Format each item as:
+    ### [{task_id}] Short descriptive title
+    - **Source:** {task_id} / {role} / {phase}
+    - **Date:** {today_iso}
+    - **Context:** Brief context of discovery
+    - **Lesson:** The actual knowledge (actionable, specific)
+    - **Tags:** #tag1 #tag2 (from: code-convention, naming, style, formatting,
+      architecture, adr, tech-stack, design-pattern, pitfall, gotcha, bug,
+      workaround, best-practice, pattern, performance, security, config,
+      ci-cd, tooling, build)
+    - **Confidence:** HIGH (verified by another agent) / MEDIUM (single agent) / LOW (speculative)
+  If nothing worth extracting, return exactly: NO_KNOWLEDGE
+
+  Document:
+  {document_content}
+  """
+  items = reason_about(extraction_prompt)
   if items == "NO_KNOWLEDGE" or not items: return 0
 
   parsed_items = parse_knowledge_items(items)
@@ -672,7 +686,7 @@ function extract_knowledge(task_id, role, phase, document_content, config):
 
     # Update index
     append_to_file(f"{KNOWLEDGE_DIR}/index.md",
-      f"### [{item.task_id}] {item.title}\n- **Role:** {role} | **Topics:** {', '.join(topics_written) or 'none'}")
+      f"### [{item.task_id}] {item.title}\n- **Role:** {role} | **Topics:** {', '.join(topics_written) or 'none'} | **Confidence:** {item.confidence}")
     count += 1
   return count
 
@@ -692,11 +706,36 @@ function load_knowledge(role, config):
       knowledge_parts.append(f"## {topic.replace('-', ' ').title()}\n{read(topic_file)}")
   if not knowledge_parts: return ""
 
-  # 2. Deduplicate by "### [task_id]" headers, preserving ## section headers
-  # Walk combined text; for each ### [ block, skip if header already seen.
-  # Keeps first occurrence of each item, preserves ## sections that have content.
+  # 2. Deduplicate by "### [task_id]" headers, preserving ## section headers.
+  #    Algorithm: walk lines of combined text. Track current ## section and ### [ block.
+  #    For each ### [ block, extract header string; if already in seen_headers set, skip
+  #    entire block. Otherwise emit it (preceded by its ## section header if not yet emitted).
+  #    Keeps first occurrence of each item across role + topic files.
   combined = "\n\n".join(knowledge_parts)
-  knowledge = deduplicate_by_item_headers(combined)  # uses seen_headers set on "### [" lines
+  seen_headers = set()
+  deduped_lines = []
+  current_section = None
+  current_block = []
+  current_header = None
+  for line in combined.split("\n"):
+    if line.startswith("## "):
+      if current_header and current_header not in seen_headers:
+        if current_section: deduped_lines.append(current_section); current_section = None
+        deduped_lines.extend(current_block)
+        seen_headers.add(current_header)
+      current_section = line; current_block = []; current_header = None
+    elif line.startswith("### ["):
+      if current_header and current_header not in seen_headers:
+        if current_section: deduped_lines.append(current_section); current_section = None
+        deduped_lines.extend(current_block)
+        seen_headers.add(current_header)
+      current_header = line.strip(); current_block = [line]
+    else:
+      current_block.append(line)
+  if current_header and current_header not in seen_headers:
+    if current_section: deduped_lines.append(current_section)
+    deduped_lines.extend(current_block)
+  knowledge = "\n".join(deduped_lines)
 
   # 3. Truncate to max_chars (keep tail = most recent items)
   max_chars = config.get("knowledge", {}).get("max_chars", 8000)
