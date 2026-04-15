@@ -63,6 +63,7 @@ Five specialized AI agents collaborate through an orchestrator that routes tasks
 - **Verdict-Based Routing** — Review/test/acceptance report verdicts drive the next status transition
 - **Mermaid Diagrams** — Mandatory in all document outputs for visual clarity
 - **Memory Chain** — Each phase writes a snapshot; downstream agents receive upstream context
+- **Knowledge Accumulation** — Agents automatically extract cross-task lessons (code conventions, pitfalls, architecture decisions) indexed by role and topic; accumulated knowledge injected into future agent prompts
 - **DFMEA Risk Management** — Implementer outputs failure-mode analysis (S×O×D → RPN)
 - **Dual-Agent Mode** — Two models work in parallel on the same phase with cross-examination
 - **Tool-Based Boundaries** — `tools` / `disallowedTools` in agent frontmatter (no hooks needed)

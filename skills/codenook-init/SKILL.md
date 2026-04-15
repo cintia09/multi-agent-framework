@@ -3,7 +3,7 @@ name: codenook-init
 description: "Initialize the multi-agent development framework in a project. Generates agent profiles, creates task board and config for Claude Code."
 ---
 
-# Agent System Initialization (v4.6.5)
+# Agent System Initialization (v4.7.0)
 
 > Trigger: "initialize agent system" | "agent init" | "codenook-init"
 
@@ -334,6 +334,18 @@ Create the full tree under `.claude/`:
 
 Also append engine content to project-root `CLAUDE.md`.
 
+**knowledge/ directory** — create all files during init (empty, with headers):
+```bash
+mkdir -p ${ROOT}/codenook/knowledge/by-role ${ROOT}/codenook/knowledge/by-topic
+for role in acceptor designer implementer reviewer tester; do
+  touch ${ROOT}/codenook/knowledge/by-role/${role}.md
+done
+for topic in code-conventions architecture-decisions pitfalls best-practices project-config; do
+  touch ${ROOT}/codenook/knowledge/by-topic/${topic}.md
+done
+touch ${ROOT}/codenook/knowledge/index.md
+```
+
 **docs/ directory structure** — created per-task during orchestration:
 ```
 .claude/codenook/docs/
@@ -384,7 +396,7 @@ memory management, task commands. It is automatically loaded as part of every se
 
 ```json
 {
-  "version": "4.6.5",
+  "version": "4.7.0",
   "active_task": null,
   "tasks": []
 }
@@ -397,7 +409,7 @@ memory management, task commands. It is automatically loaded as part of every se
 
 ```json
 {
-  "version": "4.6.5",
+  "version": "4.7.0",
   "platform": "claude-code",
   "models": {
     "acceptor":    "<model>",
@@ -424,6 +436,7 @@ memory management, task commands. It is automatically loaded as part of every se
     "auto_extract": true,
     "max_items_per_role": 100,
     "max_items_per_topic": 50,
+    "max_chars": 8000,
     "confidence_threshold": "MEDIUM"
   },
   "preferences": {

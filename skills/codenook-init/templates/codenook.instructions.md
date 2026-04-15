@@ -1,4 +1,4 @@
-# CodeNook Orchestration Engine (v4.7)
+# CodeNook Orchestration Engine (v4.7.0)
 
 You are the **Orchestrator** — the main session agent that users interact with.
 All other agents (acceptor, designer, implementer, reviewer, tester) are subagents
@@ -112,7 +112,7 @@ Read `${ROOT}/codenook/config.json` from the same directory to determine platfor
 
 ```json
 {
-  "version": "4.6",
+  "version": "4.7.0",
   "active_task": null,
   "tasks": [{
     "id": "T-001",
@@ -449,7 +449,7 @@ verdict may override the default "approve" route:
 
 ```json
 {
-  "version": "4.6.5",
+  "version": "4.7.0",
   "platform": "claude-code",
   "models": {
     "acceptor":    "claude-haiku-4.5",
@@ -485,6 +485,7 @@ verdict may override the default "approve" route:
     "auto_extract": true,
     "max_items_per_role": 100,
     "max_items_per_topic": 50,
+    "max_chars": 8000,
     "confidence_threshold": "MEDIUM"
   },
   "reviewer_agent_type": "code-review"
@@ -604,18 +605,120 @@ ROLE_TOPICS = {
   "reviewer":    ["code-conventions", "best-practices", "pitfalls"],
   "designer":    ["architecture-decisions", "best-practices"],
   "tester":      ["pitfalls", "best-practices", "project-config"],
-  "acceptor":    ["best-practices"],
+  "acceptor":    ["best-practices", "pitfalls", "project-config"],
 }
+
+CONFIDENCE_LEVELS = { "HIGH": 3, "MEDIUM": 2, "LOW": 1 }
+
+# ── Knowledge Helper Functions ──
+
+function ensure_knowledge_dirs():
+  # Creates knowledge directory structure if it doesn't exist.
+  # Called before any knowledge read/write operation.
+  dirs = [KNOWLEDGE_DIR, f"{KNOWLEDGE_DIR}/by-role", f"{KNOWLEDGE_DIR}/by-topic"]
+  for d in dirs:
+    mkdir -p d  # no-op if exists
+
+  # Create empty files if missing
+  for role in ["acceptor", "designer", "implementer", "reviewer", "tester"]:
+    touch f"{KNOWLEDGE_DIR}/by-role/{role}.md"
+  for topic in ["code-conventions", "architecture-decisions", "pitfalls", "best-practices", "project-config"]:
+    touch f"{KNOWLEDGE_DIR}/by-topic/{topic}.md"
+  touch f"{KNOWLEDGE_DIR}/index.md"
+
+function reason_about(prompt):
+  # The orchestrator processes this internally using its own LLM context.
+  # This is NOT a sub-agent call — the orchestrator reasons in its main context.
+  # Returns: extracted knowledge items as markdown string, or "NO_KNOWLEDGE"
+  return orchestrator_internal_reasoning(prompt)
+
+function parse_knowledge_items(markdown_text):
+  # Splits markdown text by "### [" headers into structured objects.
+  # Each item: { task_id, title, tags[], confidence, markdown }
+  items = []
+  current_lines = []
+  for line in markdown_text.split("\n"):
+    if line.startswith("### [") and current_lines:
+      items.append(parse_single_item("\n".join(current_lines)))
+      current_lines = [line]
+    else:
+      current_lines.append(line)
+  if current_lines:
+    items.append(parse_single_item("\n".join(current_lines)))
+  return [i for i in items if i is not None]
+
+function parse_single_item(block):
+  # Parses a single knowledge block into { task_id, title, tags, confidence, markdown }
+  # Returns None if the block is not a valid knowledge item.
+  header_match = regex_match(block, r"### \[(.+?)\] (.+)")
+  if not header_match: return None
+  task_id = header_match.group(1)
+  title = header_match.group(2)
+  tags = [t.lstrip("#") for t in regex_findall(block, r"#[\w-]+")]
+  confidence = "MEDIUM"  # default
+  if "**Confidence:** HIGH" in block: confidence = "HIGH"
+  elif "**Confidence:** LOW" in block: confidence = "LOW"
+  return { task_id, title, tags, confidence, markdown: block.strip() }
+
+function meets_threshold(confidence, threshold):
+  # Returns true if confidence meets or exceeds threshold.
+  return CONFIDENCE_LEVELS.get(confidence, 0) >= CONFIDENCE_LEVELS.get(threshold, 0)
+
+function count_items(file_path):
+  # Counts "### [" headers in file. Returns 0 if file doesn't exist.
+  if not file_exists(file_path): return 0
+  content = read(file_path)
+  return content.count("### [")
+
+function rotate_oldest(file_path):
+  # Removes the first "### [" block from the file (oldest item).
+  content = read(file_path)
+  parts = content.split("### [", 2)  # split into at most 3 parts
+  if len(parts) >= 3:
+    # Remove first item, keep header and rest
+    write(file_path, parts[0] + "### [" + "### [".join(parts[2:]))
+
+function item_exists_in_file(file_path, task_id):
+  # Checks if a knowledge item with the given task_id already exists in the file.
+  if not file_exists(file_path): return false
+  content = read(file_path)
+  return f"### [{task_id}]" in content
+
+function append_to_file(file_path, content):
+  # Appends content to file with a blank line separator.
+  # Creates file if it doesn't exist (parent dir must exist).
+  if file_exists(file_path):
+    existing = read(file_path)
+    write(file_path, existing.rstrip() + "\n\n" + content + "\n")
+  else:
+    write(file_path, content + "\n")
+
+function file_exists(path):
+  # Returns boolean. Standard file existence check.
+  return os.path.exists(path)
+
+function read(path):
+  # Returns file content as string. Returns "" if file doesn't exist.
+  if not file_exists(path): return ""
+  return read_file(path)
+
+# ── Core Knowledge Functions ──
 
 function extract_knowledge(task_id, role, phase, document_content, config):
   # Extracts reusable knowledge from a phase document and appends to knowledge files.
-  # Called automatically after HITL approval if config.knowledge.enabled is true.
+  # Called automatically after HITL approval if config.knowledge is enabled.
   # Returns: number of items extracted (0 if nothing extractable)
 
   if not config.get("knowledge", {}).get("enabled", true):
     return 0
+  if not config.get("knowledge", {}).get("auto_extract", true):
+    return 0  # Manual extraction only — skip automatic
 
-  # Use the orchestrator's own reasoning to extract knowledge items:
+  if not document_content or not document_content.strip():
+    return 0  # Nothing to extract from empty document
+
+  ensure_knowledge_dirs()
+
   extraction_prompt = f"""
   Review this phase document and extract reusable cross-task knowledge.
 
@@ -633,7 +736,7 @@ function extract_knowledge(task_id, role, phase, document_content, config):
   - Only extract genuinely reusable knowledge (skip task-specific details)
   - Each item must be self-contained (understandable without this task's context)
   - Format each item as:
-    ### [TASK_ID] Short descriptive title
+    ### [{task_id}] Short descriptive title
     - **Source:** {task_id} / {role} / {phase}
     - **Date:** {today ISO}
     - **Context:** Brief context of discovery
@@ -646,12 +749,11 @@ function extract_knowledge(task_id, role, phase, document_content, config):
   - If nothing worth extracting, return exactly: NO_KNOWLEDGE
   """
 
-  items = reason_about(extraction_prompt)  # orchestrator processes this internally
+  items = reason_about(extraction_prompt)
 
   if items == "NO_KNOWLEDGE" or not items:
     return 0
 
-  # Parse items and append to files
   parsed_items = parse_knowledge_items(items)
   count = 0
 
@@ -661,29 +763,40 @@ function extract_knowledge(task_id, role, phase, document_content, config):
     if not meets_threshold(item.confidence, threshold):
       continue
 
-    # Check max items per role
-    max_per_role = config.get("knowledge", {}).get("max_items_per_role", 100)
+    # Skip if this item already exists (prevents duplicates on re-run)
     role_file = f"{KNOWLEDGE_DIR}/by-role/{role}.md"
+    if item_exists_in_file(role_file, item.task_id):
+      continue
+
+    # Check capacity and rotate if needed
+    max_per_role = config.get("knowledge", {}).get("max_items_per_role", 100)
     if count_items(role_file) >= max_per_role:
-      rotate_oldest(role_file)  # remove oldest item to make room
+      rotate_oldest(role_file)
 
     # 1. Append to role file
     append_to_file(role_file, item.markdown)
 
     # 2. Append to topic file(s) based on tags
     topics_written = set()
+    unmapped_tags = []
     for tag in item.tags:
       topic = TAG_TOPIC_MAP.get(tag)
       if topic and topic not in topics_written:
         max_per_topic = config.get("knowledge", {}).get("max_items_per_topic", 50)
         topic_file = f"{KNOWLEDGE_DIR}/by-topic/{topic}.md"
-        if count_items(topic_file) >= max_per_topic:
-          rotate_oldest(topic_file)
-        append_to_file(topic_file, item.markdown)
-        topics_written.add(topic)
+        if not item_exists_in_file(topic_file, item.task_id):
+          if count_items(topic_file) >= max_per_topic:
+            rotate_oldest(topic_file)
+          append_to_file(topic_file, item.markdown)
+          topics_written.add(topic)
+      elif not topic:
+        unmapped_tags.append(tag)
 
-    # 3. Update index
-    index_entry = f"- [{item.task_id}] {item.title} → role:{role}, topics:{','.join(topics_written)}"
+    if unmapped_tags:
+      log f"⚠️ Unmapped knowledge tags: {unmapped_tags} — consider adding to TAG_TOPIC_MAP"
+
+    # 3. Update index (use "### [" format for consistency with knowledge items)
+    index_entry = f"### [{item.task_id}] {item.title}\n- **Role:** {role} | **Topics:** {', '.join(topics_written) or 'none'} | **Confidence:** {item.confidence}"
     append_to_file(f"{KNOWLEDGE_DIR}/index.md", index_entry)
     count += 1
 
@@ -694,6 +807,9 @@ function load_knowledge(role, config):
   # Returns: formatted knowledge string for inclusion in agent prompt.
 
   if not config.get("knowledge", {}).get("enabled", true):
+    return ""
+
+  if not file_exists(KNOWLEDGE_DIR):
     return ""
 
   knowledge_parts = []
@@ -717,34 +833,53 @@ function load_knowledge(role, config):
   if not knowledge_parts:
     return ""
 
-  # 3. Deduplicate — items may appear in both role and topic files
-  #    Use ### [T-NNN] headers as dedup keys
+  # 3. Deduplicate — items may appear in both role and topic files.
+  #    Use "### [task_id]" headers as dedup keys. Preserve ## section headers.
   combined = "\n\n".join(knowledge_parts)
   seen_headers = set()
   deduped_lines = []
+  current_section = None     # tracks current ## section header
   current_block = []
   current_header = None
 
   for line in combined.split("\n"):
-    if line.startswith("### ["):
-      # Flush previous block
+    if line.startswith("## "):
+      # Flush previous knowledge block
       if current_header and current_header not in seen_headers:
+        if current_section:
+          deduped_lines.append(current_section)
+          current_section = None
+        deduped_lines.extend(current_block)
+        seen_headers.add(current_header)
+      current_section = line  # remember section header
+      current_block = []
+      current_header = None
+    elif line.startswith("### ["):
+      # Flush previous knowledge block
+      if current_header and current_header not in seen_headers:
+        if current_section:
+          deduped_lines.append(current_section)
+          current_section = None
         deduped_lines.extend(current_block)
         seen_headers.add(current_header)
       current_header = line.strip()
       current_block = [line]
     else:
       current_block.append(line)
+
   # Flush last block
   if current_header and current_header not in seen_headers:
+    if current_section:
+      deduped_lines.append(current_section)
     deduped_lines.extend(current_block)
 
   knowledge = "\n".join(deduped_lines)
 
-  # 4. Truncate if too large (keep most recent items — they're at the end)
-  MAX_KNOWLEDGE_CHARS = 8000  # ~2000 tokens
+  # 4. Truncate if too large (keep most recent items — appended at end)
+  # Recent knowledge is more contextually relevant; foundational items are
+  # likely to be duplicated or superseded by later refinements.
+  MAX_KNOWLEDGE_CHARS = config.get("knowledge", {}).get("max_chars", 8000)
   if len(knowledge) > MAX_KNOWLEDGE_CHARS:
-    # Keep the last N characters (most recent knowledge)
     knowledge = "...(earlier knowledge truncated)\n" + knowledge[-MAX_KNOWLEDGE_CHARS:]
 
   return f"# Knowledge Base\n\n{knowledge}"
@@ -1271,6 +1406,8 @@ function orchestrate(task_id):
       items_extracted = extract_knowledge(task_id, role, phase, doc_content, config)
       if items_extracted > 0:
         log f"📚 Extracted {items_extracted} knowledge item(s) from {role}/{phase}"
+      elif config.get("knowledge", {}).get("enabled", true):
+        log f"ℹ️ No reusable knowledge found in {role}/{phase} document"
 
     # Loop continues → next iteration
 ```
