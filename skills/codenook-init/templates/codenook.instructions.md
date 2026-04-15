@@ -1,4 +1,4 @@
-# CodeNook Orchestration Engine (v4.7.3)
+# CodeNook Orchestration Engine (v4.8.0)
 
 You are the **Orchestrator** — the main session agent that users interact with.
 All other agents (acceptor, designer, implementer, reviewer, tester) are subagents
@@ -112,7 +112,7 @@ Read `${ROOT}/codenook/config.json` from the same directory to determine platfor
 
 ```json
 {
-  "version": "4.7.3",
+  "version": "4.8.0",
   "active_task": null,
   "tasks": [{
     "id": "T-001",
@@ -224,9 +224,10 @@ created → implementer (plan) → HITL → implementer (execute) → HITL
 
 ## Dual-Agent Parallel Mode
 
-Enable **two sub-agents** with different models working in parallel on the same phase,
-followed by **cross-examination** and **synthesis** — producing higher-quality outputs
-at the cost of 5× agent invocations per dual-mode phase.
+Enable **two sub-agents** with different models working on the same phase,
+followed by **iterative cross-examination** (up to 3 convergence rounds) and
+**synthesis** — producing higher-quality outputs at the cost of 4–10× agent
+invocations per dual-mode phase.
 
 ### Flow Per Dual-Mode Phase
 
@@ -236,13 +237,21 @@ at the cost of 5× agent invocations per dual-mode phase.
                         ├── each produces document independently
    Agent B (Model 2) ───┘
 
-② Parallel Cross-Examine (2 calls)
-   A critiques B's doc ───┐
-                          ├── each produces structured critique
-   B critiques A's doc ───┘
+② Iterative Cross-Examination (up to 3 rounds × 2 challenges + analysis)
+   ┌──────────────────────────────────────────────────────────┐
+   │  Orchestrator analyzes both documents independently       │
+   │  → If converged: exit loop                               │
+   │  → If divergent:                                         │
+   │    Identify weaknesses in A's document                    │
+   │    Challenge A: "These issues need addressing" → A revises│
+   │    Identify weaknesses in B's document                    │
+   │    Challenge B: "These issues need addressing" → B revises│
+   │    (Neither agent sees the other's document)              │
+   │    → Next round (max 3)                                   │
+   └──────────────────────────────────────────────────────────┘
 
 ③ Synthesize (1 call)
-   Synthesizer reads all 4 inputs → final merged document
+   Synthesizer merges final A + B documents → canonical document
 
 ④ HITL Gate (unchanged)
    Human reviews synthesized document → approve / reject
@@ -318,38 +327,45 @@ Per-phase overrides via `phase_models` take priority over shared `models`.
 
 ### Document Artifacts (Dual Mode)
 
-Each dual-mode phase produces 5 files (only the final is passed downstream):
+Each dual-mode phase produces versioned files per round (only the final synthesis is passed downstream):
 
 ```
 docs/T-001/
-├── design-doc.md               ← Final synthesized (used by HITL & downstream agents)
-├── design-doc-agent-a.md       ← Agent A's initial version
-├── design-doc-agent-b.md       ← Agent B's initial version
-├── design-doc-critique-a.md    ← Agent A's critique of Agent B
-├── design-doc-critique-b.md    ← Agent B's critique of Agent A
+├── design-doc.md                ← Final synthesized (used by HITL & downstream agents)
+├── design-doc-agent-a-r0.md     ← Agent A's initial version
+├── design-doc-agent-b-r0.md     ← Agent B's initial version
+├── design-doc-agent-a-r1.md     ← Agent A's revision after round 1 challenge
+├── design-doc-agent-b-r1.md     ← Agent B's revision after round 1 challenge
+├── design-doc-agent-a-r2.md     ← (if round 2 needed)
+└── ...
 ```
 
-### Cross-Examination Prompt
+### Challenge Prompt (Cross-Examination)
+
+Each agent is challenged on its **own** weaknesses — it does not see the other agent's document.
 
 ```markdown
-# Cross-Examination Task
+# Revision Round {round}
 
-You are **{role}** reviewing a peer agent's work on the same task.
+You are a {role} working on the {phase} phase, revision round {round}.
 
-## Task Context
-- **Task:** {task_title} | **Phase:** {phase}
-- **Your Model:** {your_model} | **Peer Model:** {peer_model}
+## Your Current Document
+{my_document}
 
-## The Peer Agent's Document
-{peer_document}
+## Issues to Address
+A review has identified the following concerns with your document:
+
+{weaknesses}
 
 ## Instructions
-1. Identify strengths (what is done well)
-2. Identify weaknesses (errors, gaps, missing coverage, unclear sections)
-3. Suggest specific, actionable improvements
-4. Rate overall quality: **STRONG** / **ADEQUATE** / **NEEDS_IMPROVEMENT**
+1. For each issue, either:
+   - **Fix**: revise your document to address the concern
+   - **Defend**: explain why your current approach is correct and no change is needed
+   - **Improve**: adopt a better approach inspired by the feedback
+2. Produce a REVISED version of your full document incorporating your decisions.
+3. At the end, add a brief "## Revision Notes (Round {round})" section listing what you changed and why.
 
-Return a structured critique report.
+Output your revised document.
 ```
 
 ### Synthesis Prompt
@@ -357,28 +373,21 @@ Return a structured critique report.
 ```markdown
 # Synthesis Task
 
-You are a **{role} synthesizer**. Two agents independently produced documents
-for the same task phase, then cross-examined each other's work. Produce the
-**best possible final document** by combining their insights.
+You are a **{role} synthesizer**. Two agents have iteratively refined their
+documents through cross-examination. Produce the **best possible final document**
+by merging their final outputs.
 
-## Agent A's Document ({model_a})
+## Agent A's Final Document ({model_a})
 {agent_a_document}
 
-## Agent B's Document ({model_b})
+## Agent B's Final Document ({model_b})
 {agent_b_document}
-
-## Agent A's Critique of Agent B
-{critique_a_of_b}
-
-## Agent B's Critique of Agent A
-{critique_b_of_a}
 
 ## Instructions
 1. Take the best ideas, approaches, and content from both documents
-2. Address all valid criticisms raised in cross-examinations
-3. Resolve contradictions between the two approaches
-4. Produce a single, comprehensive final document better than either input
-5. Append a brief "## Synthesis Notes" section explaining key merge decisions
+2. Resolve any remaining contradictions between the two approaches
+3. Produce a single, comprehensive final document better than either input
+4. Append a brief "## Synthesis Notes" section explaining key merge decisions
 
 The final document must follow the standard {phase} phase format for the {role} agent.
 ```
@@ -388,8 +397,9 @@ The final document must follow the standard {phase} phase format for the {role} 
 | Mode | Calls / Phase | Full Task (10 phases) |
 |------|--------------|----------------------|
 | Single (default) | 1 | 10 |
-| Dual (all phases) | 5 | 50 |
-| Dual (3 key phases) | 3×5 + 7×1 = 22 | 22 |
+| Dual (converge in round 1) | 2+2+1+1 = 6 | 60 |
+| Dual (all 3 rounds) | 2+3×(1+2)+1 = 12 | 120 |
+| Dual (3 key phases, avg 2 rounds) | 3×8 + 7×1 = 31 | 31 |
 
 **Recommendation:** Enable dual mode for critical decision phases only —
 `design`, `impl_plan`, `review_execute` — to balance quality and cost.
@@ -449,7 +459,7 @@ verdict may override the default "approve" route:
 
 ```json
 {
-  "version": "4.7.3",
+  "version": "4.8.0",
   "platform": "claude-code",
   "models": {
     "acceptor":    "claude-haiku-4.5",
@@ -589,12 +599,17 @@ function resolve_config_answer(config, phase_name, question_key):
   # Looks in config.phase_defaults[phase_name][question_key] if exists.
   return config.get("phase_defaults", {}).get(phase_name, {}).get(question_key, null)
 
-function build_cross_examination_prompt(role, phase, task, other_doc, my_model, other_model):
-  # Dual-mode: builds a prompt asking one agent to critique the other's document.
-  return critique_prompt_string
+function analyze_divergence(role, phase, doc_a, doc_b):
+  # Orchestrator self-analysis: compares two documents, returns {converged, summary, key_differences}.
+  # Uses main session model (lightweight, no sub-agent spawn). See pseudocode below.
+  return divergence_result
 
-function build_synthesis_prompt(role, phase, task, doc_a, doc_b, critique_a, critique_b, model_a, model_b):
-  # Dual-mode: builds a prompt to synthesize two documents + critiques into one.
+function build_challenge_prompt(role, phase, current_task, my_doc, weaknesses, agent_label, round):
+  # Dual-mode: builds a prompt challenging one agent on its own weaknesses (no mention of other agent).
+  return challenge_prompt_string
+
+function build_synthesis_prompt(role, phase, current_task, doc_a, doc_b, model_a, model_b):
+  # Dual-mode: builds a prompt to merge two (possibly converged) documents into one.
   return synthesis_prompt_string
 
 function detect_adapter_from_env():
@@ -959,8 +974,9 @@ function resolve_dual_mode(task, config, route):
     return None
   return { ...dual, models: resolved_models }
 
-# Execute one phase in dual-agent mode.
+# Execute one phase in dual-agent mode with iterative convergence.
 # Returns the synthesized result (same shape as a normal agent result).
+# Flow: ① parallel execution → ② iterative cross-examination (≤3 rounds) → ③ synthesis
 function orchestrate_dual_phase(current_task, route, dual_config, base_prompt, DOCS_DIR, config):
   role = route.agent
   phase = route.phase
@@ -968,6 +984,7 @@ function orchestrate_dual_phase(current_task, route, dual_config, base_prompt, D
   model_b = dual_config.models.agent_b
   model_synth = dual_config.models.get("synthesizer") or None
   doc_base = route.doc.replace(".md", "")  # e.g., "design-doc"
+  MAX_ROUNDS = 3
 
   # ── Phase ①: Parallel initial execution ──
   result_a = task(agent_type=role, prompt=base_prompt, model=model_a, mode="background")
@@ -977,43 +994,114 @@ function orchestrate_dual_phase(current_task, route, dual_config, base_prompt, D
   if result_a.failed and result_b.failed:
     return { failed: true, error: "Both dual agents failed" }
   if result_a.failed or result_b.failed:
-    # One failed — fall back to the successful one as single-mode result
     return result_a if not result_a.failed else result_b
 
-  # Save initial documents
-  write result_a.document → DOCS_DIR/{doc_base}-agent-a.md
-  write result_b.document → DOCS_DIR/{doc_base}-agent-b.md
+  doc_a = result_a.document
+  doc_b = result_b.document
+  write doc_a → DOCS_DIR/{doc_base}-agent-a-r0.md
+  write doc_b → DOCS_DIR/{doc_base}-agent-b-r0.md
 
-  # ── Phase ②: Parallel cross-examination ──
-  critique_prompt_a = build_cross_examination_prompt(
-    role, phase, current_task, result_b.document, model_a, model_b)
-  critique_prompt_b = build_cross_examination_prompt(
-    role, phase, current_task, result_a.document, model_b, model_a)
+  # ── Phase ②: Iterative cross-examination (max 3 rounds) ──
+  for round in range(1, MAX_ROUNDS + 1):
+    # Step 2a: Orchestrator analyzes both documents, identifies weaknesses in each
+    divergence = analyze_divergence(role, phase, doc_a, doc_b)
+    # divergence = { converged: bool, summary: str,
+    #   weaknesses_a: ["issue in A's approach..."], weaknesses_b: ["issue in B's approach..."] }
 
-  critique_a = task(agent_type=role, prompt=critique_prompt_a, model=model_a, mode="background")
-  critique_b = task(agent_type=role, prompt=critique_prompt_b, model=model_b, mode="background")
-  wait for both critique_a, critique_b
+    if divergence.converged:
+      log f"🤝 Converged after {round - 1} round(s): {divergence.summary}"
+      break
 
-  # Save critiques (if a critique fails, use empty placeholder)
-  write (critique_a.document or "Critique unavailable") → DOCS_DIR/{doc_base}-critique-a.md
-  write (critique_b.document or "Critique unavailable") → DOCS_DIR/{doc_base}-critique-b.md
+    log f"🔄 Round {round}/{MAX_ROUNDS}: A has {len(divergence.weaknesses_a)} issues, B has {len(divergence.weaknesses_b)} issues"
+
+    # Step 2b: Challenge Agent A on its own weaknesses (no mention of B's approach)
+    challenge_a_prompt = build_challenge_prompt(
+      role, phase, current_task,
+      doc_a,                          # A's current document
+      divergence.weaknesses_a,        # weaknesses the orchestrator found in A
+      "A", round)
+    response_a = task(agent_type=role, prompt=challenge_a_prompt, model=model_a)
+    if not response_a.failed:
+      doc_a = response_a.document
+      write doc_a → DOCS_DIR/{doc_base}-agent-a-r{round}.md
+
+    # Step 2c: Challenge Agent B on its own weaknesses (no mention of A's approach)
+    challenge_b_prompt = build_challenge_prompt(
+      role, phase, current_task,
+      doc_b,                          # B's current document
+      divergence.weaknesses_b,        # weaknesses the orchestrator found in B
+      "B", round)
+    response_b = task(agent_type=role, prompt=challenge_b_prompt, model=model_b)
+    if not response_b.failed:
+      doc_b = response_b.document
+      write doc_b → DOCS_DIR/{doc_base}-agent-b-r{round}.md
+
+  else:
+    # Exhausted MAX_ROUNDS without convergence — proceed to synthesis anyway
+    log f"⚠️ Did not converge after {MAX_ROUNDS} rounds. Proceeding to synthesis."
 
   # ── Phase ③: Synthesis ──
+  # Merge the final (possibly converged) documents into one canonical artifact
   synth_prompt = build_synthesis_prompt(
     role, phase, current_task,
-    result_a.document, result_b.document,
-    critique_a.document or "", critique_b.document or "",
+    doc_a, doc_b,
     model_a, model_b)
 
   synth_result = task(agent_type=role, prompt=synth_prompt, model=model_synth)
 
   if synth_result.failed:
-    # Synthesis failed — fall back to agent A's document (arbitrary; both are valid)
-    return result_a
+    # Synthesis failed — fall back to agent A's latest document
+    synth_result = { document: doc_a, failed: false }
 
-  # Save final synthesized document as the canonical artifact
   write synth_result.document → DOCS_DIR/{route.doc}
   return synth_result
+
+# Orchestrator self-analysis: compare two documents for convergence.
+# Uses the main session model (not a sub-agent) — lightweight and fast.
+function analyze_divergence(role, phase, doc_a, doc_b):
+  prompt = f"""Compare these two {role} {phase} documents and assess convergence.
+
+## Document A
+{doc_a}
+
+## Document B
+{doc_b}
+
+Analyze:
+1. Are the core approaches/architectures fundamentally aligned?
+2. For each document, identify substantive weaknesses, gaps, or questionable decisions
+   (not minor wording — focus on design/logic issues the author should justify or fix)
+3. Verdict: "converged" if remaining differences are cosmetic/trivial, "divergent" if substantive
+
+Respond in JSON:
+{{"converged": bool, "summary": "one-line",
+  "weaknesses_a": ["issue in A that A should address..."],
+  "weaknesses_b": ["issue in B that B should address..."]}}"""
+  # Direct analysis by orchestrator (no sub-agent spawn)
+  return parse_json(llm_call(prompt))
+
+# Build a challenge prompt for one agent to address weaknesses in its own document.
+# The agent does NOT see the other agent's document — only its own weaknesses.
+function build_challenge_prompt(role, phase, current_task, my_doc, weaknesses, agent_label, round):
+  return f"""You are a {role} working on the {phase} phase, revision round {round}.
+
+## Your Current Document
+{my_doc}
+
+## Issues to Address
+A review has identified the following concerns with your document:
+
+{weaknesses}
+
+## Instructions
+1. For each issue, either:
+   - **Fix**: revise your document to address the concern
+   - **Defend**: explain why your current approach is correct and no change is needed
+   - **Improve**: adopt a better approach inspired by the feedback
+2. Produce a REVISED version of your full document incorporating your decisions.
+3. At the end, add a brief "## Revision Notes (Round {round})" section listing what you changed and why.
+
+Output your revised document."""
 
 function orchestrate(task_id):
   current_task = read task-board.json → find task by id
@@ -1392,8 +1480,8 @@ acceptor (accept-exec)   → gets: all documents + acceptance-plan.md
 > Missing upstream documents are simply omitted, not treated as errors.
 
 > **Dual mode:** Only the final synthesized document (e.g., `design-doc.md`) is passed
-> downstream. The intermediate files (`-agent-a.md`, `-agent-b.md`, `-critique-a.md`,
-> `-critique-b.md`) are retained in `docs/<task_id>/` for traceability but are NOT
+> downstream. The intermediate round files (`-agent-a-r0.md`, `-agent-a-r1.md`, etc.)
+> are retained in `docs/<task_id>/` for traceability but are NOT
 > included in downstream context to avoid bloat.
 
 ## Context Building
@@ -1544,7 +1632,7 @@ Respond to these user commands (see **Task Modes** section for full pipeline def
 4. **Dual-agent mode** — "是否启用双代理模式？/ Enable dual-agent mode?"
    - If yes: ask which phases to enable dual mode on (or "all")
    - If yes: ask for model pairing (or use config defaults)
-   - Show cost impact: "Dual mode = 5× calls per enabled phase"
+   - Show cost impact: "Dual mode = 4–10× calls per enabled phase (2 initial + up to 3×2 challenges + 1 divergence analysis per round + 1 synthesis)"
 5. **Dependencies** — does this task depend on other tasks?
 6. **Priority** — P0/P1/P2/P3?
 

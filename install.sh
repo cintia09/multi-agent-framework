@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# CodeNook v4.7.3 Installer
+# CodeNook v4.8.0 Installer
 # Usage: curl -sL https://raw.githubusercontent.com/cintia09/CodeNook/main/install.sh | bash
 
 VERSION="latest"

@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.8.0] - 2026-04-15
+
+### 🔄 v4.8.0 — Iterative Convergence Cross-Examination
+
+Redesigned the dual-agent cross-examination flow from one-shot parallel critique
+to an iterative convergence protocol with up to 3 rounds.
+
+#### Changed
+- **Cross-examination redesign**: orchestrator now challenges each agent sequentially,
+  requiring them to defend, concede, or merge on each divergence point (max 3 rounds)
+- **Convergence detection**: orchestrator analyzes divergence between A/B documents
+  each round; exits early when positions converge
+- **Document artifacts**: versioned per round (`-agent-a-r0.md`, `-agent-a-r1.md`, etc.)
+  instead of single static files
+- **Synthesis prompt simplified**: no longer passes critique docs (agents already revised)
+- **Cost model updated**: 4–10× calls per dual phase (was fixed 5×)
+
+#### Added
+- `analyze_divergence()` — orchestrator self-analysis function for convergence detection
+- `build_challenge_prompt()` — replaces `build_cross_examination_prompt()`
+
+#### Removed
+- `build_cross_examination_prompt()` — replaced by iterative challenge flow
+
+#### Fixed (from v4.7.3 deep review)
+- `task` vs `current_task` naming inconsistency (9 instances in orchestrate/dual functions)
+- Preflight `dual_mode` dict now includes `synthesizer` and `phase_models` for schema completeness
+- `get_user_decision` signature updated with `multi_select=False` parameter
+- `get_user_input` helper function declared
+
 ## [4.7.3] - 2026-04-15
 
 ### 🛡️ v4.7.3 — Preflight Check for Missing Creation-Time Fields
