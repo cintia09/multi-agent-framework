@@ -849,15 +849,31 @@ function orchestrate(task_id):
       entry_qs = PHASE_ENTRY_QUESTIONS.get(phase_name, [])
       if entry_qs:
         phase_decisions = {}
+        any_new_answers = false
         for q in entry_qs:
-          # Check if config already has the answer
+          # Check if config already has the answer (saved from previous tasks)
           config_answer = resolve_config_answer(config, phase_name, q.key)
           if config_answer:
             phase_decisions[q.key] = config_answer
           else:
             answer = get_user_decision(q.prompt, q.choices)
             phase_decisions[q.key] = answer
-        # Persist decisions in task board
+            any_new_answers = true
+
+        # Offer to save new answers to config for future tasks
+        if any_new_answers:
+          save_choice = get_user_decision(
+            "Save these choices to config? (Future tasks will skip these questions)",
+            ["Yes, remember for all tasks ★", "No, just this task"]
+          )
+          if save_choice starts with "Yes":
+            if "phase_defaults" not in config: config["phase_defaults"] = {}
+            if phase_name not in config["phase_defaults"]: config["phase_defaults"][phase_name] = {}
+            for key, val in phase_decisions.items():
+              config["phase_defaults"][phase_name][key] = val
+            save config.json   # persist to disk
+
+        # Persist decisions in task board (always, for audit)
         if "phase_decisions" not in task: task["phase_decisions"] = {}
         task["phase_decisions"][phase_name] = phase_decisions
         save task-board.json
@@ -1301,6 +1317,9 @@ persisted to `config.json` immediately.
 |---------|--------|
 | "查看配置" / "show config" | Pretty-print current config.json |
 | "导出配置" / "export config" | Output config.json content for backup |
+| "清除阶段默认值" / "clear phase defaults" | Reset `config.phase_defaults = {}` — all phase entry questions will be re-asked |
+| "清除 design 阶段默认值" / "clear design defaults" | Remove `config.phase_defaults.design` only |
+| "查看阶段默认值" / "show phase defaults" | Display saved phase entry defaults |
 
 **Persistence:** Every config change writes to `config.json` immediately with backup to `config.json.bak`.
 Changes take effect on the next agent spawn (no restart needed).

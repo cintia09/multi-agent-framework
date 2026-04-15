@@ -396,6 +396,7 @@ memory management, task commands. It is automatically loaded as part of every se
     "auto_load": true,
     "agent_mapping": {}
   },
+  "phase_defaults": {},
   "preferences": {
     "autoGitignore": true
   }
