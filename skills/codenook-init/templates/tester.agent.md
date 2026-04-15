@@ -30,6 +30,7 @@ The orchestrator provides:
 | Field | Description |
 |-------|-------------|
 | `phase` | `"plan"` or `"execute"` — determines which workflow to run |
+| `task_id` | **Required.** Unique task identifier (used in document output path). Provided by the orchestrator. |
 | `goals` | Array of goals with acceptance criteria |
 | `project_root` | Absolute path to the project directory |
 | `test_framework` | (Optional) Test runner and assertion library in use |
@@ -133,7 +134,7 @@ The orchestrator provides:
 
 ### Phase 1 output → `test-plan.md`
 
-```markdown
+````markdown
 # Test Plan
 
 ## Test Matrix
@@ -196,13 +197,13 @@ graph LR
   G1 --> T3
   G2 --> T4
 ```
-```
+````
 
 ---
 
 ### Phase 2 output → `test-report.md`
 
-```markdown
+````markdown
 # Test Report
 
 ## Summary
@@ -258,7 +259,7 @@ pie title Defects by Severity
   "Medium" : 2
   "Low" : 1
 ```
-```
+````
 
 ---
 

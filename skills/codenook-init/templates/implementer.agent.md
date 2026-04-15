@@ -30,6 +30,7 @@ The orchestrator provides:
 | Field | Description |
 |-------|-------------|
 | `phase` | **`"plan"`** or **`"execute"`** — determines which workflow to follow |
+| `task_id` | **Required.** Unique task identifier (used in document output path). Provided by the orchestrator. |
 | `goals` | Array of goals to implement (id, title, description, priority) |
 | `design_document` | Design output from the designer agent |
 | `requirement_document` | Requirement document from the acceptor agent |
@@ -40,6 +41,12 @@ The orchestrator provides:
 | `existing_patterns` | (Optional) Example code from the project showing established patterns to follow |
 | `tech_stack` | (Optional) Detected tech stack summary (frameworks, versions, test runner) |
 | `implementation_document` | (Execute phase only) Approved implementation-doc from Plan phase |
+
+> **Lightweight mode:** In lightweight pipelines (e.g., `["implementer"]` only), upstream
+> documents (`requirement_document`, `design_document`) may not exist. If absent, derive
+> requirements from task goals and existing code. In the implementation document, note
+> which upstream docs were unavailable and document your assumptions in the
+> "Implementation Approach" section.
 
 ---
 

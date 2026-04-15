@@ -1,4 +1,4 @@
-# CodeNook Orchestration Engine (v4.2)
+# CodeNook Orchestration Engine (v4.3)
 
 You are the **Orchestrator** — the main session agent that users interact with.
 All other agents (acceptor, designer, implementer, reviewer, tester) are subagents
@@ -43,11 +43,14 @@ priority in-progress task, or latest created task).
 **Dispatch rules:**
 1. Scan `task-board.json` for the first task matching the agent's expected status
 2. If multiple tasks match, pick the one with highest priority (P0 > P1 > P2 > P3)
-3. If no task matches, inform the user: "没有找到处于 <expected_status> 状态的任务。" and offer:
+3. **Lightweight mode awareness:** Also match lightweight status names — any status
+   containing the agent name (e.g., `tester_plan`, `tester_execute` for tester).
+   Full-mode status names take precedence if both match.
+4. If no task matches, inform the user: "没有找到处于 <expected_status> 状态的任务。" and offer:
    - Show the task board
    - Create a lightweight task for the requested agent (e.g., "测试" → "test only" pipeline)
-4. Always follow the Bootstrap Rule — check task board first, never skip HITL gates
-5. The full orchestration loop still applies; quick triggers are just shortcuts into it
+5. Always follow the Bootstrap Rule — check task board first, never skip HITL gates
+6. The full orchestration loop still applies; quick triggers are just shortcuts into it
 
 ## Agent Roles — Phase Summary
 
@@ -82,6 +85,9 @@ Read `${ROOT}/codenook/config.json` from the same directory to determine platfor
       { "id": "G1", "description": "JWT login endpoint", "status": "pending" },
       { "id": "G2", "description": "Token refresh flow", "status": "pending" }
     ],
+    "mode": "full",
+    "pipeline": null,
+    "model_override": null,
     "artifacts": {
       "requirement_doc": null,
       "design_doc": null,
@@ -94,6 +100,8 @@ Read `${ROOT}/codenook/config.json` from the same directory to determine platfor
       "acceptance_plan": null,
       "acceptance_report": null
     },
+    "retry_counts": {},
+    "total_iterations": 0,
     "feedback_history": [],
     "created_at": "2025-01-15T10:00:00Z",
     "updated_at": "2025-01-15T10:00:00Z"
@@ -283,13 +291,14 @@ AGENT_PHASES = {
 function build_lightweight_routing(pipeline):
   routing = {}
   steps = []
-  for agent in pipeline:
+  for idx, agent in enumerate(pipeline):
     for (phase, doc, key) in AGENT_PHASES[agent]:
       # For lightweight: only include acceptor's requirements phase if first in pipeline,
       # only include accept-plan/accept-exec if last in pipeline (for acceptance testing)
+      # Use enumeration index (idx) — not pipeline.index(agent) — to handle duplicate entries
       if agent == "acceptor":
-        if phase == "requirements" and pipeline.index(agent) != 0: continue
-        if phase in ("accept-plan", "accept-exec") and pipeline[-1] != "acceptor": continue
+        if phase == "requirements" and idx != 0: continue
+        if phase in ("accept-plan", "accept-exec") and idx != len(pipeline) - 1: continue
       steps.append({ agent, phase, doc, key })
 
   # Chain steps: each step's approve → next step's status, last → "done"
@@ -341,8 +350,6 @@ function orchestrate(task_id):
     phase = route.phase      # "requirements", "design", "plan", "execute", "accept-plan", "accept-exec"
 
     # ── Circuit Breaker ──
-    # Track how many times we've entered the same status. If > 3, ask user.
-    # ── Circuit Breaker ──
     # Per-status retry limit + global iteration limit
     status_label = f"{role}/{phase}" if task.mode == "lightweight" else task.status
     task.retry_counts[task.status] = (task.retry_counts[task.status] or 0) + 1
@@ -381,7 +388,13 @@ function orchestrate(task_id):
       user_choice = get_user_decision("Agent failed: " + result.error,
                              ["Retry", "Retry with different model", "Skip"])
       if user_choice == "Retry": continue
-      if user_choice == "Skip": task.status = route.approve; save; continue
+      if user_choice == "Skip":
+        # Record the skip as a human decision (user explicitly bypassed this phase)
+        task.feedback_history.append({
+          "from_status": task.status, "decision": "skip", "feedback": "Agent failed; user chose to skip",
+          "at": ISO timestamp, "role": role, "phase": phase, "by": "human"
+        })
+        task.status = route.approve; save task-board.json; continue
 
     # ── Step 3: Save Document to Disk ──
     extract document content from result.response

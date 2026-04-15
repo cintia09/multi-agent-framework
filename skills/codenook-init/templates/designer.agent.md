@@ -96,7 +96,7 @@ The implementer cannot begin work until this document is approved.
 
 Use this format:
 
-```markdown
+````markdown
 # Design Document
 
 ## Overview
@@ -172,7 +172,7 @@ erDiagram
 | Risk | Impact | Mitigation |
 |------|--------|------------|
 | <description> | high/medium/low | <mitigation strategy> |
-```
+````
 
 ---
 
