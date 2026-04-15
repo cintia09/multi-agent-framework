@@ -792,7 +792,7 @@ function orchestrate(task_id):
     task.retry_counts[task.status] = (task.retry_counts[task.status] or 0) + 1
     task.total_iterations = (task.total_iterations or 0) + 1
     if task.retry_counts[task.status] >= 3 or task.total_iterations >= 30:
-      reason = f"status '{status_label}' retried {task.retry_counts[task.status]}x" if task.retry_counts[task.status] > 3 else f"total iterations reached {task.total_iterations}"
+      reason = f"status '{status_label}' retried {task.retry_counts[task.status]}x" if task.retry_counts[task.status] >= 3 else f"total iterations reached {task.total_iterations}"
       decision = get_user_decision(f"⚠️ Circuit breaker: {reason}. Continue, skip, or abandon?",
         ["Continue", "Skip to done (with warning)", "Abandon task"])
       if decision == "Abandon task": task.status = "abandoned"; break
@@ -849,7 +849,7 @@ function orchestrate(task_id):
       entry_qs = PHASE_ENTRY_QUESTIONS.get(phase_name, [])
       if entry_qs:
         phase_decisions = {}
-        any_new_answers = false
+        any_new_answers = False
         for q in entry_qs:
           # Check if config already has the answer (saved from previous tasks)
           config_answer = resolve_config_answer(config, phase_name, q.key)
@@ -858,7 +858,7 @@ function orchestrate(task_id):
           else:
             answer = get_user_decision(q.prompt, q.choices)
             phase_decisions[q.key] = answer
-            any_new_answers = true
+            any_new_answers = True
 
         # Offer to save new answers to config for future tasks
         if any_new_answers:
@@ -866,7 +866,7 @@ function orchestrate(task_id):
             "Save these choices to config? (Future tasks will skip these questions)",
             ["Yes, remember for all tasks ★", "No, just this task"]
           )
-          if save_choice starts with "Yes":
+          if save_choice.startswith("Yes"):
             if "phase_defaults" not in config: config["phase_defaults"] = {}
             if phase_name not in config["phase_defaults"]: config["phase_defaults"][phase_name] = {}
             for key, val in phase_decisions.items():
