@@ -447,7 +447,7 @@ After initialization, `codenook/config.json` lives under `.claude/codenook/`:
     "tester":      "claude-haiku-4.5",
     "phase_overrides": {
       "design":         "claude-opus-4",
-      "review_execute": "gpt-5.4"
+      "review_execute": "gpt-4.1"
     }
   },
   "hitl": {
@@ -497,7 +497,7 @@ You can change configuration at any time through natural language:
 
 ```
 "设置 design 阶段用 claude-opus-4"     # Set per-phase model
-"reviewer 换成 gpt-5.4"                # Change agent model
+"reviewer 换成 gpt-4.1"                # Change agent model
 "design 阶段用 confluence 审批"         # Change per-phase HITL adapter
 "关闭 HITL"                            # Disable all HITL gates
 "查看配置"                             # Show current config

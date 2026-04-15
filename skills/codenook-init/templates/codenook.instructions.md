@@ -791,12 +791,12 @@ function orchestrate(task_id):
     status_label = f"{role}/{phase}" if task.mode == "lightweight" else task.status
     task.retry_counts[task.status] = (task.retry_counts[task.status] or 0) + 1
     task.total_iterations = (task.total_iterations or 0) + 1
-    if task.retry_counts[task.status] > 3 or task.total_iterations > 30:
+    if task.retry_counts[task.status] >= 3 or task.total_iterations >= 30:
       reason = f"status '{status_label}' retried {task.retry_counts[task.status]}x" if task.retry_counts[task.status] > 3 else f"total iterations reached {task.total_iterations}"
       decision = get_user_decision(f"⚠️ Circuit breaker: {reason}. Continue, skip, or abandon?",
         ["Continue", "Skip to done (with warning)", "Abandon task"])
-      if abandon: task.status = "abandoned"; break
-      if skip: task.status = "done"; break
+      if decision == "Abandon task": task.status = "abandoned"; break
+      if decision == "Skip to done (with warning)": task.status = "done"; break
 
     # ── Step 1: Build Context ──
     upstream_docs = {}
@@ -873,11 +873,13 @@ function orchestrate(task_id):
               config["phase_defaults"][phase_name][key] = val
             save config.json   # persist to disk
 
-        # Persist decisions in task board (always, for audit)
+        # Persist NEW decisions in task board
         if "phase_decisions" not in task: task["phase_decisions"] = {}
         task["phase_decisions"][phase_name] = phase_decisions
         save task-board.json
-      # Inject phase decisions into prompt context
+
+    # ALWAYS inject phase decisions into prompt (whether fresh or cached)
+    if phase_decisions:
       prompt = prompt + "\n\n# Phase Decisions\n" + yaml(phase_decisions)
 
     # ── Step 2: Spawn Agent (single or dual mode) ──

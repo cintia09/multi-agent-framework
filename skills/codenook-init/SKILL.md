@@ -59,15 +59,19 @@ IF .claude/codenook/config.json exists:
       # Re-append engine block to CLAUDE.md
     ]
 
-    # ── Merge config.json ──
-    # Keep existing: models, hitl.adapter, preferences.*, skills.*
-    # Update: version field → new version
-    # Add: any new keys from seed template (with defaults)
+    # ── Merge config.json (DEEP MERGE) ──
+    # Strategy: deep-merge at each level, never overwrite user values.
+    # 1. Preserve all existing keys and their values
+    # 2. Add new keys from seed template (with defaults) at the correct nesting level
+    # 3. Update: version field → new version
+    #
+    # Example: if old config has models: { acceptor: "X" } and new seed adds
+    # models.phase_overrides, result is models: { acceptor: "X", phase_overrides: {} }
 
     # Skip questions Q1-Q3 — preferences already in config.json
-    # Q4 (Skill Provisioning) — run ONLY if config.skills.auto_load is missing
+    # Q4 (Skill Provisioning) — run ONLY if config.skills key is entirely missing
     #   (i.e., upgrading from pre-v4.4 that didn't have skill provisioning)
-    #   If config.skills already exists → preserve it, skip Q4
+    #   If config.skills exists (even with auto_load=false) → preserve it, skip Q4
     Proceed to Step 4 (upgrade mode)
 ```
 
@@ -110,7 +114,7 @@ planning, premium for execution). Config result:
     "impl_plan":      "claude-haiku-4.5",
     "impl_execute":   "claude-sonnet-4",
     "review_plan":    "claude-haiku-4.5",
-    "review_execute": "gpt-5.4",
+    "review_execute": "gpt-4.1",
     "test_plan":      "claude-haiku-4.5",
     "test_execute":   "claude-sonnet-4",
     "accept_plan":    "claude-haiku-4.5",
@@ -129,7 +133,7 @@ Recommended per-phase defaults (if user wants guidance):
 | impl_plan | claude-haiku-4.5 | Planning is lightweight |
 | impl_execute | claude-sonnet-4 | Code generation needs quality |
 | review_plan | claude-haiku-4.5 | Planning is lightweight |
-| review_execute | gpt-5.4 | Code review benefits from diverse perspective |
+| review_execute | gpt-4.1 | Code review benefits from diverse perspective |
 | test_plan | claude-haiku-4.5 | Planning is lightweight |
 | test_execute | claude-sonnet-4 | Test generation needs quality |
 | accept_plan | claude-haiku-4.5 | Planning is lightweight |
@@ -184,6 +188,8 @@ Phase-level adapter takes priority over the global `adapter` field. Global is th
 ### Q3 — Gitignore
 > "Add agent system files to .gitignore?"
 > Choices: `Yes ★` · `No`
+
+**Config result:** `config.preferences.autoGitignore = true/false`
 
 Items to append (relative to project root):
 - `.claude/agents/` — agent profile files
@@ -251,13 +257,15 @@ If user selects **"Yes, scan and assign"**:
    If **Customize**: for each agent, ask which skills to include/exclude.
    If **Load all**: set `agent_mapping = {}` (empty = all skills for all agents).
 
-5. **Copy skill directories** — for each unique skill in the mapping:
+5. **Copy skill files** — for each unique skill in the mapping:
    ```bash
-   cp -r ~/.copilot/skills/<skill-name> ${ROOT}/codenook/skills/<skill-name>
-   # or from ~/.claude/skills/ depending on platform
+   mkdir -p ${ROOT}/codenook/skills/<skill-name>
+   # Copy only SKILL.md and lightweight reference files
+   cp ~/.copilot/skills/<skill-name>/SKILL.md ${ROOT}/codenook/skills/<skill-name>/
+   # Optionally copy examples/ and references/ if they exist and are small (<100KB total)
+   # Skip: node_modules/, __pycache__/, *.bin, .git/, caches, platform scripts
    ```
-   Only copy the SKILL.md file and essential reference files (examples/, references/).
-   Skip large binary files, caches, or platform-specific scripts.
+   Use `~/.claude/skills/` instead of `~/.copilot/skills/` on Claude Code platform.
 
 6. **Populate config.json** — write the `skills.agent_mapping` section:
    ```json
