@@ -3,7 +3,7 @@ name: codenook-init
 description: "Initialize the multi-agent development framework in a project. Generates agent profiles, creates task board and config for Claude Code."
 ---
 
-# Agent System Initialization (v4.4)
+# Agent System Initialization (v4.5)
 
 > Trigger: "initialize agent system" | "agent init" | "codenook-init"
 
@@ -72,11 +72,11 @@ IF .claude/codenook/config.json exists:
 
 ## Step 3 — Configuration Questions
 
-Collect preferences via `ask_user` (3 prompts max):
+Collect preferences via `ask_user`:
 
 ### Q1 — Agent Models
 > "Configure models for agents?"
-> Choices: `Use defaults` · `Custom per-agent`
+> Choices: `Use defaults ★` · `Custom per-agent` · `Custom per-phase (advanced)`
 
 Default model map:
 
@@ -88,7 +88,49 @@ Default model map:
 | reviewer     | claude-sonnet-4     |
 | tester       | claude-haiku-4.5    |
 
-If **Custom**: loop through 5 agents, ask model for each.
+If **Custom per-agent**: loop through 5 agents, ask model for each.
+Config result: `"models": { "acceptor": "...", "designer": "...", ... }`
+
+If **Custom per-phase**: present the 10-phase table and ask model for each.
+This allows different models for plan vs. execute phases (e.g., cheaper model for
+planning, premium for execution). Config result:
+```json
+"models": {
+  "acceptor": "claude-haiku-4.5",
+  "designer": "claude-sonnet-4",
+  "implementer": "claude-sonnet-4",
+  "reviewer": "claude-sonnet-4",
+  "tester": "claude-haiku-4.5",
+  "phase_overrides": {
+    "requirements":   "claude-sonnet-4",
+    "design":         "claude-opus-4",
+    "impl_plan":      "claude-haiku-4.5",
+    "impl_execute":   "claude-sonnet-4",
+    "review_plan":    "claude-haiku-4.5",
+    "review_execute": "gpt-5.4",
+    "test_plan":      "claude-haiku-4.5",
+    "test_execute":   "claude-sonnet-4",
+    "accept_plan":    "claude-haiku-4.5",
+    "accept_execute": "claude-haiku-4.5"
+  }
+}
+```
+Phase-level model takes priority over agent-level. Agent-level is the fallback.
+
+Recommended per-phase defaults (if user wants guidance):
+
+| Phase | Recommended Model | Rationale |
+|-------|------------------|-----------|
+| requirements | claude-sonnet-4 | Needs good language understanding |
+| design | claude-opus-4 | Architecture requires deep reasoning |
+| impl_plan | claude-haiku-4.5 | Planning is lightweight |
+| impl_execute | claude-sonnet-4 | Code generation needs quality |
+| review_plan | claude-haiku-4.5 | Planning is lightweight |
+| review_execute | gpt-5.4 | Code review benefits from diverse perspective |
+| test_plan | claude-haiku-4.5 | Planning is lightweight |
+| test_execute | claude-sonnet-4 | Test generation needs quality |
+| accept_plan | claude-haiku-4.5 | Planning is lightweight |
+| accept_execute | claude-haiku-4.5 | Acceptance checking is structured |
 
 ### Q2 — HITL Adapter
 > "HITL adapter?"
@@ -101,6 +143,40 @@ If **Custom**: loop through 5 agents, ask model for each.
 | +Confluence | Append `Confluence` to either list           |
 
 ★ = recommended default
+
+After initial selection, ask:
+> "Same adapter for all phases, or customize per-phase?"
+> Choices: `Same for all ★` · `Custom per-phase`
+
+If **Custom per-phase**: for each of the 10 phases, ask which adapter to use.
+This enables scenarios like:
+- `terminal` for lightweight plan phases (fast inline approval)
+- `local-html` for execute phases (richer document review)
+- `confluence` for design and acceptance phases (team-wide visibility)
+- `github-issue` for review phases (code review integration)
+
+Config result for per-phase HITL:
+```json
+"hitl": {
+  "enabled": true,
+  "adapter": "local-html",
+  "port": 8765,
+  "auto_open_browser": true,
+  "phase_overrides": {
+    "requirements":   "confluence",
+    "design":         "confluence",
+    "impl_plan":      "terminal",
+    "impl_execute":   "local-html",
+    "review_plan":    "terminal",
+    "review_execute": "github-issue",
+    "test_plan":      "terminal",
+    "test_execute":   "local-html",
+    "accept_plan":    "terminal",
+    "accept_execute": "confluence"
+  }
+}
+```
+Phase-level adapter takes priority over the global `adapter` field. Global is the fallback.
 
 ### Q3 — Gitignore
 > "Add agent system files to .gitignore?"
@@ -280,7 +356,7 @@ memory management, task commands. It is automatically loaded as part of every se
 
 ```json
 {
-  "version": "4.4",
+  "version": "4.5",
   "tasks": []
 }
 ```
@@ -292,20 +368,22 @@ memory management, task commands. It is automatically loaded as part of every se
 
 ```json
 {
-  "version": "4.4",
+  "version": "4.5",
   "platform": "claude-code",
   "models": {
     "acceptor":    "<model>",
     "designer":    "<model>",
     "implementer": "<model>",
     "reviewer":    "<model>",
-    "tester":      "<model>"
+    "tester":      "<model>",
+    "phase_overrides": {}
   },
   "hitl": {
     "enabled": true,
     "adapter": "<local-html|terminal|github-issue|confluence>",
     "port": 8765,
-    "auto_open_browser": true
+    "auto_open_browser": true,
+    "phase_overrides": {}
   },
   "skills": {
     "auto_load": true,
@@ -316,6 +394,17 @@ memory management, task commands. It is automatically loaded as part of every se
   }
 }
 ```
+
+**Model resolution order** (highest to lowest priority):
+1. `task.model_override` — per-task override set at runtime
+2. `config.models.phase_overrides[phase_name]` — per-phase model from Q1
+3. `config.models[role]` — per-agent model from Q1
+4. Platform default (no model parameter → platform picks)
+
+**HITL adapter resolution order**:
+1. `config.hitl.phase_overrides[phase_name]` — per-phase adapter from Q2
+2. `config.hitl.adapter` — global adapter from Q2
+3. Auto-detect from environment ($SSH_TTY, $DISPLAY, etc.)
 
 **Skills configuration:**
 - `skills.auto_load` (default `true`): When enabled, the orchestrator scans `${ROOT}/codenook/skills/`

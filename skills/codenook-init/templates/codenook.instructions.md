@@ -1,4 +1,4 @@
-# CodeNook Orchestration Engine (v4.4)
+# CodeNook Orchestration Engine (v4.5)
 
 You are the **Orchestrator** — the main session agent that users interact with.
 All other agents (acceptor, designer, implementer, reviewer, tester) are subagents
@@ -75,7 +75,7 @@ Read `${ROOT}/codenook/config.json` from the same directory to determine platfor
 
 ```json
 {
-  "version": "4.3",
+  "version": "4.5",
   "tasks": [{
     "id": "T-001",
     "title": "Implement user authentication",
@@ -374,15 +374,19 @@ verdict may override the default "approve" route:
 
 ## HITL Adapter System & Execution
 
-Auto-detect how to present output for human review:
+Resolve which adapter to use for this phase:
 
 ```
-1. config.json "hitl.adapter" set?    → use that
-2. $SSH_TTY set?                      → terminal
-3. $DISPLAY set or macOS?             → local-html
-4. /.dockerenv exists?                → terminal
-5. default                            → terminal
+1. config.hitl.phase_overrides[phase_name]?  → use that (per-phase from Q2)
+2. config.hitl.adapter set?                  → use that (global from Q2)
+3. $SSH_TTY set?                             → terminal
+4. $DISPLAY set or macOS?                    → local-html
+5. /.dockerenv exists?                       → terminal
+6. default                                   → terminal
 ```
+
+Phase name is resolved the same way as for models: `resolve_phase_name(role, phase)`
+→ e.g., `"design"`, `"impl_execute"`, `"review_plan"`, etc.
 
 HITL adapter scripts are in `${ROOT}/codenook/hitl-adapters/`. All follow the same interface:
 
@@ -438,6 +442,23 @@ FULL_ROUTING = {
   "test_done":       { agent: "acceptor",    phase: "accept-plan",  doc: "acceptance-plan.md",     key: "acceptance_plan",    approve: "accept_planned",  reject: "test_done"        },
   "accept_planned":  { agent: "acceptor",    phase: "accept-exec",  doc: "acceptance-report.md",   key: "acceptance_report",  approve: "done",            reject: "design_approved"  },
 }
+
+# Phase name resolver — maps (role, phase) to config phase_overrides key names
+# Used for per-phase model and HITL adapter resolution.
+def resolve_phase_name(role, phase):
+  PHASE_NAME_MAP = {
+    ("acceptor", "requirements"):  "requirements",
+    ("designer", "design"):        "design",
+    ("implementer", "plan"):       "impl_plan",
+    ("implementer", "execute"):    "impl_execute",
+    ("reviewer", "plan"):          "review_plan",
+    ("reviewer", "execute"):       "review_execute",
+    ("tester", "plan"):            "test_plan",
+    ("tester", "execute"):         "test_execute",
+    ("acceptor", "accept-plan"):   "accept_plan",
+    ("acceptor", "accept-exec"):   "accept_execute",
+  }
+  return PHASE_NAME_MAP.get((role, phase), f"{role}_{phase}")
 
 # Lightweight pipeline routing — dynamically built from task.pipeline
 AGENT_PHASES = {
@@ -641,10 +662,14 @@ function orchestrate(task_id):
           elif skill_name in allowed_skills:
             project_skills[skill_name] = read skill_file
 
-    prompt   = build_context(task, role, phase, upstream_docs, memory, feedback, project_skills)
+        prompt   = build_context(task, role, phase, upstream_docs, memory, feedback, project_skills)
 
-    # Model resolution (priority: task override > config.json > platform default)
-    model = task.model_override or config.models.get(role) or None
+    # Model resolution (priority: task override > phase override > agent model > platform default)
+    phase_name = resolve_phase_name(role, phase)  # e.g., "impl_execute", "design"
+    model = (task.model_override
+             or config.models.get("phase_overrides", {}).get(phase_name)
+             or config.models.get(role)
+             or None)
 
     # ── Step 2: Spawn Agent (single or dual mode) ──
     dual_config = resolve_dual_mode(task, config, route)
