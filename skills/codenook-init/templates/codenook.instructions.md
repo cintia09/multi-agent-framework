@@ -1,4 +1,4 @@
-# CodeNook Orchestration Engine (v4.3)
+# CodeNook Orchestration Engine (v4.4)
 
 You are the **Orchestrator** — the main session agent that users interact with.
 All other agents (acceptor, designer, implementer, reviewer, tester) are subagents
@@ -88,6 +88,7 @@ Read `${ROOT}/codenook/config.json` from the same directory to determine platfor
     "mode": "full",
     "pipeline": null,
     "model_override": null,
+    "dual_mode": null,
     "artifacts": {
       "requirement_doc": null,
       "design_doc": null,
@@ -162,6 +163,163 @@ created → implementer (plan) → HITL → implementer (execute) → HITL
 - User says "create task <title> --mode lightweight --pipeline implementer,tester"
 - Or shortcut: "quick fix: <title>", "开发: <title>", "test only: <title>"
 - Quick Trigger keywords also work: user says "测试" with no matching task → prompt to create a lightweight test-only task
+
+## Dual-Agent Parallel Mode
+
+Enable **two sub-agents** with different models working in parallel on the same phase,
+followed by **cross-examination** and **synthesis** — producing higher-quality outputs
+at the cost of 5× agent invocations per dual-mode phase.
+
+### Flow Per Dual-Mode Phase
+
+```
+① Parallel Execute (2 calls)
+   Agent A (Model 1) ───┐
+                        ├── each produces document independently
+   Agent B (Model 2) ───┘
+
+② Parallel Cross-Examine (2 calls)
+   A critiques B's doc ───┐
+                          ├── each produces structured critique
+   B critiques A's doc ───┘
+
+③ Synthesize (1 call)
+   Synthesizer reads all 4 inputs → final merged document
+
+④ HITL Gate (unchanged)
+   Human reviews synthesized document → approve / reject
+```
+
+### Configuration
+
+Dual mode can be set at **task level** (overrides global) or **global level** (config.json).
+
+**Task-level** — set `dual_mode` in task-board.json (or `null` to use global default):
+```json
+{
+  "id": "T-003",
+  "dual_mode": {
+    "enabled": true,
+    "phases": ["design", "impl_plan", "review_execute"],
+    "models": {
+      "agent_a": "claude-sonnet-4",
+      "agent_b": "gpt-5.1",
+      "synthesizer": null
+    }
+  }
+}
+```
+
+**Global default** — set in config.json:
+```json
+{
+  "dual_mode": {
+    "enabled": false,
+    "phases": ["all"],
+    "models": {
+      "agent_a": "claude-sonnet-4",
+      "agent_b": "gpt-5.1",
+      "synthesizer": null
+    }
+  }
+}
+```
+
+**Phase names** (used in `dual_mode.phases` array):
+
+| Phase Name | Agent (Phase) | Routing Status |
+|-----------|---------------|----------------|
+| `"requirements"` | acceptor (requirements) | created |
+| `"design"` | designer (design) | req_approved |
+| `"impl_plan"` | implementer (plan) | design_approved |
+| `"impl_execute"` | implementer (execute) | impl_planned |
+| `"review_plan"` | reviewer (plan) | impl_done |
+| `"review_execute"` | reviewer (execute) | review_planned |
+| `"test_plan"` | tester (plan) | review_done |
+| `"test_execute"` | tester (execute) | test_planned |
+| `"accept_plan"` | acceptor (accept-plan) | test_done |
+| `"accept_execute"` | acceptor (accept-exec) | accept_planned |
+| `"all"` | Every phase | — |
+
+**Model resolution:** `agent_a` / `agent_b` required when enabled. `synthesizer` = null → platform default.
+
+### Document Artifacts (Dual Mode)
+
+Each dual-mode phase produces 5 files (only the final is passed downstream):
+
+```
+docs/T-001/
+├── design-doc.md               ← Final synthesized (used by HITL & downstream agents)
+├── design-doc-agent-a.md       ← Agent A's initial version
+├── design-doc-agent-b.md       ← Agent B's initial version
+├── design-doc-critique-a.md    ← Agent A's critique of Agent B
+├── design-doc-critique-b.md    ← Agent B's critique of Agent A
+```
+
+### Cross-Examination Prompt
+
+```markdown
+# Cross-Examination Task
+
+You are **{role}** reviewing a peer agent's work on the same task.
+
+## Task Context
+- **Task:** {task_title} | **Phase:** {phase}
+- **Your Model:** {your_model} | **Peer Model:** {peer_model}
+
+## The Peer Agent's Document
+{peer_document}
+
+## Instructions
+1. Identify strengths (what is done well)
+2. Identify weaknesses (errors, gaps, missing coverage, unclear sections)
+3. Suggest specific, actionable improvements
+4. Rate overall quality: **STRONG** / **ADEQUATE** / **NEEDS_IMPROVEMENT**
+
+Return a structured critique report.
+```
+
+### Synthesis Prompt
+
+```markdown
+# Synthesis Task
+
+You are a **{role} synthesizer**. Two agents independently produced documents
+for the same task phase, then cross-examined each other's work. Produce the
+**best possible final document** by combining their insights.
+
+## Agent A's Document ({model_a})
+{agent_a_document}
+
+## Agent B's Document ({model_b})
+{agent_b_document}
+
+## Agent A's Critique of Agent B
+{critique_a_of_b}
+
+## Agent B's Critique of Agent A
+{critique_b_of_a}
+
+## Instructions
+1. Take the best ideas, approaches, and content from both documents
+2. Address all valid criticisms raised in cross-examinations
+3. Resolve contradictions between the two approaches
+4. Produce a single, comprehensive final document better than either input
+5. Append a brief "## Synthesis Notes" section explaining key merge decisions
+
+The final document must follow the standard {phase} phase format for the {role} agent.
+```
+
+### Cost Impact
+
+| Mode | Calls / Phase | Full Task (10 phases) |
+|------|--------------|----------------------|
+| Single (default) | 1 | 10 |
+| Dual (all phases) | 5 | 50 |
+| Dual (3 key phases) | 3×5 + 7×1 = 22 | 22 |
+
+**Recommendation:** Enable dual mode for critical decision phases only —
+`design`, `impl_plan`, `review_execute` — to balance quality and cost.
 
 ## Status Routing Table (Document-Driven)
 
@@ -334,6 +492,89 @@ function find_status_for_agent(agent_name, routing):
       return status
   return None
 
+# Phase key for dual_mode.phases matching
+# Maps (agent, phase) → dual_mode phase name
+PHASE_KEYS = {
+  ("acceptor", "requirements"):  "requirements",
+  ("designer", "design"):        "design",
+  ("implementer", "plan"):       "impl_plan",
+  ("implementer", "execute"):    "impl_execute",
+  ("reviewer", "plan"):          "review_plan",
+  ("reviewer", "execute"):       "review_execute",
+  ("tester", "plan"):            "test_plan",
+  ("tester", "execute"):         "test_execute",
+  ("acceptor", "accept-plan"):   "accept_plan",
+  ("acceptor", "accept-exec"):   "accept_execute",
+}
+
+# Resolve dual-mode config for a given route. Returns config dict or None.
+function resolve_dual_mode(task, config, route):
+  # Task-level overrides global
+  dual = task.dual_mode or config.get("dual_mode")
+  if not dual or not dual.get("enabled"): return None
+  phase_key = PHASE_KEYS.get((route.agent, route.phase))
+  if not phase_key: return None
+  if "all" in dual.phases or phase_key in dual.phases:
+    return dual
+  return None
+
+# Execute one phase in dual-agent mode.
+# Returns the synthesized result (same shape as a normal agent result).
+function orchestrate_dual_phase(task, route, dual_config, base_prompt, DOCS_DIR, config):
+  role = route.agent
+  phase = route.phase
+  model_a = dual_config.models.agent_a
+  model_b = dual_config.models.agent_b
+  model_synth = dual_config.models.get("synthesizer") or None
+  doc_base = route.doc.replace(".md", "")  # e.g., "design-doc"
+
+  # ── Phase ①: Parallel initial execution ──
+  result_a = task(agent_type=role, prompt=base_prompt, model=model_a, mode="background")
+  result_b = task(agent_type=role, prompt=base_prompt, model=model_b, mode="background")
+  wait for both result_a, result_b
+
+  if result_a.failed and result_b.failed:
+    return { failed: true, error: "Both dual agents failed" }
+  if result_a.failed or result_b.failed:
+    # One failed — fall back to the successful one as single-mode result
+    return result_a if not result_a.failed else result_b
+
+  # Save initial documents
+  write result_a.document → DOCS_DIR/{doc_base}-agent-a.md
+  write result_b.document → DOCS_DIR/{doc_base}-agent-b.md
+
+  # ── Phase ②: Parallel cross-examination ──
+  critique_prompt_a = build_cross_examination_prompt(
+    role, phase, task, result_b.document, model_a, model_b)
+  critique_prompt_b = build_cross_examination_prompt(
+    role, phase, task, result_a.document, model_b, model_a)
+
+  critique_a = task(agent_type=role, prompt=critique_prompt_a, model=model_a, mode="background")
+  critique_b = task(agent_type=role, prompt=critique_prompt_b, model=model_b, mode="background")
+  wait for both critique_a, critique_b
+
+  # Save critiques (if a critique fails, use empty placeholder)
+  write (critique_a.document or "Critique unavailable") → DOCS_DIR/{doc_base}-critique-a.md
+  write (critique_b.document or "Critique unavailable") → DOCS_DIR/{doc_base}-critique-b.md
+
+  # ── Phase ③: Synthesis ──
+  synth_prompt = build_synthesis_prompt(
+    role, phase, task,
+    result_a.document, result_b.document,
+    critique_a.document or "", critique_b.document or "",
+    model_a, model_b)
+
+  synth_result = task(agent_type=role, prompt=synth_prompt, model=model_synth)
+
+  if synth_result.failed:
+    # Synthesis failed — fall back to the higher-quality initial document
+    # (prefer the one whose critique rated the other as NEEDS_IMPROVEMENT)
+    return result_a  # fallback heuristic
+
+  # Save final synthesized document as the canonical artifact
+  write synth_result.document → DOCS_DIR/{route.doc}
+  return synth_result
+
 function orchestrate(task_id):
   task = read task-board.json → find task by id
   config = read ${ROOT}/codenook/config.json
@@ -381,13 +622,16 @@ function orchestrate(task_id):
     # Model resolution (priority: task override > config.json > platform default)
     model = task.model_override or config.models.get(role) or None
 
-    # For reviewer execute phase: consider "code-review" agent_type
-    agent_type = role
-    if role == "reviewer" and phase == "execute":
-      agent_type = config.get("reviewer_agent_type", "code-review")
-
-    # ── Step 2: Spawn Agent ──
-    result = task(agent_type=agent_type, prompt=prompt, model=model)
+    # ── Step 2: Spawn Agent (single or dual mode) ──
+    dual_config = resolve_dual_mode(task, config, route)
+    if dual_config:
+      result = orchestrate_dual_phase(task, route, dual_config, prompt, DOCS_DIR, config)
+    else:
+      # For reviewer execute phase: consider "code-review" agent_type
+      agent_type = role
+      if role == "reviewer" and phase == "execute":
+        agent_type = config.get("reviewer_agent_type", "code-review")
+      result = task(agent_type=agent_type, prompt=prompt, model=model)
 
     # Agent failure handling:
     if result.failed:
@@ -532,6 +776,11 @@ acceptor (accept-exec)   → gets: all documents + acceptance-plan.md
 > and dfmea-doc.md — but NOT review-report.md (reviewer was not in pipeline).
 > Missing upstream documents are simply omitted, not treated as errors.
 
+> **Dual mode:** Only the final synthesized document (e.g., `design-doc.md`) is passed
+> downstream. The intermediate files (`-agent-a.md`, `-agent-b.md`, `-critique-a.md`,
+> `-critique-b.md`) are retained in `docs/<task_id>/` for traceability but are NOT
+> included in downstream context to avoid bloat.
+
 ## Context Building
 
 When spawning a subagent, build the prompt with **phase-specific intelligence**:
@@ -659,6 +908,10 @@ Respond to these user commands (see **Task Modes** section for full pipeline def
 | "test only: <title>" / "仅测试: <title>" | Lightweight: `["tester"]` (2 phases) |
 | "review only: <title>" / "仅审查: <title>" | Lightweight: `["reviewer"]` (2 phases) |
 | "create task <title> --pipeline a,b,c" | Lightweight with custom pipeline |
+| "create task <title> --dual" | Full mode with dual-agent on all phases |
+| "create task <title> --dual design,impl_plan,review_execute" | Full mode with dual-agent on specified phases |
+| "enable dual T-XXX" / "enable dual T-XXX design,impl_plan" | Toggle dual mode on existing task (all or specific phases) |
+| "disable dual T-XXX" | Disable dual mode on existing task |
 | "show task board" / "task list" | Display all tasks with status |
 | "run task T-XXX" / "orchestrate T-XXX" | Start orchestration loop |
 | "task status T-XXX" | Show detailed status + artifacts + history |
