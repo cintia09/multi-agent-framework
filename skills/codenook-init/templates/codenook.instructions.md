@@ -617,7 +617,31 @@ function orchestrate(task_id):
     memory   = load ${ROOT}/codenook/memory/<task_id>-<role>-<phase>-memory.md (if exists)
     # Fallback: also check <task_id>-<role>-<prev_phase>-memory.md for cross-phase continuity
     feedback = pending feedback from previous HITL (if any)
-    prompt   = build_context(task, role, phase, upstream_docs, memory, feedback)
+
+    # ── Step 1b: Load Project Skills ──
+    # Scan ${ROOT}/codenook/skills/ for SKILL.md files and inject into sub-agent prompt.
+    # This allows project-level skills (e.g., diagram generators, code conventions) to be
+    # available to sub-agents that run in isolated context windows.
+    project_skills = {}
+    skills_config = config.get("skills", {"auto_load": true, "agent_mapping": {}})
+    if skills_config.get("auto_load", true):
+      skills_dir = ${ROOT}/codenook/skills/
+      if exists skills_dir:
+        agent_mapping = skills_config.get("agent_mapping", {})
+        allowed_skills = agent_mapping.get(role)  # null if role not in mapping
+        for each subdirectory in skills_dir:
+          skill_name = subdirectory name
+          skill_file = skills_dir/{skill_name}/SKILL.md
+          if not exists skill_file: continue
+          # If agent_mapping is empty or role is not listed → load ALL skills
+          # If role is listed with specific skills → load only those
+          # If role is listed with empty array [] → load NO skills
+          if agent_mapping == {} or allowed_skills is null:
+            project_skills[skill_name] = read skill_file
+          elif skill_name in allowed_skills:
+            project_skills[skill_name] = read skill_file
+
+    prompt   = build_context(task, role, phase, upstream_docs, memory, feedback, project_skills)
 
     # Model resolution (priority: task override > config.json > platform default)
     model = task.model_override or config.models.get(role) or None
@@ -870,6 +894,16 @@ Before spawning ANY subagent, gather phase-specific context from the project:
 - **Phase:** plan  |  **Agent:** implementer
 - **Goals:** [G1] JWT login (pending), [G2] Token refresh (pending)
 
+# Project Skills
+## uml (SKILL.md)
+<full content of ${ROOT}/codenook/skills/uml/SKILL.md>
+
+## architecture (SKILL.md)
+<full content of ${ROOT}/codenook/skills/architecture/SKILL.md>
+
+(Only included if ${ROOT}/codenook/skills/ contains skills AND config.skills.auto_load is true.
+ Omit this entire section if no project skills are loaded.)
+
 # Upstream Documents
 ## Requirement Document (requirement-doc.md)
 <content>
@@ -886,6 +920,7 @@ Document that includes: collected code conventions, implementation approach
 per goal, TDD plan, file plan, and risk analysis.
 
 Include at least one Mermaid diagram showing the implementation flow.
+When creating diagrams, use the syntax and conventions from Project Skills above (if available).
 
 Return the document in your response.
 
@@ -895,6 +930,9 @@ Return the document in your response.
 
 If context exceeds model limits: summarize older memories, truncate large documents
 (keep file path reference), always include feedback and the most recent document in full.
+**For project skills**: if total skill content exceeds ~20% of context budget, include only
+the YAML frontmatter (name + description) of each skill and a note to use the skill's syntax
+rules. Prioritize skills that match the current phase (e.g., `uml`/`architecture` for designer).
 
 ## Task Management Commands
 

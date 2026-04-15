@@ -49,6 +49,7 @@ IF .claude/codenook/config.json exists:
       ".claude/codenook/memory/*",
       ".claude/codenook/reviews/*",
       ".claude/codenook/docs/*",
+      ".claude/codenook/skills/*",
     ]
 
     # ── Regenerate framework files ──
@@ -133,6 +134,7 @@ Create the full tree under `.claude/`:
     ├── docs/                  ← document artifacts per task (created per-task)
     ├── memory/                ← empty directory (with .gitkeep)
     ├── reviews/               ← empty directory (with .gitkeep), HITL history files
+    ├── skills/                ← project-level skills injected into sub-agent prompts (with .gitkeep)
     ├── task-board.json        ← seed content below
     ├── config.json            ← seed content below
     └── hitl-adapters/         ← copied from skill's hitl-adapters/ directory
@@ -223,11 +225,31 @@ memory management, task commands. It is automatically loaded as part of every se
     "port": 8765,
     "auto_open_browser": true
   },
+  "skills": {
+    "auto_load": true,
+    "agent_mapping": {}
+  },
   "preferences": {
     "autoGitignore": true
   }
 }
 ```
+
+**Skills configuration:**
+- `skills.auto_load` (default `true`): When enabled, the orchestrator scans `${ROOT}/codenook/skills/`
+  for SKILL.md files and injects their content into sub-agent prompts.
+- `skills.agent_mapping` (default `{}`): Optional per-agent skill assignment. When empty, ALL skills
+  are loaded for ALL agents. When configured, only listed skills are loaded per role:
+  ```json
+  "agent_mapping": {
+    "designer": ["uml", "architecture", "cloud"],
+    "implementer": ["uml", "graphviz"],
+    "reviewer": [],
+    "tester": [],
+    "acceptor": []
+  }
+  ```
+  An empty array `[]` means no project skills for that agent. Omitted roles get all skills.
 
 ---
 
@@ -256,7 +278,7 @@ Models:
   tester:      claude-haiku-4.5
 
 # Upgrade mode only:
-Preserved: task-board.json (N tasks), memory/ (M snapshots), docs/ (D documents), config.json
+Preserved: task-board.json (N tasks), memory/ (M snapshots), docs/ (D documents), skills/ (S skills), config.json
 Updated:   5 agent profiles, 6 HITL scripts, engine in CLAUDE.md
 
 Next steps:
