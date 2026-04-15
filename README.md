@@ -312,6 +312,33 @@ Documents are stored to disk at `codenook/docs/T-NNN/` with filenames matching t
 | `set model <model>` | Change default model at runtime |
 | `set hitl <adapter>` | Change HITL adapter at runtime |
 
+### Phase Entry Decisions
+
+When entering each phase, the orchestrator collects mandatory decisions from the user before spawning the sub-agent. These decisions are injected into the agent prompt and persisted in `phase_decisions` for audit.
+
+Examples:
+- **Requirements phase**: Target audience, MVP vs full scope, non-functional priorities
+- **Design phase**: Architecture style, scalability target, tech stack constraints
+- **Implementation phase**: Commit strategy (single/atomic/squash), code style preferences
+- **Test phase**: Test scope (unit/integration/E2E), coverage target, CI integration
+- **Review phase**: Review depth, submission target (Gerrit/GitHub/local)
+- **Acceptance phase**: Demo format, release action (tag/deploy/none)
+
+Decisions can be pre-configured in `config.phase_defaults` to skip repeated questions.
+
+### Skill Provisioning
+
+During `codenook-init`, the framework can auto-provision skills for sub-agents:
+
+1. **Scan** global skill directories (`~/.copilot/skills/`, `~/.claude/skills/`)
+2. **Classify** skills into categories: `diagram`, `workflow`, `content`, `domain`, `media`, `social`
+3. **Map** skills to agent roles based on affinity (e.g., `diagram` → designer, `workflow` → implementer)
+4. **Confirm** the proposed mapping with the user
+5. **Copy** selected skills to `codenook/skills/` for sub-agent injection
+6. **Configure** `agent_mapping` in `config.json`
+
+Skills are injected into sub-agent prompts at runtime via the orchestrator (Step 1b).
+
 ## HITL Multi-Adapter System
 
 Every phase transition passes through a human review gate. The adapter is auto-detected or configured in `codenook/config.json`.
