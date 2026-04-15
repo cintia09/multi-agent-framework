@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.7.2] - 2026-04-15
+
+### 🔒 v4.7.2 — HITL Adapter Enforcement & Task Creation Flow
+
+Synced production-proven improvements from xueba-knowledge deployment.
+
+#### Added
+- **HITL Hard Constraint**: Mandatory adapter resolution check before any HITL interaction — prevents calling wrong adapter (e.g., `terminal.sh` when config specifies `local-html`)
+- **Enforcement Checklist**: Mental checklist agents must execute before each HITL gate
+- **Adapter Resolution Logging**: Traceability log for resolved adapter name and phase
+- **Task Creation Flow (MANDATORY)**: Structured 6-question flow for task creation, including dual-agent mode prompt
+
+#### Changed
+- Adapter resolution wording: "per-phase from Q2" → "per-phase override", "global from Q2" → "global config — MOST COMMON"
+- Pseudocode adapter section: enhanced with step-by-step comments (4a/4b/4c) and violation warnings
+
 ## [4.7.1] - 2025-07-29
 
 ### ⚡ v4.7.1 — Engine Token Optimization
