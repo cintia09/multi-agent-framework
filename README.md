@@ -54,14 +54,19 @@ Five specialized AI agents collaborate through an orchestrator that routes tasks
 - **10 HITL Gates** — Every phase has a HITL gate; 10-row status routing table with deterministic routing
 - **10 Document Artifacts** — Each task produces requirement, design, implementation, DFMEA, review, test, and acceptance docs stored to `codenook/docs/T-NNN/`
 - **Task Board** — Single JSON file as source of truth; 10 statuses with deterministic routing
+- **Multi-Task Management** — Independent task progress with switch, pause/resume, and task dependencies
+- **Any-Phase Entry** — Start tasks from any phase with `--start-at`; jump between phases via conversation
+- **Smart Skill Provisioning** — Auto-scan global skills, classify into categories, map to agent roles
+- **Per-Phase Configuration** — Models and HITL adapters configurable per-phase (not just per-agent)
+- **Conversation-Driven** — Natural language triggers for all operations (no CLI commands needed)
 - **Verdict-Based Routing** — Review/test/acceptance report verdicts drive the next status transition
 - **Mermaid Diagrams** — Mandatory in all document outputs for visual clarity
 - **Memory Chain** — Each phase writes a snapshot; downstream agents receive upstream context
 - **DFMEA Risk Management** — Implementer outputs failure-mode analysis (S×O×D → RPN)
+- **Dual-Agent Mode** — Two models work in parallel on the same phase with cross-examination
 - **Tool-Based Boundaries** — `tools` / `disallowedTools` in agent frontmatter (no hooks needed)
-- **Per-Agent Models** — Each role can use a different AI model
 - **Zero Dependencies** — Pure Markdown profiles + JSON state files
-- **Claude Code Only** — Single-platform `.claude/` directory structure
+- **Claude Code + Copilot CLI** — Primary: `.claude/`, also supports `~/.copilot/skills/`
 
 ## Installation
 
@@ -80,13 +85,16 @@ Copy the skill directory to your platform's skills folder:
 | Platform | Target |
 |----------|--------|
 | Claude Code | `~/.claude/skills/codenook-init/` |
+| Copilot CLI | `~/.copilot/skills/codenook-init/` |
 
 The skill directory contains `SKILL.md`, agent templates, HITL adapter scripts, and the orchestration engine template.
 
 ### Verify
 
 ```bash
-bash install.sh --check
+ls ~/.claude/skills/codenook-init/SKILL.md 2>/dev/null && echo "✅ Installed" || echo "❌ Not found"
+# Or for Copilot CLI:
+ls ~/.copilot/skills/codenook-init/SKILL.md 2>/dev/null && echo "✅ Installed" || echo "❌ Not found"
 ```
 
 ## Quick Start
@@ -97,15 +105,16 @@ In any project directory, tell your AI assistant:
 
 > "Initialize the agent system"
 
-The `codenook-init` skill walks you through 5 prompts:
+The `codenook-init` skill walks you through prompts:
 
 | Prompt | Options |
 |--------|---------|
 | Install directory | Confirm or change target directory |
 | Platform | Claude Code |
-| Agent models | Use defaults · Custom per-agent |
-| HITL adapter | Local HTML · Terminal · GitHub Issue · Confluence |
+| Agent models | Use defaults · Custom per-agent · **Custom per-phase** |
+| HITL adapter | Local HTML · Terminal · GitHub Issue · Confluence · **Per-phase** |
 | Gitignore | Yes · No |
+| **Skill provisioning** | **Scan & assign · Skip** |
 
 It then generates project-level files:
 
@@ -122,6 +131,7 @@ It then generates project-level files:
 │   │   └── T-NNN/               # 10 docs per task lifecycle
 │   ├── memory/
 │   ├── reviews/                 # Review reports and verdicts
+│   ├── skills/                  # Project-level skills (auto-provisioned)
 │   ├── task-board.json
 │   ├── config.json
 │   └── hitl-adapters/           # HITL scripts (auto-copied)
@@ -137,15 +147,18 @@ It then generates project-level files:
 
 ### 2. Create a Task
 
-> "Create task: Implement user authentication"
-
-The orchestrator adds it to `codenook/task-board.json` with status `created`.
+```
+"Create task: Implement user authentication"
+"Create task: Fix login --start-at impl_plan"     # Start from implementation
+"Create task: Auth API --depends T-001"            # With dependency
+"Quick fix: typo in README"                        # Lightweight 2-phase
+```
 
 ### 3. Run the Task
 
 > "Run task T-001"
 
-The orchestrator drives the task through the full 10-phase pipeline:
+The orchestrator drives the task through the pipeline:
 
 ```
 created → acceptor(req) → [HITL] → req_approved
@@ -158,6 +171,16 @@ created → acceptor(req) → [HITL] → req_approved
        → tester(execute) → [HITL] → test_done
        → acceptor(accept-plan) → [HITL] → accept_planned
        → acceptor(accept-exec) → [HITL] → done
+```
+
+### 4. Multi-Task Workflow
+
+```
+"Switch T-002"                    # Focus on task T-002
+"Pause T-001"                     # Pause current work
+"Resume T-001"                    # Continue paused task
+"Jump to test"                    # Skip to test phase (with confirmation)
+"Task board"                      # Show all tasks with status
 ```
 
 You approve or provide feedback at each of the 10 HITL gates. That's it.
@@ -368,21 +391,38 @@ After initialization, `codenook/config.json` lives under `.claude/codenook/`:
 
 ```json
 {
-  "version": "4.2",
+  "version": "4.6",
   "platform": "claude-code",
   "models": {
     "acceptor":    "claude-haiku-4.5",
     "designer":    "claude-sonnet-4",
     "implementer": "claude-sonnet-4",
     "reviewer":    "claude-sonnet-4",
-    "tester":      "claude-haiku-4.5"
+    "tester":      "claude-haiku-4.5",
+    "phase_overrides": {
+      "design":         "claude-opus-4",
+      "review_execute": "gpt-5.4"
+    }
   },
   "hitl": {
     "enabled": true,
     "adapter": "local-html",
-    "theme": "light",
     "port": 8765,
-    "auto_open_browser": true
+    "auto_open_browser": true,
+    "phase_overrides": {
+      "impl_plan":      "terminal",
+      "design":         "confluence"
+    }
+  },
+  "skills": {
+    "auto_load": true,
+    "agent_mapping": {
+      "designer":     ["uml", "architecture", "graphviz"],
+      "implementer":  ["uml", "graphviz", "code-review"],
+      "reviewer":     ["code-review"],
+      "tester":       [],
+      "acceptor":     ["infographic", "canvas"]
+    }
   },
   "preferences": {
     "autoGitignore": true
@@ -393,17 +433,36 @@ After initialization, `codenook/config.json` lives under `.claude/codenook/`:
 | Field | Description |
 |-------|-------------|
 | `platform` | `claude-code` |
-| `models.*` | AI model per agent role |
+| `models.*` | AI model per agent role (fallback for phases) |
+| `models.phase_overrides.*` | AI model per phase (takes priority over agent model) |
 | `hitl.enabled` | Enable/disable HITL gates |
-| `hitl.adapter` | `local-html` · `terminal` · `github-issue` · `confluence` |
-| `hitl.theme` | `light` (clean, minimal white UI) or `dark` |
-| `hitl.port` | Port for local-html adapter (default: 8765) |
+| `hitl.adapter` | Global default: `local-html` · `terminal` · `github-issue` · `confluence` |
+| `hitl.phase_overrides.*` | HITL adapter per phase (takes priority over global) |
+| `skills.auto_load` | Enable skill injection into sub-agent prompts |
+| `skills.agent_mapping` | Per-agent skill assignments (`{}` = all skills for all agents) |
+
+**Model resolution order:** task override → phase override → agent model → platform default
+
+**HITL resolution order:** phase override → global adapter → environment auto-detect
+
+### Runtime Configuration (via conversation)
+
+You can change configuration at any time through natural language:
+
+```
+"设置 design 阶段用 claude-opus-4"     # Set per-phase model
+"reviewer 换成 gpt-5.4"                # Change agent model
+"design 阶段用 confluence 审批"         # Change per-phase HITL adapter
+"关闭 HITL"                            # Disable all HITL gates
+"查看配置"                             # Show current config
+```
 
 ### Platform Directories
 
-| Platform | Root | Agents | CodeNook Dir | Skills |
-|----------|------|--------|--------------|--------|
-| Claude Code | `.claude/` | `.claude/agents/` | `.claude/codenook/` | `~/.claude/skills/` |
+| Platform | Root | Agents | CodeNook Dir | Skills (global) | Skills (project) |
+|----------|------|--------|--------------|-----------------|------------------|
+| Claude Code | `.claude/` | `.claude/agents/` | `.claude/codenook/` | `~/.claude/skills/` | `.claude/codenook/skills/` |
+| Copilot CLI | `.claude/` | `.claude/agents/` | `.claude/codenook/` | `~/.copilot/skills/` | `.claude/codenook/skills/` |
 
 ## Error Handling
 
@@ -417,39 +476,38 @@ After initialization, `codenook/config.json` lives under `.claude/codenook/`:
 
 The orchestrator backs up `codenook/task-board.json` to `codenook/task-board.json.bak` before every write. On restart, it reads the task board and resumes from the current status — no in-memory state needed.
 
-## Migrating from v3.x / v4.0
+## Migrating from v3.x / v4.x
 
-v4.2 builds on v4.0's simplification with a document-driven workflow. Key changes:
+v4.6 adds multi-task management, per-phase configuration, and smart skill provisioning. Key changes:
 
-| v3.x | v4.0 | v4.2 |
-|------|------|------|
+| v3.x | v4.0–4.2 | v4.6 |
+|------|----------|------|
 | 20 global skills | 1 global skill + project-level agents & engine | *(same)* |
 | 13 shell hooks | `tools` / `disallowedTools` in frontmatter | *(same)* |
-| Session-level role switching (`/agent`) | Subagent delegation via orchestrator | Document-driven: Plan → Approve → Act → Report → Approve |
-| 11-state FSM | 10-status task-board routing (5 HITL gates) | 10-status routing with **10 HITL gates** (every phase) |
-| File-based messaging (`inbox.json`) | Orchestrator context passing | *(same)* + 10 document artifacts per task |
-| `agent-hitl-gate` skill | Multi-adapter HITL (4 adapters) | + Light theme, verdict-based routing |
-| `events.db` SQLite audit | Feedback history in `codenook/task-board.json` | *(same)* |
-| `.agents/` project directory | `.github/codenook/` or `.claude/codenook/` | `.claude/codenook/` only + `docs/T-NNN/` storage |
-| — | — | Mermaid diagrams mandatory in all outputs |
-| — | — | Init directory confirmation prompt |
-| — | — | Task board schema v4.2 with 10 artifact slots |
+| Session-level role switching | Subagent delegation via orchestrator | + Multi-task switch/pause/resume |
+| 11-state FSM | 10-status task-board routing | + `paused` status, `active_task`, `depends_on` |
+| File-based messaging | Orchestrator context passing | + Project skill injection into sub-agents |
+| `agent-hitl-gate` skill | Multi-adapter HITL (4 adapters) | + Per-phase HITL adapter selection |
+| Per-agent models only | *(same)* | + Per-phase model overrides |
+| — | — | Mid-flow entry (`--start-at` any phase) |
+| — | — | Smart skill provisioning (auto-scan + classify + map) |
+| — | — | Natural language conversation triggers |
+| — | — | Enhanced task board with progress indicators |
+| — | — | Dual-agent parallel mode with cross-examination |
 
 **Migration steps:**
 
 **From v3.x:**
 1. Remove old global skills, hooks, and rules from `~/.claude/` or `~/.copilot/`
-2. Install v4.2 (`curl` one-liner or manual copy)
+2. Install v4.6 (`curl` one-liner or manual copy)
 3. In your project, run "initialize agent system" to generate new files
-4. Migrate existing tasks manually if needed (copy goals to new `codenook/task-board.json`)
+4. Migrate existing tasks manually if needed
 
-**From v4.0:**
+**From v4.0–4.3:**
 1. Update the skill (`curl` one-liner or re-copy skill directory)
 2. Re-run "initialize agent system" — existing tasks are preserved, schema is upgraded
-3. Existing tasks will gain the 10 artifact slots (initially `null`)
-4. HITL adapter theme defaults to `light` — set `hitl.theme: "dark"` in config to keep the old theme
-
-> 📖 A detailed migration guide will be available in a future release.
+3. New fields (`active_task`, `depends_on`, `start_at`, `phase_overrides`, `skills`) get defaults
+4. Existing per-agent model config continues to work (phase overrides are optional)
 
 ## Contributing
 

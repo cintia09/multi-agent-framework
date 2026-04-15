@@ -1109,6 +1109,46 @@ User says "跳到测试" on an active task at `impl_execute`:
 2. If confirmed: set status to `review_done`, mark skipped artifacts as `"(skipped)"`
 3. Record the jump in `feedback_history` as a human decision
 
+## Runtime Configuration Commands
+
+Users can change configuration at any time through conversation. All changes are
+persisted to `config.json` immediately.
+
+### Model Configuration
+| Trigger | Action |
+|---------|--------|
+| "设置 design 阶段用 claude-opus-4" / "set design model to claude-opus-4" | `config.models.phase_overrides.design = "claude-opus-4"` |
+| "reviewer 换成 gpt-5.4" / "change reviewer model to gpt-5.4" | `config.models.reviewer = "gpt-5.4"` |
+| "所有 plan 阶段用 haiku" / "use haiku for all plan phases" | Set `impl_plan`, `review_plan`, `test_plan`, `accept_plan` in phase_overrides |
+| "恢复默认模型" / "reset models to default" | Clear all `phase_overrides`, reset agent models to defaults |
+| "查看模型配置" / "show model config" | Display current model assignments per agent and per phase |
+
+### HITL Configuration
+| Trigger | Action |
+|---------|--------|
+| "design 阶段用 confluence 审批" / "use confluence for design HITL" | `config.hitl.phase_overrides.design = "confluence"` |
+| "所有 execute 阶段用 local-html" / "use local-html for execute phases" | Set execute phases in `hitl.phase_overrides` |
+| "关闭 HITL" / "disable HITL" | `config.hitl.enabled = false` (⚠️ confirm first — this removes all approval gates) |
+| "开启 HITL" / "enable HITL" | `config.hitl.enabled = true` |
+| "换成 terminal 模式" / "switch to terminal adapter" | `config.hitl.adapter = "terminal"` |
+
+### Skill Configuration
+| Trigger | Action |
+|---------|--------|
+| "给 designer 加上 uml skill" / "add uml skill to designer" | Append to `config.skills.agent_mapping.designer` |
+| "移除 reviewer 的所有 skills" / "remove all skills from reviewer" | Set `config.skills.agent_mapping.reviewer = []` |
+| "重新扫描 skills" / "rescan skills" | Re-run Q4 skill provisioning flow |
+| "关闭 skill 注入" / "disable skill loading" | `config.skills.auto_load = false` |
+
+### General Configuration
+| Trigger | Action |
+|---------|--------|
+| "查看配置" / "show config" | Pretty-print current config.json |
+| "导出配置" / "export config" | Output config.json content for backup |
+
+**Persistence:** Every config change writes to `config.json` immediately with backup to `config.json.bak`.
+Changes take effect on the next agent spawn (no restart needed).
+
 ## Error Handling
 
 | Scenario | Action |
