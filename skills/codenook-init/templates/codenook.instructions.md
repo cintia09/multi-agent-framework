@@ -51,15 +51,16 @@ priority in-progress task, or latest created task).
 
 ## Agent Roles — Phase Summary
 
-Each agent operates in two phases. The orchestrator must know which phase to invoke.
+Each agent operates in one or more phases. The orchestrator must know which phase to invoke.
+See `AGENT_PHASES` in the Orchestration Loop for the programmatic version.
 
 | Agent | Plan Phase → Document | Execute Phase → Document |
 |-------|----------------------|--------------------------|
-| **acceptor** | requirements → `requirement-doc.md` | accept-exec → `acceptance-report.md` |
-| **designer** | design → `design-doc.md` | — (single phase) |
+| **acceptor** | requirements → `requirement-doc.md`, accept-plan → `acceptance-plan.md` | accept-exec → `acceptance-report.md` |
+| **designer** | design → `design-doc.md` | — (single phase: design is inherently planning) |
 | **implementer** | plan → `implementation-doc.md` | execute → `dfmea-doc.md` |
 | **reviewer** | plan → `review-prep.md` | execute → `review-report.md` |
-| **tester** | plan → `test-plan.md` (test matrix, gap analysis, boundary cases) | execute → `test-report.md` (run tests, report defects) |
+| **tester** | plan → `test-plan.md` | execute → `test-report.md` |
 
 **CRITICAL**: Never skip the plan phase. Never go directly to execute without
 an approved plan document and HITL gate.
@@ -176,9 +177,13 @@ accept_planned      → acceptor (accept-exec)  → acceptance-report.md      �
 
 **† Verdict-based routing** — when HITL approves an execution report, the document's
 verdict may override the default "approve" route:
-- `review-report.md` verdict `CHANGES_REQUESTED` → `impl_planned` (implementer fixes)
-- `test-report.md` verdict `FAIL` → `impl_planned` (implementer fixes)
-- `acceptance-report.md` verdict `REJECT` → `design_approved` (back to designer)
+
+| Agent | Verdict Values | Routing Effect |
+|-------|---------------|----------------|
+| implementer | `COMPLETE` (informational only) | No routing effect — always advances |
+| reviewer | `APPROVED` / `APPROVED_WITH_NOTES` / `CHANGES_REQUESTED` | `CHANGES_REQUESTED` → `impl_planned` |
+| tester | `PASS` / `PASS_WITH_ISSUES` / `FAIL` | `FAIL` → `impl_planned` |
+| acceptor | `ACCEPT` / `REJECT` | `REJECT` → `design_approved` |
 
 **Reject routing logic:**
 - Planning document rejected → same agent retries with user feedback
@@ -201,7 +206,7 @@ verdict may override the default "approve" route:
 - **NEVER** skip HITL gates. **NEVER** directly change status without human approval.
 - If `hitl.enabled` is false in config.json, the verify script will allow passage.
 
-## HITL Multi-Adapter System
+## HITL Adapter System & Execution
 
 Auto-detect how to present output for human review:
 
@@ -213,7 +218,7 @@ Auto-detect how to present output for human review:
 5. default                            → terminal
 ```
 
-HITL adapter scripts are in `${ROOT}/codenook/hitl-adapters/`:
+HITL adapter scripts are in `${ROOT}/codenook/hitl-adapters/`. All follow the same interface:
 
 | Method                                    | Purpose                            |
 |-------------------------------------------|------------------------------------|
@@ -221,78 +226,30 @@ HITL adapter scripts are in `${ROOT}/codenook/hitl-adapters/`:
 | `adapter.sh poll <task_id> <role>`           | Check if human has responded    |
 | `adapter.sh get_feedback <task_id> <role>`   | Return decision + comments      |
 
-| Adapter        | Publish                    | Feedback mechanism              |
-|----------------|----------------------------|---------------------------------|
-| **terminal**   | Print formatted summary    | `record_feedback` script command |
-| **local-html** | HTTP server + open browser | Web UI buttons                  |
-| **confluence**  | Create/update page         | Poll page comments              |
-| **github-issue**| Create issue               | Poll reactions (👍 = approve)   |
-
-All adapters follow the same bash-based interface (publish → poll → get_feedback).
 No adapter depends on `ask_user` or any LLM-specific tool.
 
-## HITL Execution — Concrete Steps (MUST FOLLOW)
-
-When executing the HITL gate (Step 4 of the orchestration loop), follow these
-**exact bash commands** based on the adapter configured in `config.json`:
-
-### If `hitl.adapter` == `"local-html"`:
+### `local-html` adapter:
 ```bash
-# 1. Publish — starts a local HTTP server with review UI, opens browser
 REVIEW_URL=$(bash ${ROOT}/codenook/hitl-adapters/local-html.sh publish <task_id> <role> <doc_path>)
-# Returns a URL like http://127.0.0.1:8900 — tell the user to review there
-
-# 2. Poll — wait for user to click Approve/Request Changes in the browser
 while true; do
   STATUS=$(bash ${ROOT}/codenook/hitl-adapters/local-html.sh poll <task_id> <role>)
   if [ "$STATUS" != "pending_review" ]; then break; fi
   sleep 5
 done
-
-# 3. Get feedback — read the decision JSON
 FEEDBACK=$(bash ${ROOT}/codenook/hitl-adapters/local-html.sh get_feedback <task_id> <role>)
-# Parse decision ("approve" or "feedback") and comments from JSON
-
-# 4. Stop server after feedback received
 bash ${ROOT}/codenook/hitl-adapters/local-html.sh stop <task_id> <role>
 ```
+**DO NOT substitute `ask_user` for `local-html`.** It provides rich review UI with markdown, Mermaid, syntax highlighting.
 
-**DO NOT substitute `ask_user` for `local-html`.** The local-html adapter provides a
-rich review UI with markdown rendering, Mermaid diagrams, syntax highlighting, and
-multi-round feedback. Using `ask_user` loses all of this.
-
-### If `hitl.adapter` == `"terminal"`:
+### `terminal` adapter:
 ```bash
-# 1. Publish — prints FULL document content to terminal for review
-#    This is MANDATORY — DO NOT skip this step or substitute your own summary
 bash ${ROOT}/codenook/hitl-adapters/terminal.sh publish <task_id> <role> <doc_path>
-
-# 2. ALSO tell the user the document path so they can review it later:
-#    "📄 Full document saved to: <doc_path>"
-
-# 3. Collect user decision — use ONE of these methods:
-#    a) If ask_user tool is available:
-#         response = ask_user("Approve or request changes?", choices=["Approve", "Request Changes"])
-#    b) Otherwise: output a prompt and wait for user to respond in chat
-
-# 4. Record the decision via script (this writes the feedback file)
+# Tell user: "📄 Full document saved to: <doc_path>"
+# Collect decision via ask_user (if available) or chat prompt
 bash ${ROOT}/codenook/hitl-adapters/terminal.sh record_feedback <task_id> <role> <approve|changes> "<comment>"
-
-# 5. Get structured feedback
 FEEDBACK=$(bash ${ROOT}/codenook/hitl-adapters/terminal.sh get_feedback <task_id> <role>)
 ```
-
-**CRITICAL for terminal adapter:**
-- You MUST run `terminal.sh publish` which outputs the full document — do NOT substitute
-  your own formatted summary (table, bullet list, etc.) for the actual document content.
-- You MUST show the document file path so the user can review it outside the session.
-- `ask_user` is an **optional convenience** for step 3, not a requirement. If it is not
-  available, simply tell the user to approve or provide feedback, then use their response
-  in the `record_feedback` call.
-
-### Adapter detection priority:
-1. Read `config.json` → `hitl.adapter` — **use this if set**
-2. Only fall back to auto-detection if `hitl.adapter` is not configured
+**CRITICAL:** MUST run `terminal.sh publish` (full document output) — do NOT substitute your own summary.
 
 ## Orchestration Loop (Document-Driven)
 
@@ -314,7 +271,9 @@ FULL_ROUTING = {
 
 # Lightweight pipeline routing — dynamically built from task.pipeline
 AGENT_PHASES = {
-  "acceptor":    [("requirements", "requirement-doc.md", "requirement_doc")],
+  "acceptor":    [("requirements", "requirement-doc.md", "requirement_doc"),
+                  ("accept-plan", "acceptance-plan.md", "acceptance_plan"),
+                  ("accept-exec", "acceptance-report.md", "acceptance_report")],
   "designer":    [("design", "design-doc.md", "design_doc")],
   "implementer": [("plan", "implementation-doc.md", "implementation_doc"), ("execute", "dfmea-doc.md", "dfmea_doc")],
   "reviewer":    [("plan", "review-prep.md", "review_prep"), ("execute", "review-report.md", "review_report")],
@@ -326,7 +285,13 @@ function build_lightweight_routing(pipeline):
   steps = []
   for agent in pipeline:
     for (phase, doc, key) in AGENT_PHASES[agent]:
+      # For lightweight: only include acceptor's requirements phase if first in pipeline,
+      # only include accept-plan/accept-exec if last in pipeline (for acceptance testing)
+      if agent == "acceptor":
+        if phase == "requirements" and pipeline.index(agent) != 0: continue
+        if phase in ("accept-plan", "accept-exec") and pipeline[-1] != "acceptor": continue
       steps.append({ agent, phase, doc, key })
+
   # Chain steps: each step's approve → next step's status, last → "done"
   # First step starts from "created"
   # Status names: "{agent}_{phase}" (e.g., "implementer_plan", "tester_execute")
@@ -334,7 +299,14 @@ function build_lightweight_routing(pipeline):
   for i, step in enumerate(steps):
     current_status = prev_status
     next_status = "done" if i == len(steps) - 1 else f"{steps[i+1].agent}_{steps[i+1].phase}"
-    routing[current_status] = { ...step, approve: next_status, reject: current_status }
+    # Reject routing: plan phases → retry (same status); execute phases → back to plan
+    if step.phase in ("execute", "accept-exec"):
+      # Find this agent's plan phase status in the routing
+      plan_status = find_plan_status_for(step.agent, routing)  # e.g., "implementer_plan"
+      reject_status = plan_status if plan_status else current_status
+    else:
+      reject_status = current_status  # plan phase: retry
+    routing[current_status] = { ...step, approve: next_status, reject: reject_status }
     prev_status = next_status
   return routing
 
@@ -359,9 +331,10 @@ function orchestrate(task_id):
 
     # ── Circuit Breaker ──
     # Track how many times we've entered the same status. If > 3, ask user.
+    status_label = f"{role}/{phase}" if task.mode == "lightweight" else task.status
     task.retry_counts[task.status] = (task.retry_counts[task.status] or 0) + 1
     if task.retry_counts[task.status] > 3:
-      decision = ask_user "⚠️ Task has returned to '{task.status}' {count} times. Continue, skip, or abandon?"
+      decision = ask_user f"⚠️ Task has returned to '{status_label}' {count} times. Continue, skip, or abandon?"
         choices: ["Continue", "Skip to done (with warning)", "Abandon task"]
       if abandon: task.status = "abandoned"; break
       if skip: task.status = "done"; break
@@ -416,8 +389,8 @@ function orchestrate(task_id):
     if not exists HITL_DIR/hitl-verify.sh:
       report error "HITL scripts missing. Run codenook-init upgrade."; break
 
-    # Present the document for human review
-    adapter = detect_adapter()
+    # Present the document for human review (see HITL Adapter System above)
+    adapter = detect_adapter()  # priority: config.json → env detection → terminal
     adapter.publish(task_id, role, DOCS_DIR/{route.doc})
 
     # Collect human decision via the adapter's own mechanism
@@ -449,9 +422,16 @@ function orchestrate(task_id):
       if phase == "accept-exec" or (phase == "execute" and role in ("reviewer", "tester")):
         verdict = extract verdict from document (APPROVED/CHANGES_REQUESTED/FAIL/REJECT)
         if verdict in ("CHANGES_REQUESTED", "FAIL"):
-          task.status = "impl_planned"    # back to implementer
+          # Route back to implementer — mode-aware status lookup
+          if task.mode == "lightweight":
+            task.status = find_status_for_agent("implementer", ROUTING) or route.reject
+          else:
+            task.status = "impl_planned"    # back to implementer
         elif verdict == "REJECT":
-          task.status = "design_approved" # back to designer
+          if task.mode == "lightweight":
+            task.status = find_status_for_agent("designer", ROUTING) or route.reject
+          else:
+            task.status = "design_approved" # back to designer
         else:
           task.status = route.approve     # normal advance
       else:

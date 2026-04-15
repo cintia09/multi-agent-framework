@@ -53,7 +53,7 @@ The orchestrator provides:
 ### Phase 1 — Plan (produces `implementation-doc.md`)
 
 **Input**: `requirement_document`, `design_document`, project codebase
-**Output**: `implementation-doc.md` saved to `.agents/docs/`
+**Output**: `implementation-doc.md` saved to `codenook/docs/<task_id>/`
 
 #### Step 1: Understand
 1. Read every goal's acceptance criteria and the relevant design sections.
@@ -88,7 +88,7 @@ The orchestrator provides:
 11. Identify **risks** — failure points, edge cases, performance concerns.
 
 #### Step 4: Produce Implementation Document
-12. Write `implementation-doc.md` to `.agents/docs/` containing **all** of:
+12. Write `implementation-doc.md` to `codenook/docs/<task_id>/` containing **all** of:
 
 ```markdown
 # Implementation Document
@@ -140,7 +140,7 @@ data flow, or sequence diagram>
 
 **Input**: `implementation_document` (approved), `requirement_document`,
 `design_document`, project codebase
-**Output**: Actual code changes + `dfmea-doc.md` saved to `.agents/docs/`
+**Output**: Actual code changes + `dfmea-doc.md` saved to `codenook/docs/<task_id>/`
 
 Follow the approved Implementation Document. For **each goal** in order:
 
@@ -177,7 +177,7 @@ Follow the approved Implementation Document. For **each goal** in order:
 13. Stage changes and commit with a descriptive English message.
 14. Include the `Co-authored-by` trailer.
 
-After all goals are complete, write `dfmea-doc.md` to `.agents/docs/`.
+After all goals are complete, write `dfmea-doc.md` to `codenook/docs/<task_id>/`.
 
 ---
 
@@ -185,7 +185,7 @@ After all goals are complete, write `dfmea-doc.md` to `.agents/docs/`.
 
 ### Phase 1 Output — `implementation-doc.md`
 
-Save to `.agents/docs/implementation-doc.md` (see template in Phase 1, Step 4).
+Save to `codenook/docs/<task_id>/implementation-doc.md` (see template in Phase 1, Step 4).
 
 Return a brief summary in your response:
 
@@ -197,12 +197,12 @@ Return a brief summary in your response:
 - Files to create: 3 | Files to modify: 5
 - New dependencies: 1
 - High risks identified: 2
-- Document: `.agents/docs/implementation-doc.md`
+- Document: `codenook/docs/<task_id>/implementation-doc.md`
 ```
 
 ### Phase 2 Output — Code + `dfmea-doc.md`
 
-Save DFMEA document to `.agents/docs/dfmea-doc.md`:
+Save DFMEA document to `codenook/docs/<task_id>/dfmea-doc.md`:
 
 ```markdown
 # DFMEA Document
@@ -251,7 +251,7 @@ Return a brief summary in your response:
 - Tests: 24 passed, 0 failed
 - Commits: 4
 - High-RPN items (>100): 1 (mitigated)
-- Document: `.agents/docs/dfmea-doc.md`
+- Document: `codenook/docs/<task_id>/dfmea-doc.md`
 ```
 
 ---
@@ -264,7 +264,7 @@ Return a brief summary in your response:
 - [ ] Code conventions were scanned and summarized (or noted as absent).
 - [ ] At least one Mermaid diagram is included.
 - [ ] Dependency and risk analyses are complete.
-- [ ] The document is saved to `.agents/docs/implementation-doc.md`.
+- [ ] The document is saved to `codenook/docs/<task_id>/implementation-doc.md`.
 
 ### Phase 2 (Execute) — before signaling completion:
 
@@ -278,7 +278,8 @@ Return a brief summary in your response:
 - [ ] No unrelated changes — only files relevant to the goals were modified.
 - [ ] No secrets, API keys, passwords, or internal IPs in committed code.
 - [ ] Deviations from the implementation document are documented.
-- [ ] The DFMEA document is saved to `.agents/docs/dfmea-doc.md`.
+- [ ] The DFMEA document is saved to `codenook/docs/<task_id>/dfmea-doc.md`.
+- [ ] The verdict is justified: `COMPLETE` only if all goals are ✅ Done and all tests pass.
 
 ---
 

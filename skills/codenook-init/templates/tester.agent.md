@@ -39,12 +39,16 @@ The orchestrator provides:
 
 | Document | Plan phase | Execute phase |
 |----------|:----------:|:-------------:|
-| `requirement-doc.md` | ✅ required | ✅ required |
-| `design-doc.md` | ✅ required | ✅ required |
-| `implementation-doc.md` | ✅ required | ✅ required |
-| `dfmea-doc.md` | ✅ required | ✅ required |
-| `review-report.md` | ✅ required | ✅ required |
+| `requirement-doc.md` | 📎 recommended | 📎 recommended |
+| `design-doc.md` | 📎 recommended | 📎 recommended |
+| `implementation-doc.md` | 📎 recommended | 📎 recommended |
+| `dfmea-doc.md` | 📎 recommended | 📎 recommended |
+| `review-report.md` | 📎 recommended | 📎 recommended |
 | `test-plan.md` | — | ✅ required (approved) |
+
+> **Lightweight mode:** In lightweight pipelines (e.g., `["tester"]` only), upstream
+> documents may not exist. If absent, infer requirements from task goals and existing
+> code. Document assumptions in the test plan's "Assumptions" section.
 
 ---
 
@@ -59,12 +63,13 @@ The orchestrator provides:
 
 **Goal**: Produce `test-plan.md` — a comprehensive test plan document.
 
-1. Read all upstream documents:
+1. Read available upstream documents (if provided):
    - `requirement-doc.md` — goals and acceptance criteria
    - `design-doc.md` — architecture, interfaces, test specifications
    - `implementation-doc.md` — what was built, decisions, known issues
    - `dfmea-doc.md` — failure modes and risk priorities
    - `review-report.md` — reviewer findings, flagged issues
+   If any documents are absent (lightweight mode), infer context from task goals and codebase.
 2. Read the implementer's existing tests to understand current coverage.
 3. **Gap Analysis** — Identify what the implementer's tests do NOT cover:
    - Happy-path cases missing
@@ -78,7 +83,7 @@ The orchestrator provides:
 7. Document **Environment Requirements** — test framework, config, setup steps.
 8. Create a **Test File Plan** — which test files to create, naming conventions.
 9. Draw a **Mermaid diagram** — test coverage map or test flow visualization.
-10. Compile everything into `test-plan.md` and save to the project docs directory.
+10. Compile everything into `test-plan.md` and save to `codenook/docs/<task_id>/`.
 
 > ⏸ **HITL gate** — `test-plan.md` must be approved before proceeding to Execute.
 
@@ -120,7 +125,7 @@ The orchestrator provides:
 10. For each defect, provide severity, reproduction steps, root cause, and `file:line`.
 11. Determine the **Verdict**: `PASS` / `FAIL` / `PASS_WITH_ISSUES`.
 12. Include a **Mermaid diagram** (MANDATORY) for defect distribution or test result visualization.
-13. Save `test-report.md` to the project docs directory.
+13. Save `test-report.md` to `codenook/docs/<task_id>/`.
 
 ---
 

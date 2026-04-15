@@ -43,3 +43,4 @@ __pycache__/
 # NotebookLM generated media
 *.mp3
 *.pptx
+*.mp4

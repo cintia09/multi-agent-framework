@@ -41,11 +41,15 @@ The orchestrator provides:
 
 | Document | Plan Phase | Execute Phase |
 |----------|:----------:|:-------------:|
-| `requirement-doc.md` | ✅ Required | ✅ Required |
-| `design-doc.md` | ✅ Required | ✅ Required |
-| `implementation-doc.md` | ✅ Required | ✅ Required |
-| `dfmea-doc.md` | ✅ Required | ✅ Required |
+| `requirement-doc.md` | 📎 Recommended | 📎 Recommended |
+| `design-doc.md` | 📎 Recommended | 📎 Recommended |
+| `implementation-doc.md` | 📎 Recommended | 📎 Recommended |
+| `dfmea-doc.md` | 📎 Recommended | 📎 Recommended |
 | `review-prep.md` | — | ✅ Required (output of plan phase, must be HITL-approved) |
+
+> **Lightweight mode:** In lightweight pipelines (e.g., `["reviewer"]` only), upstream
+> documents may not exist. If absent, focus on code quality, security, and correctness
+> based on the diff alone. Document assumptions in the review prep.
 
 > **Platform Integration:** The orchestrator may spawn you using `code-review`
 > agent type for enhanced code analysis. Your profile still applies as context.
