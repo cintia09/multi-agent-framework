@@ -1,4 +1,4 @@
-# CodeNook Orchestration Engine (v4.8.0)
+# CodeNook Orchestration Engine (v4.8.1)
 
 You are the **Orchestrator** — the main session agent that users interact with.
 All other agents (acceptor, designer, implementer, reviewer, tester) are subagents
@@ -112,7 +112,7 @@ Read `${ROOT}/codenook/config.json` from the same directory to determine platfor
 
 ```json
 {
-  "version": "4.8.0",
+  "version": "4.8.1",
   "active_task": null,
   "tasks": [{
     "id": "T-001",
@@ -343,30 +343,62 @@ docs/T-001/
 ### Challenge Prompt (Cross-Examination)
 
 Each agent is challenged on its **own** weaknesses — it does not see the other agent's document.
+The challenge includes the **Phase Constitution** criteria so the agent knows what quality
+standards apply and can self-assess against them.
 
 ```markdown
-# Revision Round {round}
+You are Agent {agent_label}, a {role} working on the {phase} phase, revision round {round}.
 
-You are a {role} working on the {phase} phase, revision round {round}.
+## Quality Standards for This Phase: {focus}
+- {criterion_1}
+- {criterion_2}
+- ...
 
 ## Your Current Document
-{my_document}
+{my_doc}
 
 ## Issues to Address
-A review has identified the following concerns with your document:
+A review against the above quality standards has identified these concerns:
 
-{weaknesses}
+- {weakness_1}
+- {weakness_2}
+- ...
 
 ## Instructions
 1. For each issue, either:
    - **Fix**: revise your document to address the concern
    - **Defend**: explain why your current approach is correct and no change is needed
    - **Improve**: adopt a better approach inspired by the feedback
-2. Produce a REVISED version of your full document incorporating your decisions.
-3. At the end, add a brief "## Revision Notes (Round {round})" section listing what you changed and why.
+2. Ensure your revised document addresses ALL the quality standards listed above.
+3. Produce a REVISED version of your full document incorporating your decisions.
+4. At the end, add a brief "## Revision Notes (Round {round})" section listing what you changed and why.
 
 Output your revised document.
 ```
+
+### Phase Constitution
+
+Defines **per-phase quality criteria** used by `analyze_divergence()` and `build_challenge_prompt()`.
+Inspired by Constitutional AI — each phase has explicit evaluation dimensions, ensuring the
+orchestrator's analysis is focused and phase-appropriate rather than generic.
+
+| Phase | Focus | Criteria |
+|-------|-------|----------|
+| requirements | Requirements quality | Completeness, Testability, Ambiguity, Consistency, Prioritization, Non-functionals |
+| design | Architecture quality | Scalability, Coupling, Security, Performance, Pattern fitness, Extensibility, Error handling |
+| impl_plan | Plan feasibility | Feasibility, Risk, Dependencies, Scope, Testing strategy, Rollback |
+| impl_execute | Code quality | Correctness, Edge cases, Test coverage, Clarity, DFMEA, Security |
+| review_plan | Review preparation | Scope coverage, Checklist relevance, Risk areas, Context |
+| review_execute | Review depth | Finding validity, Severity calibration, False positive rate, Completeness, Actionability |
+| test_plan | Test strategy | Coverage, Edge cases, Regression, Isolation, Priority |
+| test_execute | Test reliability | Pass/fail accuracy, Coverage gaps, Reproducibility, Report clarity |
+| accept_plan | Acceptance alignment | Traceability, User perspective, Measurability, Completeness |
+| accept_execute | Verification thoroughness | Criteria coverage, Evidence quality, Deployment readiness, User impact |
+| *(unknown)* | Generic quality | Completeness, Correctness, Clarity, Actionability |
+
+The full criteria are defined in `PHASE_CONSTITUTION` in the orchestration data section.
+If a phase is not found in the constitution (e.g., custom phases), `DEFAULT_CONSTITUTION_CRITERIA`
+provides a generic fallback (Completeness, Correctness, Clarity, Actionability).
 
 ### Synthesis Prompt
 
@@ -459,7 +491,7 @@ verdict may override the default "approve" route:
 
 ```json
 {
-  "version": "4.8.0",
+  "version": "4.8.1",
   "platform": "claude-code",
   "models": {
     "acceptor":    "claude-haiku-4.5",
@@ -891,6 +923,122 @@ PHASE_ENTRY_QUESTIONS = {
   ],
 }
 
+# Phase-specific quality criteria for dual-agent cross-examination.
+# Used by analyze_divergence() to focus the orchestrator's analysis on what matters
+# for each phase, inspired by Constitutional AI's principled evaluation approach.
+
+# Generic fallback criteria for custom/unknown phases not in PHASE_CONSTITUTION.
+DEFAULT_CONSTITUTION_CRITERIA = [
+  "Completeness — does the document cover all required aspects?",
+  "Correctness — are the claims and decisions technically sound?",
+  "Clarity — is the document unambiguous and well-structured?",
+  "Actionability — can the next phase proceed based on this document?",
+]
+
+PHASE_CONSTITUTION = {
+  "requirements": {
+    "focus": "Requirements quality and completeness",
+    "criteria": [
+      "Completeness — are all user scenarios and edge cases covered?",
+      "Testability — can each requirement be verified with a concrete test?",
+      "Ambiguity — are there vague terms (e.g., 'fast', 'user-friendly') without measurable criteria?",
+      "Consistency — do requirements contradict each other?",
+      "Prioritization — are MoSCoW / P0-P3 priorities assigned and justified?",
+      "Missing non-functionals — are performance, security, accessibility addressed?",
+    ]
+  },
+  "design": {
+    "focus": "Architecture and design quality",
+    "criteria": [
+      "Scalability — does the design handle 10× growth without structural changes?",
+      "Coupling — are modules loosely coupled with clear interfaces?",
+      "Security — are threat vectors identified and mitigated (auth, injection, data exposure)?",
+      "Performance — are hot paths identified? Are there obvious bottlenecks?",
+      "Pattern fitness — are chosen patterns (MVC, event-driven, etc.) appropriate for the problem?",
+      "Extensibility — can new features be added without modifying existing code?",
+      "Error handling — are failure modes documented with recovery strategies?",
+    ]
+  },
+  "impl_plan": {
+    "focus": "Implementation plan feasibility and completeness",
+    "criteria": [
+      "Feasibility — is the plan technically achievable with the chosen stack?",
+      "Risk assessment — are technical risks identified with mitigation strategies?",
+      "Dependency ordering — are build/execution dependencies correctly sequenced?",
+      "Scope creep — does the plan stay within the design boundaries?",
+      "Testing strategy — is the testing approach defined (unit, integration, e2e)?",
+      "Rollback plan — what happens if implementation fails midway?",
+    ]
+  },
+  "impl_execute": {
+    "focus": "Code quality and correctness",
+    "criteria": [
+      "Correctness — does the code implement the design spec faithfully?",
+      "Edge cases — are boundary conditions, null inputs, and error paths handled?",
+      "Test coverage — are critical paths covered by tests?",
+      "Code clarity — is the code self-documenting with clear naming?",
+      "DFMEA — are failure modes analyzed with severity/occurrence/detection ratings?",
+      "Security — no hardcoded secrets, proper input validation, safe SQL/shell usage?",
+    ]
+  },
+  "review_plan": {
+    "focus": "Review preparation thoroughness",
+    "criteria": [
+      "Scope coverage — does the review plan cover all changed files and logic paths?",
+      "Checklist relevance — are review criteria appropriate for the change type?",
+      "Risk areas — are high-risk sections (auth, data, concurrency) explicitly flagged?",
+      "Context sufficiency — does the reviewer have enough context to evaluate the changes?",
+    ]
+  },
+  "review_execute": {
+    "focus": "Review depth and accuracy",
+    "criteria": [
+      "Finding validity — are flagged issues genuine bugs/risks (not style nitpicks)?",
+      "Severity calibration — are critical issues distinguished from minor suggestions?",
+      "False positive rate — are there findings that misunderstand the code intent?",
+      "Completeness — are obvious issues missed that should have been caught?",
+      "Actionability — does each finding have a clear, specific remediation?",
+    ]
+  },
+  "test_plan": {
+    "focus": "Test plan coverage and strategy",
+    "criteria": [
+      "Coverage — are all requirements mapped to test cases?",
+      "Edge cases — are boundary values, error conditions, and race conditions tested?",
+      "Regression — are existing behaviors protected against unintended changes?",
+      "Test isolation — do tests depend on external services or shared state?",
+      "Priority — are critical-path tests distinguished from nice-to-have tests?",
+    ]
+  },
+  "test_execute": {
+    "focus": "Test execution quality and reliability",
+    "criteria": [
+      "Pass/fail accuracy — do failing tests indicate real issues (not flaky tests)?",
+      "Coverage gaps — are untested code paths identified and documented?",
+      "Environment stability — are test results reproducible?",
+      "Report clarity — does the report clearly summarize what works and what doesn't?",
+    ]
+  },
+  "accept_plan": {
+    "focus": "Acceptance criteria alignment with requirements",
+    "criteria": [
+      "Traceability — does each acceptance criterion map to a requirement?",
+      "User perspective — are criteria defined from the end-user's point of view?",
+      "Measurability — can each criterion be objectively verified (pass/fail)?",
+      "Completeness — are non-functional requirements (performance, accessibility) included?",
+    ]
+  },
+  "accept_execute": {
+    "focus": "Acceptance verification thoroughness",
+    "criteria": [
+      "Criteria coverage — are all acceptance criteria evaluated?",
+      "Evidence quality — is the pass/fail judgment backed by concrete evidence?",
+      "Deployment readiness — are migration, rollback, and monitoring addressed?",
+      "User impact — are the changes safe for end users (no breaking changes)?",
+    ]
+  },
+}
+
 # Lightweight pipeline routing — dynamically built from task.pipeline
 AGENT_PHASES = {
   "acceptor":    [("requirements", "requirement-doc.md", "requirement_doc"),
@@ -1037,8 +1185,12 @@ function orchestrate_dual_phase(current_task, route, dual_config, base_prompt, D
       write doc_b → DOCS_DIR/{doc_base}-agent-b-r{round}.md
 
   else:
-    # Exhausted MAX_ROUNDS without convergence — proceed to synthesis anyway
-    log f"⚠️ Did not converge after {MAX_ROUNDS} rounds. Proceeding to synthesis."
+    # Exhausted MAX_ROUNDS — run one final convergence check on the last revisions
+    final_check = analyze_divergence(role, phase, doc_a, doc_b)
+    if final_check.converged:
+      log f"🤝 Converged after final round {MAX_ROUNDS}: {final_check.summary}"
+    else:
+      log f"⚠️ Did not converge after {MAX_ROUNDS} rounds. Proceeding to synthesis."
 
   # ── Phase ③: Synthesis ──
   # Merge the final (possibly converged) documents into one canonical artifact
@@ -1058,8 +1210,20 @@ function orchestrate_dual_phase(current_task, route, dual_config, base_prompt, D
 
 # Orchestrator self-analysis: compare two documents for convergence.
 # Uses the main session model (not a sub-agent) — lightweight and fast.
+# Applies PHASE_CONSTITUTION criteria for focused, phase-appropriate evaluation.
 function analyze_divergence(role, phase, doc_a, doc_b):
+  phase_key = resolve_phase_name(role, phase)
+  constitution = PHASE_CONSTITUTION.get(phase_key, {})
+  criteria = constitution.get("criteria") or DEFAULT_CONSTITUTION_CRITERIA
+  criteria_text = "\n".join(f"- {c}" for c in criteria)
+  focus = constitution.get("focus", f"{role} {phase} quality")
+
   prompt = f"""Compare these two {role} {phase} documents and assess convergence.
+
+## Evaluation Focus: {focus}
+
+Apply these quality criteria:
+{criteria_text}
 
 ## Document A
 {doc_a}
@@ -1068,38 +1232,51 @@ function analyze_divergence(role, phase, doc_a, doc_b):
 {doc_b}
 
 Analyze:
-1. Are the core approaches/architectures fundamentally aligned?
-2. For each document, identify substantive weaknesses, gaps, or questionable decisions
-   (not minor wording — focus on design/logic issues the author should justify or fix)
-3. Verdict: "converged" if remaining differences are cosmetic/trivial, "divergent" if substantive
+1. For each criterion above, assess both documents — which handles it better? Any gaps?
+2. For each document, identify substantive weaknesses per the criteria
+   (not minor wording — focus on the criteria that matter for this phase)
+3. Verdict: "converged" if both documents meet the criteria similarly (cosmetic differences only),
+   "divergent" if either document has substantive weaknesses the other doesn't
 
 Respond in JSON:
 {{"converged": bool, "summary": "one-line",
-  "weaknesses_a": ["issue in A that A should address..."],
-  "weaknesses_b": ["issue in B that B should address..."]}}"""
+  "weaknesses_a": ["criterion: specific issue in A..."],
+  "weaknesses_b": ["criterion: specific issue in B..."]}}"""
   # Direct analysis by orchestrator (no sub-agent spawn)
   return parse_json(llm_call(prompt))
 
 # Build a challenge prompt for one agent to address weaknesses in its own document.
 # The agent does NOT see the other agent's document — only its own weaknesses.
+# Includes PHASE_CONSTITUTION criteria so the agent knows what standards apply.
 function build_challenge_prompt(role, phase, current_task, my_doc, weaknesses, agent_label, round):
-  return f"""You are a {role} working on the {phase} phase, revision round {round}.
+  phase_key = resolve_phase_name(role, phase)
+  constitution = PHASE_CONSTITUTION.get(phase_key, {})
+  criteria = constitution.get("criteria") or DEFAULT_CONSTITUTION_CRITERIA
+  criteria_text = "\n".join(f"- {c}" for c in criteria)
+  focus = constitution.get("focus", f"{role} {phase} quality")
+  weaknesses_text = "\n".join(f"- {w}" for w in weaknesses)
+
+  return f"""You are Agent {agent_label}, a {role} working on the {phase} phase, revision round {round}.
+
+## Quality Standards for This Phase: {focus}
+{criteria_text}
 
 ## Your Current Document
 {my_doc}
 
 ## Issues to Address
-A review has identified the following concerns with your document:
+A review against the above quality standards has identified these concerns:
 
-{weaknesses}
+{weaknesses_text}
 
 ## Instructions
 1. For each issue, either:
    - **Fix**: revise your document to address the concern
    - **Defend**: explain why your current approach is correct and no change is needed
    - **Improve**: adopt a better approach inspired by the feedback
-2. Produce a REVISED version of your full document incorporating your decisions.
-3. At the end, add a brief "## Revision Notes (Round {round})" section listing what you changed and why.
+2. Ensure your revised document addresses ALL the quality standards listed above.
+3. Produce a REVISED version of your full document incorporating your decisions.
+4. At the end, add a brief "## Revision Notes (Round {round})" section listing what you changed and why.
 
 Output your revised document."""
 

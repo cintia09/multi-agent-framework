@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.8.1] - 2026-04-15
+
+### 📜 v4.8.1 — Phase Constitution for Cross-Examination
+
+Added per-phase quality criteria (Phase Constitution) to the dual-agent cross-examination
+system. Inspired by Constitutional AI, each phase now has explicit evaluation dimensions
+that focus the orchestrator's analysis and the agent's self-assessment.
+
+#### Added
+- **PHASE_CONSTITUTION data structure**: maps each phase to its quality focus and evaluation
+  criteria (requirements: completeness/testability/ambiguity; design: scalability/coupling/security;
+  impl: code quality/DFMEA; review: finding validity/severity calibration; etc.)
+- **Phase Constitution documentation**: new section in Dual-Agent Parallel Mode docs with
+  summary table of all phases and their criteria
+- **Criteria-aware analysis**: `analyze_divergence()` now injects phase-specific criteria
+  into the orchestrator prompt, ensuring evaluation is domain-appropriate
+- **Criteria-aware challenges**: `build_challenge_prompt()` includes the quality standards
+  so agents know what they're being evaluated against
+
+#### Changed
+- **analyze_divergence()**: now calls `resolve_phase_name()` to look up constitution;
+  prompt restructured with "Evaluation Focus" header and per-criterion assessment
+- **build_challenge_prompt()**: adds "Quality Standards for This Phase" section;
+  instructions updated to reference the standards
+- **Challenge prompt docs**: updated to show the new prompt structure with criteria
+
 ## [4.8.0] - 2026-04-15
 
 ### 🔄 v4.8.0 — Iterative Convergence Cross-Examination
