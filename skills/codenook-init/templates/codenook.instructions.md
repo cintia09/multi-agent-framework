@@ -390,7 +390,7 @@ orchestrator's analysis is focused and phase-appropriate rather than generic.
 | impl_plan | Plan feasibility | Feasibility, Risk, Dependencies, Scope, Testing strategy, Rollback |
 | impl_execute | Code quality | Correctness, Edge cases, Test coverage, Build passes (production + UT), Local review passes, Clarity, DFMEA, Security |
 | review_plan | Review preparation | Scope coverage, Checklist relevance, Risk areas, Context |
-| review_execute | Review depth | Finding validity, Severity calibration, False positive rate, Completeness, Actionability |
+| review_execute | Review depth | Local review findings, Remote review approval, CI pipeline passes, Severity calibration, Completeness |
 | test_plan | Test strategy | Module test scenarios, System test scenarios, Device environment setup, Regression scope, Priority |
 | test_execute | Test reliability | On-device execution, Module test pass/fail, System test pass/fail, Reproducibility, Report clarity |
 | accept_plan | Acceptance alignment | Traceability, User perspective, Measurability, Completeness |
@@ -911,9 +911,16 @@ PHASE_ENTRY_QUESTIONS = {
                   "性能重点 / Performance-focused", "自定义 / Custom"] },
   ],
   "review_execute": [
-    { "key": "review_submission", "prompt": "审查结果提交到哪里？ / Submit review to?",
-      "choices": ["Gerrit / Gerrit review", "GitHub PR / GitHub PR comment",
-                  "本地报告 / Local report only ★", "Confluence / Confluence page"] },
+    { "key": "review_stages", "prompt": "审查包含哪些阶段？ / Which review stages?",
+      "choices": ["本地审查+远端审查+CI / Local + Remote + CI ★",
+                  "本地审查+远端审查 / Local + Remote only",
+                  "仅本地审查 / Local review only"] },
+    { "key": "remote_review_target", "prompt": "远端审查提交到哪里？ / Remote review target?",
+      "choices": ["Gerrit / Gerrit review ★", "GitHub PR / GitHub PR",
+                  "GitLab MR / GitLab MR", "跳过 / Skip remote review"] },
+    { "key": "ci_pipeline", "prompt": "CI 流水线？ / CI pipeline?",
+      "choices": ["自动检测 / Auto-detect ★", "Jenkins", "GitHub Actions",
+                  "GitLab CI", "自定义 / Custom (specify)", "跳过 / Skip CI"] },
     { "key": "review_fix_policy", "prompt": "发现问题后？ / When issues found?",
       "choices": ["退回修改 / Return for fixes ★", "记录但继续 / Log and continue",
                   "自动修复 / Auto-fix minor issues"] },
@@ -1615,10 +1622,11 @@ function orchestrate(task_id):
       })
       save task-board.json
 
-    # ── Step 3c: LOCAL CODE REVIEW (implementer execute phase only) ──
-    # After build verification, spawn the reviewer agent for a local review
-    # before presenting to the HITL gate. This ensures code quality before
-    # the user decides whether to push to remote review.
+    # ── Step 3c: QUICK LOCAL REVIEW (implementer execute phase only) ──
+    # After build verification, spawn the reviewer agent for a quick local
+    # review before the HITL gate. This is a lightweight pre-check — the
+    # formal review phase (with remote review + CI) happens later in the
+    # pipeline. This step catches obvious issues early to reduce iteration.
     if role == "implementer" and phase == "execute":
       review_prompt = build_context(current_task, "reviewer", "execute",
         extra="LOCAL REVIEW MODE: Review the code changes made by the implementer. "

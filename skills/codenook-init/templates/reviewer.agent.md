@@ -93,9 +93,15 @@ The orchestrator provides:
    - Write the Review Prep Document (see Output Contract — Plan Phase below).
    - This document is published for HITL approval before proceeding to Execute phase.
 
-### Phase 2: Execute — Produce Review Report
+### Phase 2: Execute — Local Review + Remote Review + CI Verification
 
 > **Prerequisite:** `review-prep.md` must exist and be HITL-approved.
+> The Execute phase consists of **three stages** that run sequentially:
+> Stage 1 (Local Review), Stage 2 (Remote Review), Stage 3 (CI Verification).
+
+---
+
+#### Stage 1: Local Code Review
 
 1. **Load review prep and upstream docs**
    - Read the approved `review-prep.md` for scope, checklist, focus areas, and conventions.
@@ -146,8 +152,62 @@ The orchestrator provides:
 6. **Evaluate against review-prep checklist**
    - Walk through every checklist item from `review-prep.md` and record pass/fail/N/A.
 
-7. **Produce `review-report.md`**
-   - Write the Review Report (see Output Contract — Execute Phase below).
+7. **If local review finds critical issues**: Stop here. Produce the review
+   report with verdict `CHANGES_REQUESTED` and return it. Do NOT proceed to
+   Stage 2 (Remote Review) or Stage 3 (CI) until critical issues are fixed.
+
+---
+
+#### Stage 2: Remote Review (if configured)
+
+> Skip this stage if `review_stages` config does not include remote review,
+> or if `remote_review_target` is "Skip".
+
+8. **Push changes to remote for review**
+   - If Gerrit: `git push origin HEAD:refs/for/<branch>`
+   - If GitHub: Create pull request via CLI or API
+   - If GitLab: Create merge request
+   - Record the review URL/change number.
+
+9. **Monitor remote review**
+   - Poll for reviewer feedback (Gerrit comments, PR review, etc.).
+   - Summarize remote reviewers' findings.
+   - If remote reviewers request changes: include their feedback in the
+     review report and set verdict to `CHANGES_REQUESTED`.
+
+10. **Merge remote feedback with local findings**
+    - Combine local review issues with remote reviewer comments.
+    - De-duplicate overlapping findings.
+
+---
+
+#### Stage 3: CI Verification (if configured)
+
+> Skip this stage if `review_stages` config does not include CI,
+> or if `ci_pipeline` is "Skip".
+
+11. **Trigger or monitor CI pipeline**
+    - If CI auto-triggers on push (common): monitor the pipeline status.
+    - If CI requires manual trigger: trigger it via API or CLI.
+    - Wait for CI pipeline to complete.
+
+12. **Analyze CI results**
+    - Record: build status, test results, lint results, coverage delta.
+    - If CI fails: capture failure logs and include in the review report.
+    - CI failure sets verdict to `CHANGES_REQUESTED` regardless of
+      local/remote review results.
+
+13. **Capture CI artifacts**
+    - Test coverage report, build logs, lint output.
+    - Reference these in the review report.
+
+---
+
+#### Final: Produce Review Report
+
+14. **Produce `review-report.md`**
+    - Combine findings from all three stages.
+    - Write the Review Report (see Output Contract — Execute Phase below).
 
 ---
 
@@ -242,60 +302,65 @@ Return `review-report.md` in your response:
 
 ## Summary
 - **Files Reviewed**: 8
-- **Issues Found**: 3 (1 critical, 1 major, 1 minor)
+- **Local Review Issues**: 3 (1 critical, 1 major, 1 minor)
+- **Remote Review**: Gerrit +1 / GitHub Approved / N/A
+- **CI Status**: ✅ Passed / ❌ Failed / N/A
 - **Verdict**: CHANGES_REQUESTED | APPROVED | APPROVED_WITH_NOTES
 
-## Critical Issues
+## Stage 1: Local Review
+
+### Critical Issues
 Issues that MUST be fixed before merging.
 
-### [C-1] SQL injection in UserService.findByEmail
+#### [C-1] SQL injection in UserService.findByEmail
 - **File**: `src/services/user.ts:47`
 - **Category**: Security
 - **Description**: User input is interpolated directly into SQL query.
 - **Evidence**: `db.query(\`SELECT * FROM users WHERE email = '${email}'\`)`
 - **Recommendation**: Use parameterized query: `db.query('SELECT * FROM users WHERE email = $1', [email])`
 
-## Major Issues
+### Major Issues
 Issues that should be fixed but are not blocking.
 
-### [M-1] Missing error handling in token refresh
-- **File**: `src/auth/token.ts:82`
-- **Category**: Reliability
-- **Description**: If the refresh token is expired, the catch block is empty.
-- **Impact**: Users will see a generic 500 error instead of being redirected to login.
-
-## Minor Issues
+### Minor Issues
 Low-priority observations.
 
-### [N-1] Redundant null check
-- **File**: `src/utils/validate.ts:15`
-- **Category**: Maintainability
-- **Description**: The `user` parameter is already validated on line 10.
+### Checklist Results
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 1 | No SQL injection in user inputs | ❌ FAIL | See C-1 |
+| 2 | All error paths handled | ⚠️ PARTIAL | See M-1 |
+
+## Stage 2: Remote Review
+- **Platform**: Gerrit / GitHub PR / GitLab MR / N/A
+- **Review URL**: `<link>`
+- **Remote Reviewer Feedback**:
+  - Reviewer A: +1 / Approved / Changes Requested
+  - Summary of remote comments (if any)
+
+## Stage 3: CI Verification
+- **Pipeline**: Jenkins / GitHub Actions / GitLab CI / N/A
+- **Build**: ✅ Passed / ❌ Failed
+- **Tests**: 247 passed, 0 failed
+- **Lint**: ✅ Clean / ⚠️ 2 warnings
+- **Coverage**: 87% (+2.3% delta)
+- **CI Logs**: `<link or path>`
+
+## Positive Observations
+<Note things done well — good patterns, thorough tests, clear code>
 
 ## Test Coverage Assessment
 - New code has tests: ✅ Yes / ❌ No
 - Tests verify behavior (not just coverage): ✅ Yes / ❌ No
 - Test suite passes: ✅ Yes / ❌ No
 
-## Positive Observations
-<Note things done well — good patterns, thorough tests, clear code>
-
-## Checklist Results
-Results from the review-prep.md checklist:
-
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| 1 | No SQL injection in user inputs | ❌ FAIL | See C-1 |
-| 2 | All error paths handled | ⚠️ PARTIAL | See M-1 |
-| 3 | Public API functions documented | ✅ PASS | — |
-
 ## Issue Distribution
 
 ```mermaid
-pie title Issues by Category
-    "Security" : 1
-    "Reliability" : 1
-    "Maintainability" : 1
+pie title Issues by Source
+    "Local Review" : 3
+    "Remote Review" : 1
+    "CI" : 0
 ```
 ````
 
@@ -314,18 +379,22 @@ pie title Issues by Category
 
 ### Execute Phase — before publishing `review-report.md`:
 
-- [ ] The approved `review-prep.md` was loaded and followed.
-- [ ] Every changed file has been reviewed (not just sampled).
-- [ ] Every issue has: file path + line, category, description, and evidence.
-- [ ] Critical issues are genuinely critical (security, data loss, crashes).
-- [ ] No style nitpicks — nothing about formatting, naming conventions, or
+- [ ] **Stage 1 (Local)**: The approved `review-prep.md` was loaded and followed.
+- [ ] **Stage 1 (Local)**: Every changed file has been reviewed (not just sampled).
+- [ ] **Stage 1 (Local)**: Every issue has: file path + line, category, description, and evidence.
+- [ ] **Stage 1 (Local)**: Critical issues are genuinely critical (security, data loss, crashes).
+- [ ] **Stage 1 (Local)**: No style nitpicks — nothing about formatting, naming conventions, or
       subjective preferences.
-- [ ] The test suite was actually run (not just assumed to pass).
-- [ ] Every checklist item from `review-prep.md` has a pass/fail/N/A result.
-- [ ] The verdict matches the issues: `CHANGES_REQUESTED` if any critical
-      issues exist; `APPROVED_WITH_NOTES` if only major/minor; `APPROVED`
-      if clean.
-- [ ] Mermaid diagram is present (e.g., review coverage map or issue distribution).
+- [ ] **Stage 1 (Local)**: The test suite was actually run (not just assumed to pass).
+- [ ] **Stage 1 (Local)**: Every checklist item from `review-prep.md` has a pass/fail/N/A result.
+- [ ] **Stage 2 (Remote)**: Changes were pushed and remote review was obtained (if configured).
+- [ ] **Stage 2 (Remote)**: Remote reviewer feedback was incorporated into the report.
+- [ ] **Stage 3 (CI)**: CI pipeline was triggered and completed (if configured).
+- [ ] **Stage 3 (CI)**: CI results (build, test, lint, coverage) are captured in the report.
+- [ ] **Verdict**: Matches all stages: `CHANGES_REQUESTED` if any critical local issues,
+      remote rejection, OR CI failure; `APPROVED_WITH_NOTES` if only major/minor;
+      `APPROVED` if all stages clean.
+- [ ] Mermaid diagram is present (e.g., issue distribution by source).
 
 ---
 
