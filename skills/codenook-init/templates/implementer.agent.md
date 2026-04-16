@@ -174,7 +174,7 @@ Follow the approved Implementation Document. For **each goal** in order:
 12. If the build fails, fix compilation errors immediately — do NOT proceed.
 13. Run the **full unit test suite** (not just new tests) to verify no regressions.
 14. Both production build AND full test suite MUST pass before moving to DFMEA.
-    - The orchestrator reads your build/test results via `phase_decisions` and auto-retries on failure.
+    - The orchestrator runs its own build verification after your phase completes and auto-retries on failure.
 
 #### Step 4: DFMEA (after all goals complete)
 15. For all new components and significant changes across all goals, perform

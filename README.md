@@ -136,6 +136,7 @@ It then generates project-level files:
 │   ├── docs/                    # Document artifacts per task
 │   │   └── T-NNN/               # 10 docs per task lifecycle
 │   ├── memory/
+│   ├── knowledge/               # Cross-task knowledge base (by-role + by-topic)
 │   ├── reviews/                 # Review reports and verdicts
 │   ├── skills/                  # Project-level skills (auto-provisioned)
 │   ├── task-board.json
@@ -270,7 +271,7 @@ You approve or provide feedback at each of the 10 HITL gates. That's it.
 
 | # | Status | Handler | On Approve | On Reject |
 |---|--------|---------|------------|-----------|
-| 1 | `created` | → Acceptor (req) | `req_approved` | *(self-retry)* |
+| 1 | `created` | → Acceptor (req) | `req_approved` | `created` *(self-retry)* |
 | 2 | `req_approved` | → **[HITL]** → Designer | `design_approved` | `req_approved` *(self-retry)* |
 | 3 | `design_approved` | → **[HITL]** → Implementer (plan) | `impl_planned` | `design_approved` *(self-retry)* |
 | 4 | `impl_planned` | → **[HITL]** → Implementer (execute) | `impl_done` | `impl_planned` *(self-retry)* |

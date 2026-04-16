@@ -390,7 +390,7 @@ orchestrator's analysis is focused and phase-appropriate rather than generic.
 | impl_plan | Plan feasibility | Feasibility, Risk, Dependencies, Scope, Testing strategy, Rollback |
 | impl_execute | Code quality | Correctness, Edge cases, Test coverage, Build passes (production + UT), Local review passes, Clarity, DFMEA, Security |
 | review_plan | Review preparation | Scope coverage, Checklist relevance, Risk areas, Context |
-| review_execute | Review depth | Local review findings, Remote review approval, CI pipeline passes, Severity calibration, Completeness |
+| review_execute | Review depth | Local review findings, Remote review approval, CI pipeline passes, Finding validity, Severity calibration, Completeness, Actionability |
 | test_plan | Test strategy | Module test scenarios, System test scenarios, Device environment setup, Regression scope, Priority |
 | test_execute | Test reliability | On-device execution, Module test pass/fail, System test pass/fail, Reproducibility, Report clarity |
 | accept_plan | Acceptance alignment | Traceability, User perspective, Measurability, Completeness |
@@ -706,8 +706,9 @@ CONFIDENCE_LEVELS = { "HIGH": 3, "MEDIUM": 2, "LOW": 1 }
 | `meets_threshold(conf, thresh)` | Compare via CONFIDENCE_LEVELS map (HIGH≥MEDIUM≥LOW) |
 | `count_items(path)` | Count `### [` headers in file. Returns 0 if file missing |
 | `rotate_oldest(path)` | Remove first `### [` block (oldest item) from file |
-| `item_exists_in_file(path, tid)` | Returns true if `### [{tid}]` found in file |
+| `item_exists_in_file(path, header)` | Returns true if `### {header}` found in file |
 | `append_to_file(path, content)` | Append with blank line separator; create if missing |
+| `extract_section(text, heading)` | Return text between `heading` and the next `##` heading (or EOF). Returns `""` if heading not found |
 | `file_exists(path)` / `read(path)` | Standard file ops; `read` returns `""` if missing |
 
 # ── Core Knowledge Functions ──
@@ -751,7 +752,7 @@ function extract_knowledge(task_id, role, phase, document_content, config):
   for item in parsed_items:
     if not meets_threshold(item.confidence, threshold): continue
     role_file = f"{KNOWLEDGE_DIR}/by-role/{role}.md"
-    header = f"{item.task_id}"
+    header = f"[{item.task_id}] {item.title}"
     if item_exists_in_file(role_file, header): continue
 
     # Rotate oldest if at capacity, then append
@@ -764,7 +765,7 @@ function extract_knowledge(task_id, role, phase, document_content, config):
       topic = TAG_TOPIC_MAP.get(tag)
       if topic and topic not in topics_written:
         topic_file = f"{KNOWLEDGE_DIR}/by-topic/{topic}.md"
-        if not item_exists_in_file(topic_file, item.task_id):
+        if not item_exists_in_file(topic_file, f"[{item.task_id}] {item.title}"):
           if count_items(topic_file) >= max_per_topic: rotate_oldest(topic_file)
           append_to_file(topic_file, item.markdown)
           topics_written.add(topic)
@@ -1686,10 +1687,6 @@ function orchestrate(task_id):
     if not config.get("hitl", {}).get("enabled", true):
       decision = "approve"
       feedback = None
-    elif feedback is not None:
-      # System feedback from build/test/review failure — bypass HITL, auto-retry
-      decision = "reject"
-      # feedback already set by the failure handler above
     else:
       # ⚠️ CRITICAL: Adapter Resolution — MUST follow priority chain exactly.
       # DO NOT hardcode or guess the adapter. Read config FIRST.
@@ -1703,7 +1700,7 @@ function orchestrate(task_id):
       adapter = load_adapter(adapter_name)
       adapter.publish(task_id, role, phase, DOCS_DIR/{route.doc})
 
-    # Collect human decision via the adapter's own mechanism
+      # Collect human decision via the adapter's own mechanism
       decision, feedback = adapter.get_feedback(task_id, role, phase)
       adapter.stop(task_id, role, phase)
       # All adapters are self-contained — no dependency on ask_user or any LLM tool
@@ -1731,12 +1728,18 @@ function orchestrate(task_id):
     if decision == "approve":
       # Verdict-based routing: only reviewer, tester, and acceptor produce verdicts
       if phase == "accept-exec" or (phase == "execute" and role in ("reviewer", "tester")):
-        # Extract verdict from the document's ## Verdict / ## Result section
-        # Look for keywords: APPROVED, APPROVED_WITH_NOTES, CHANGES_REQUESTED, FAIL, ACCEPT, REJECT
+        # Extract verdict from the document's ## Verdict section only
+        # Look for keywords: APPROVED, APPROVED_WITH_NOTES, CHANGES_REQUESTED, PASS, PASS_WITH_ISSUES, FAIL, ACCEPT, REJECT
         doc_content = read DOCS_DIR/{route.doc}
+        # Restrict search to the ## Verdict section to avoid false matches
+        # (e.g., "acceptable" matching ACCEPT, "failure mode" matching FAIL)
+        verdict_section = extract_section(doc_content, "## Verdict")
+        if not verdict_section: verdict_section = extract_section(doc_content, "## Result")
+        if not verdict_section: verdict_section = doc_content  # fallback to full doc
         verdict = None
-        for keyword in ["APPROVED_WITH_NOTES", "CHANGES_REQUESTED", "APPROVED", "ACCEPT", "REJECT", "FAIL"]:
-          if keyword in doc_content.upper():
+        for keyword in ["APPROVED_WITH_NOTES", "CHANGES_REQUESTED", "PASS_WITH_ISSUES",
+                         "APPROVED", "PASS", "ACCEPT", "REJECT", "FAIL"]:
+          if keyword in verdict_section.upper():
             verdict = keyword; break
         if verdict is None: verdict = "APPROVED"  # default: trust HITL approval
         # Acceptor uses ACCEPT/REJECT; reviewer/tester use APPROVED/CHANGES_REQUESTED/FAIL
@@ -1753,13 +1756,13 @@ function orchestrate(task_id):
           # reviewer or tester
           if verdict in ("CHANGES_REQUESTED", "FAIL"):
             # CI failure in review phase → CHANGES_REQUESTED → back to implementer
-            # This ensures CI MUST pass before test phase can begin.
+            # Test failure → FAIL → back to implementer
             if current_task.mode == "lightweight":
               current_task.status = find_status_for_agent("implementer", ROUTING) or route.reject
             else:
               current_task.status = "impl_planned"     # back to implementer
           else:
-            # APPROVED / APPROVED_WITH_NOTES → normal advance
+            # APPROVED / APPROVED_WITH_NOTES / PASS / PASS_WITH_ISSUES → normal advance
             current_task.status = route.approve
       else:
         current_task.status = route.approve
