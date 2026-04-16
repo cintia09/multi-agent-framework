@@ -5,6 +5,26 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILL_SRC="${REPO_DIR}/skills/codenook-init"
 
+# Security scan before syncing
+if [[ -f "${REPO_DIR}/skill-security-scan.sh" ]]; then
+  echo "🔐 Running security scan..."
+  if ! "${REPO_DIR}/skill-security-scan.sh" "$SKILL_SRC"; then
+    scan_exit=$?
+    if [[ "$scan_exit" -eq 2 ]]; then
+      echo "❌ Security scan BLOCKED sync. Critical issues found."
+      exit 2
+    else
+      echo "⚠️  Security scan found warnings. Review above."
+      read -r -p "Continue sync? [y/N] " confirm
+      if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        echo "Sync cancelled."
+        exit 1
+      fi
+    fi
+  fi
+  echo ""
+fi
+
 TARGETS=(
   "$HOME/.copilot/skills/codenook-init"
   "$HOME/.claude/skills/codenook-init"
