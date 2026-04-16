@@ -388,7 +388,7 @@ orchestrator's analysis is focused and phase-appropriate rather than generic.
 | requirements | Requirements quality | Completeness, Testability, Ambiguity, Consistency, Prioritization, Non-functionals |
 | design | Architecture quality | Scalability, Coupling, Security, Performance, Pattern fitness, Extensibility, Error handling |
 | impl_plan | Plan feasibility | Feasibility, Risk, Dependencies, Scope, Testing strategy, Rollback |
-| impl_execute | Code quality | Correctness, Edge cases, Test coverage, Build passes (production + UT), Clarity, DFMEA, Security |
+| impl_execute | Code quality | Correctness, Edge cases, Test coverage, Build passes (production + UT), Local review passes, Clarity, DFMEA, Security |
 | review_plan | Review preparation | Scope coverage, Checklist relevance, Risk areas, Context |
 | review_execute | Review depth | Finding validity, Severity calibration, False positive rate, Completeness, Actionability |
 | test_plan | Test strategy | Module test scenarios, System test scenarios, Device environment setup, Regression scope, Priority |
@@ -886,18 +886,21 @@ PHASE_ENTRY_QUESTIONS = {
                   "无需分支 / No branch needed"] },
   ],
   "impl_execute": [
-    { "key": "commit_strategy", "prompt": "代码完成后如何处理？ / After code completion?",
-      "choices": ["提交到远端 / Push to remote ★", "仅本地提交 / Local commit only",
-                  "创建PR/MR / Create pull request", "提交到Gerrit / Push to Gerrit",
-                  "暂不提交 / Don't commit yet"] },
-    { "key": "test_before_commit", "prompt": "提交前是否运行测试？ / Run tests before commit?",
-      "choices": ["是 / Yes ★", "否 / No", "仅单元测试 / Unit tests only"] },
     { "key": "build_command", "prompt": "构建命令？ / Build command?",
       "choices": ["自动检测 / Auto-detect ★", "make", "cmake --build build/",
                   "npm run build", "cargo build", "自定义 / Custom (specify)"] },
     { "key": "test_command", "prompt": "测试命令？ / Test command?",
       "choices": ["自动检测 / Auto-detect ★", "make test", "ctest", "npm test",
                   "pytest", "cargo test", "自定义 / Custom (specify)"] },
+    { "key": "local_review", "prompt": "构建通过后是否进行本地审阅？ / Local review after build passes?",
+      "choices": ["是，由审阅者代理完成 / Yes, by reviewer agent ★",
+                  "否，直接进入HITL / No, go to HITL directly"] },
+    { "key": "commit_strategy", "prompt": "本地审阅通过后如何处理？ / After local review passes?",
+      "choices": ["用户决定是否推送远端 / User decides push ★",
+                  "自动推送远端 / Auto push to remote",
+                  "仅本地提交 / Local commit only",
+                  "提交到Gerrit / Push to Gerrit",
+                  "创建PR/MR / Create pull request"] },
   ],
   "review_plan": [
     { "key": "review_scope", "prompt": "审查范围？ / Review scope?",
@@ -1600,7 +1603,47 @@ function orchestrate(task_id):
         feedback = f"UNIT TESTS FAILED. Fix failing tests before proceeding:\n{test_result.output}"
         continue  # retry the same phase with feedback
 
-      # Build + tests passed — proceed to HITL gate
+      # Build + tests passed — proceed to local review
+
+    # ── Step 3c: LOCAL CODE REVIEW (implementer execute phase only) ──
+    # After build verification, spawn the reviewer agent for a local review
+    # before presenting to the HITL gate. This ensures code quality before
+    # the user decides whether to push to remote review.
+    if role == "implementer" and phase == "execute":
+      review_prompt = build_context(current_task, "reviewer", "execute",
+        extra="LOCAL REVIEW MODE: Review the code changes made by the implementer. "
+              "Focus on logic, security, maintainability, and correctness. "
+              "This is a local review — do NOT submit to Gerrit/GitHub. "
+              "Produce a review-report.md with findings and a verdict.")
+      review_result = task(
+        agent_type = resolve_agent("reviewer"),
+        prompt = review_prompt,
+        model = resolve_model("reviewer", "execute")
+      )
+      # Save review report
+      extract review content from review_result.response
+      write to DOCS_DIR/review-report.md
+      current_task.artifacts["review_report"] = "review-report.md"
+      current_task.feedback_history.append({
+        "from_status": current_task.status,
+        "summary": "Local code review completed",
+        "document": "review-report.md",
+        "at": ISO timestamp, "role": "reviewer", "phase": "execute", "by": "agent"
+      })
+      save task-board.json
+
+      # If review found critical issues, return to implementer for fixing
+      review_verdict = extract verdict from review_result.response  # APPROVE / REJECT / NEEDS_WORK
+      if review_verdict in ["REJECT", "NEEDS_WORK"]:
+        current_task.feedback_history.append({
+          "from_status": current_task.status, "decision": "review_rejected",
+          "feedback": f"Local review found issues:\n{review_result.response}",
+          "at": ISO timestamp, "role": "reviewer", "phase": "execute", "by": "agent"
+        })
+        feedback = f"LOCAL REVIEW REJECTED. Address review findings before proceeding:\n{review_result.response}"
+        continue  # retry impl_execute with review feedback
+
+      # Local review passed — proceed to HITL gate
 
     # ── Step 4: HITL GATE (MANDATORY — DO NOT SKIP) ──
     if not exists HITL_DIR/hitl-verify.sh:

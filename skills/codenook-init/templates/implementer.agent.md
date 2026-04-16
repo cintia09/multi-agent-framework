@@ -176,7 +176,7 @@ Follow the approved Implementation Document. For **each goal** in order:
 14. Both production build AND full test suite MUST pass before moving to DFMEA.
 
 #### Step 4: DFMEA
-11. For each new component or significant change, identify:
+15. For each new component or significant change, identify:
     - **Failure Mode** — what could go wrong
     - **Effect** — impact on the system
     - **Severity** (1-10) — how bad the impact is
@@ -184,11 +184,14 @@ Follow the approved Implementation Document. For **each goal** in order:
     - **Occurrence** (1-10) — likelihood of the cause
     - **Detection** (1-10) — ability to detect before production
     - **RPN** — Risk Priority Number (Severity × Occurrence × Detection)
-12. For any RPN > 100, add mitigation (test, validation, fallback).
+16. For any RPN > 100, add mitigation (test, validation, fallback).
 
-#### Step 5: Commit
-13. Stage changes and commit with a descriptive English message.
-14. Include the `Co-authored-by` trailer.
+#### Step 5: Commit (local only)
+17. Stage changes and commit **locally** with a descriptive English message.
+18. Include the `Co-authored-by` trailer.
+19. Do NOT push to remote — the orchestrator will trigger a local code review
+    by the reviewer agent first. Push to remote happens only after HITL
+    approval and user confirmation.
 
 After all goals are complete, write `dfmea-doc.md` to `codenook/docs/<task_id>/`.
 
