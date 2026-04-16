@@ -391,8 +391,8 @@ orchestrator's analysis is focused and phase-appropriate rather than generic.
 | impl_execute | Code quality | Correctness, Edge cases, Test coverage, Build passes (production + UT), Clarity, DFMEA, Security |
 | review_plan | Review preparation | Scope coverage, Checklist relevance, Risk areas, Context |
 | review_execute | Review depth | Finding validity, Severity calibration, False positive rate, Completeness, Actionability |
-| test_plan | Test strategy | Coverage, Edge cases, Regression, Isolation, Priority |
-| test_execute | Test reliability | Pass/fail accuracy, Coverage gaps, Reproducibility, Report clarity |
+| test_plan | Test strategy | Module test scenarios, System test scenarios, Device environment setup, Regression scope, Priority |
+| test_execute | Test reliability | On-device execution, Module test pass/fail, System test pass/fail, Reproducibility, Report clarity |
 | accept_plan | Acceptance alignment | Traceability, User perspective, Measurability, Completeness |
 | accept_execute | Verification thoroughness | Criteria coverage, Evidence quality, Deployment readiness, User impact |
 | *(unknown)* | Generic quality | Completeness, Correctness, Clarity, Actionability |
@@ -917,15 +917,24 @@ PHASE_ENTRY_QUESTIONS = {
   ],
   "test_plan": [
     { "key": "test_scope", "prompt": "测试范围？ / Test scope?",
-      "choices": ["单元+集成 / Unit + Integration ★", "仅单元测试 / Unit tests only",
-                  "端到端 / E2E", "全面 / All (unit + integration + e2e)"] },
+      "choices": ["模块测试+系统测试 / Module + System test ★",
+                  "仅模块测试 / Module test only",
+                  "仅系统测试 / System test only",
+                  "全面 / All (module + system + regression)"] },
+    { "key": "test_environment", "prompt": "测试环境？ / Test environment?",
+      "choices": ["实际设备 / Real device ★", "仿真环境 / Simulator",
+                  "实际设备+仿真 / Device + Simulator", "自定义 / Custom (specify)"] },
     { "key": "coverage_target", "prompt": "覆盖率目标？ / Coverage target?",
-      "choices": ["80% ★", "90%", "无特定目标 / No specific target", "自定义 / Custom"] },
+      "choices": ["关键路径全覆盖 / Full critical path coverage ★",
+                  "80%", "90%", "自定义 / Custom"] },
   ],
   "test_execute": [
     { "key": "test_failure_policy", "prompt": "测试失败后？ / On test failure?",
       "choices": ["修复后重试 / Fix and retry ★", "标记已知问题继续 / Mark known issues, continue",
                   "退回给实现者 / Return to implementer"] },
+    { "key": "device_access", "prompt": "设备连接方式？ / Device access method?",
+      "choices": ["SSH / SSH ★", "串口 / Serial console", "JTAG/SWD",
+                  "远程实验室 / Remote lab", "自定义 / Custom (specify)"] },
     { "key": "test_report_dest", "prompt": "测试报告保存到？ / Save test report to?",
       "choices": ["项目文档 / Project docs ★", "Confluence", "Jira", "仅本地 / Local only"] },
   ],
