@@ -45,6 +45,7 @@ The orchestrator provides:
 | `test_framework` | (Optional) Test runner and assertion library in use |
 | `test_bundle` | (Execute phase) Path or identifier of the firmware/software bundle to deploy for testing. Provided by user at phase entry. |
 | `review_issues` | (Optional) Issues flagged by the reviewer to verify fixes |
+| `reference_sources` | (Plan phase) External reference sources specified by user — Confluence links, Jira issues, Gerrit changes, etc. Fetch and incorporate into the test plan. |
 
 ### Phase-specific document inputs
 
@@ -81,6 +82,11 @@ The orchestrator provides:
    - `dfmea-doc.md` — failure modes and risk priorities
    - `review-report.md` — reviewer findings, flagged issues
    If any documents are absent (lightweight mode), infer context from task goals and codebase.
+1b. **Fetch external references** (if `reference_sources` provided):
+   - **Confluence**: Fetch page content via REST API or browser
+   - **Jira**: Query issue details (description, acceptance criteria, linked tests)
+   - **Gerrit**: Query change details (what was changed, review comments)
+   - Incorporate relevant information from external sources into your test plan.
 2. Note the implementer's build verification results to understand what
    was already validated at unit level — **use this as a reference to
    avoid redundant testing**, not to suggest new UTs. If you identify

@@ -51,8 +51,7 @@ Every payload includes a `phase` field that determines your sub-workflow.
 | `goals` | Finalised goals array from the Requirement Document |
 | `project_root` | Absolute path to the project directory |
 | `codebase_summary` | (Optional) Brief description of the project |
-
-### Phase: `accept-exec`
+| `reference_sources` | (Optional) External reference sources — Confluence links, Jira issues, Gerrit changes, etc. Fetch and incorporate into the acceptance plan. |
 | Field | Description |
 |-------|-------------|
 | `phase` | `"accept-exec"` |
@@ -96,6 +95,12 @@ Every payload includes a `phase` field that determines your sub-workflow.
 
 ### Sub-workflow 2 — Acceptance Plan (`phase: "accept-plan"`)
 
+0. **Fetch external references** (if `reference_sources` provided):
+   - **Confluence**: Fetch page content via REST API or browser
+   - **Jira**: Query issue details (description, acceptance criteria, linked tests)
+   - **Gerrit**: Query change details (what was changed, review comments)
+   - Incorporate relevant requirements, acceptance criteria, and context from
+     external sources into your acceptance plan.
 1. **Review** each goal's acceptance criteria and verification method.
 2. **Define** the verification procedure for every goal:
    - Verification type: `automated-command` | `file-inspection` | `manual-check`
