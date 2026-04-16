@@ -78,12 +78,12 @@ The orchestrator provides:
    - Search for project-specific review checklists (`REVIEW_CHECKLIST.md`, `.github/PULL_REQUEST_TEMPLATE.md`, etc.).
    - Search for coding conventions (`CODING_CONVENTIONS.md`, `.editorconfig`, linter configs, style guides).
    - Search for review guides or quality gates in project documentation.
-   - Read `dfmea-doc.md` to understand risk areas and failure modes.
 
 3. **Read upstream documents**
    - Read `requirement-doc.md` to understand what was requested.
    - Read `design-doc.md` to understand architectural decisions and constraints.
    - Read `implementation-doc.md` to understand what was built and key decisions.
+   - Read `dfmea-doc.md` to understand risk areas and failure modes.
 
 4. **Build combined review checklist**
    - Merge project-specific checklist items with general best practices.

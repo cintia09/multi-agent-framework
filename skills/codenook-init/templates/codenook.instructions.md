@@ -469,7 +469,7 @@ verdict may override the default "approve" route:
 
 | Agent | Verdict Values | Routing Effect |
 |-------|---------------|----------------|
-| implementer | `COMPLETE` (informational only) | No routing effect — always advances |
+| implementer | `COMPLETE` / `INCOMPLETE` (informational only) | No routing effect — always advances (HITL gate decides) |
 | reviewer | `APPROVED` / `APPROVED_WITH_NOTES` / `CHANGES_REQUESTED` | `CHANGES_REQUESTED` → `impl_planned` |
 | tester | `PASS` / `PASS_WITH_ISSUES` / `FAIL` | `FAIL` → `impl_planned` |
 | acceptor | `ACCEPT` / `REJECT` | `REJECT` → `design_approved` |
@@ -751,7 +751,7 @@ function extract_knowledge(task_id, role, phase, document_content, config):
   for item in parsed_items:
     if not meets_threshold(item.confidence, threshold): continue
     role_file = f"{KNOWLEDGE_DIR}/by-role/{role}.md"
-    header = f"[{item.task_id}] {item.title}"
+    header = f"{item.task_id}"
     if item_exists_in_file(role_file, header): continue
 
     # Rotate oldest if at capacity, then append
@@ -1022,6 +1022,8 @@ PHASE_CONSTITUTION = {
       "Correctness — does the code implement the design spec faithfully?",
       "Edge cases — are boundary conditions, null inputs, and error paths handled?",
       "Test coverage — are critical paths covered by tests?",
+      "Build passes — production build and unit tests succeed without errors?",
+      "Local review passes — code review agent found no blocking issues?",
       "Code clarity — is the code self-documenting with clear naming?",
       "DFMEA — are failure modes analyzed with severity/occurrence/detection ratings?",
       "Security — no hardcoded secrets, proper input validation, safe SQL/shell usage?",
@@ -1039,9 +1041,11 @@ PHASE_CONSTITUTION = {
   "review_execute": {
     "focus": "Review depth and accuracy",
     "criteria": [
+      "Local review findings — are local code-review findings addressed or acknowledged?",
+      "Remote review approval — has the formal review (Gerrit/GitHub) been submitted and approved?",
+      "CI pipeline passes — do all CI checks pass on the reviewed changes?",
       "Finding validity — are flagged issues genuine bugs/risks (not style nitpicks)?",
       "Severity calibration — are critical issues distinguished from minor suggestions?",
-      "False positive rate — are there findings that misunderstand the code intent?",
       "Completeness — are obvious issues missed that should have been caught?",
       "Actionability — does each finding have a clear, specific remediation?",
     ]
@@ -1049,19 +1053,20 @@ PHASE_CONSTITUTION = {
   "test_plan": {
     "focus": "Test plan coverage and strategy",
     "criteria": [
-      "Coverage — are all requirements mapped to test cases?",
-      "Edge cases — are boundary values, error conditions, and race conditions tested?",
-      "Regression — are existing behaviors protected against unintended changes?",
-      "Test isolation — do tests depend on external services or shared state?",
+      "Module test scenarios — are inter-component integration tests defined?",
+      "System test scenarios — are end-to-end tests on real device/hardware planned?",
+      "Device environment setup — is the target device, connection, and deployment documented?",
+      "Regression scope — are existing tests identified for re-run?",
       "Priority — are critical-path tests distinguished from nice-to-have tests?",
     ]
   },
   "test_execute": {
     "focus": "Test execution quality and reliability",
     "criteria": [
-      "Pass/fail accuracy — do failing tests indicate real issues (not flaky tests)?",
-      "Coverage gaps — are untested code paths identified and documented?",
-      "Environment stability — are test results reproducible?",
+      "On-device execution — were system tests actually run on real hardware/device?",
+      "Module test pass/fail — do module integration tests produce clear results?",
+      "System test pass/fail — do end-to-end system tests produce clear results?",
+      "Reproducibility — are test results reproducible across runs?",
       "Report clarity — does the report clearly summarize what works and what doesn't?",
     ]
   },
@@ -1603,6 +1608,7 @@ function orchestrate(task_id):
         })
         # Return to agent with build error for fixing — do NOT proceed to HITL
         feedback = f"BUILD FAILED. Fix compilation errors before proceeding:\n{build_result.stderr}"
+        save task-board.json
         continue  # retry the same phase with feedback
 
       # 2. Run unit tests
@@ -1615,6 +1621,7 @@ function orchestrate(task_id):
         })
         # Return to agent with test failures for fixing
         feedback = f"UNIT TESTS FAILED. Fix failing tests before proceeding:\n{test_result.output}"
+        save task-board.json
         continue  # retry the same phase with feedback
 
       # Build + tests passed — record and proceed to local review
@@ -1632,23 +1639,27 @@ function orchestrate(task_id):
     # pipeline. This step catches obvious issues early to reduce iteration.
     if role == "implementer" and phase == "execute":
       review_prompt = build_context(current_task, "reviewer", "execute",
-        extra="LOCAL REVIEW MODE: Review the code changes made by the implementer. "
-              "Focus on logic, security, maintainability, and correctness. "
-              "This is a local review — do NOT submit to Gerrit/GitHub. "
-              "Produce a review-report.md with findings and a verdict.")
+        upstream_docs, memory,
+        "LOCAL REVIEW MODE: Review the code changes made by the implementer. "
+        "Focus on logic, security, maintainability, and correctness. "
+        "This is a local review — do NOT submit to Gerrit/GitHub. "
+        "Produce a local-review-report.md with findings and a verdict.",
+        project_skills, knowledge)
       review_result = task(
-        agent_type = resolve_agent("reviewer"),
+        agent_type = config.get("reviewer_agent_type", "code-review"),
         prompt = review_prompt,
-        model = resolve_model("reviewer", "execute")
+        model = (config.models.get("phase_overrides", {}).get("review_execute")
+                 or config.models.get("reviewer")
+                 or None)
       )
-      # Save review report
+      # Save local review report (separate from formal review-report.md)
       extract review content from review_result.response
-      write to DOCS_DIR/review-report.md
-      current_task.artifacts["review_report"] = "review-report.md"
+      write to DOCS_DIR/local-review-report.md
+      current_task.artifacts["local_review_report"] = "local-review-report.md"
       current_task.feedback_history.append({
         "from_status": current_task.status,
         "summary": "Local code review completed",
-        "document": "review-report.md",
+        "document": "local-review-report.md",
         "at": ISO timestamp, "role": "reviewer", "phase": "execute", "by": "agent"
       })
       save task-board.json
@@ -1662,6 +1673,7 @@ function orchestrate(task_id):
           "at": ISO timestamp, "role": "reviewer", "phase": "execute", "by": "agent"
         })
         feedback = f"LOCAL REVIEW REJECTED. Address review findings before proceeding:\n{review_result.response}"
+        save task-board.json
         continue  # retry impl_execute with review feedback
 
       # Local review passed — proceed to HITL gate
@@ -1674,6 +1686,10 @@ function orchestrate(task_id):
     if not config.get("hitl", {}).get("enabled", true):
       decision = "approve"
       feedback = None
+    elif feedback is not None:
+      # System feedback from build/test/review failure — bypass HITL, auto-retry
+      decision = "reject"
+      # feedback already set by the failure handler above
     else:
       # ⚠️ CRITICAL: Adapter Resolution — MUST follow priority chain exactly.
       # DO NOT hardcode or guess the adapter. Read config FIRST.
@@ -1689,6 +1705,7 @@ function orchestrate(task_id):
 
     # Collect human decision via the adapter's own mechanism
       decision, feedback = adapter.get_feedback(task_id, role, phase)
+      adapter.stop(task_id, role, phase)
       # All adapters are self-contained — no dependency on ask_user or any LLM tool
 
     # Verify HITL completion FIRST (programmatic enforcement — before state mutation)
@@ -1897,6 +1914,8 @@ Before spawning ANY subagent, gather phase-specific context from the project:
 
 #### Before Tester (execute phase):
 1. **Test Plan** — load the approved `test-plan.md` as the execution plan.
+2. **Test Bundle** — if `test_bundle` is defined in task config, include the bundle path/identifier.
+3. **Device Info** — if `device` is defined in task config, include target device connection details.
 
 #### Before Acceptor (accept-plan):
 1. All upstream documents — the acceptor reviews everything produced so far.

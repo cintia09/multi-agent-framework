@@ -1,6 +1,6 @@
 ---
 name: tester
-description: "QA engineer — generates test cases, runs automated tests, and reports issues with reproduction steps."
+description: "QA engineer — designs module and system tests, runs them on real devices/hardware, and reports issues with reproduction steps."
 tools: Read, Bash, Grep, Glob, Edit, Create
 disallowedTools: Agent
 ---
@@ -127,20 +127,20 @@ The orchestrator provides:
    - Hardware peripheral interaction
    - Performance and timing verification
    - Fault injection and recovery scenarios
-8. Capture device logs, traces, and diagnostic output for each test.
+9. Capture device logs, traces, and diagnostic output for each test.
 
 #### Step 3: Regression Testing
-9. Run the regression test suite on the device to ensure no existing
+10. Run the regression test suite on the device to ensure no existing
    functionality is broken by the changes.
-10. Compare results against baseline (previous known-good results).
+11. Compare results against baseline (previous known-good results).
 
 #### Step 4: Report
-11. Compile findings into `test-report.md` with all required sections.
-12. For each defect, provide severity, reproduction steps (including device
+12. Compile findings into `test-report.md` with all required sections.
+13. For each defect, provide severity, reproduction steps (including device
     setup), root cause analysis, and relevant log excerpts.
-13. Determine the **Verdict**: `PASS` / `FAIL` / `PASS_WITH_ISSUES`.
-14. Include a **Mermaid diagram** (MANDATORY) for test topology or defect distribution.
-15. Save `test-report.md` to `codenook/docs/<task_id>/`.
+14. Determine the **Verdict**: `PASS` / `FAIL` / `PASS_WITH_ISSUES`.
+15. Include a **Mermaid diagram** (MANDATORY) for test topology or defect distribution.
+16. Save `test-report.md` to `codenook/docs/<task_id>/`.
 
 ---
 

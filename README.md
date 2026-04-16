@@ -66,6 +66,9 @@ Five specialized AI agents collaborate through an orchestrator that routes tasks
 - **Knowledge Accumulation** — Agents automatically extract cross-task lessons (code conventions, pitfalls, architecture decisions) indexed by role and topic; accumulated knowledge injected into future agent prompts
 - **DFMEA Risk Management** — Implementer outputs failure-mode analysis (S×O×D → RPN)
 - **Dual-Agent Mode** — Two models work in parallel with iterative cross-examination (up to 3 convergence rounds) and blind challenge protocol
+- **Build Verification** — Implementer runs production build + unit tests before HITL gate; failures auto-retry with feedback
+- **3-Stage Code Review** — Local code-review agent → Remote formal review (Gerrit/GitHub) → CI pipeline verification
+- **Module + System Testing** — Tester designs module integration tests and system tests for real device/hardware execution
 - **Phase Constitution** — Per-phase quality criteria (Constitutional AI-inspired) for focused cross-examination evaluation
 - **Tool-Based Boundaries** — `tools` / `disallowedTools` in agent frontmatter (no hooks needed)
 - **Zero Dependencies** — Pure Markdown profiles + JSON state files
@@ -267,21 +270,21 @@ You approve or provide feedback at each of the 10 HITL gates. That's it.
 
 | # | Status | Handler | On Approve | On Reject |
 |---|--------|---------|------------|-----------|
-| 1 | `created` | → Acceptor (req) | `req_approved` | *(agent retries)* |
-| 2 | `req_approved` | → **[HITL]** → Designer | `design_approved` | `created` |
-| 3 | `design_approved` | → **[HITL]** → Implementer (plan) | `impl_planned` | `req_approved` |
-| 4 | `impl_planned` | → **[HITL]** → Implementer (execute) | `impl_done` | `design_approved` |
-| 5 | `impl_done` | → **[HITL]** → Reviewer (plan) | `review_planned` | `impl_planned` |
-| 6 | `review_planned` | → **[HITL]** → Reviewer (execute) | `review_done` | `impl_done` |
-| 7 | `review_done` | → **[HITL]** → Tester (plan) | `test_planned` | `impl_done` |
-| 8 | `test_planned` | → **[HITL]** → Tester (execute) | `test_done` | `review_done` |
-| 9 | `test_done` | → **[HITL]** → Acceptor (accept-plan) | `accept_planned` | `impl_done` |
-| 10 | `accept_planned` | → **[HITL]** → Acceptor (accept-exec) | `done` | `created` |
+| 1 | `created` | → Acceptor (req) | `req_approved` | *(self-retry)* |
+| 2 | `req_approved` | → **[HITL]** → Designer | `design_approved` | `req_approved` *(self-retry)* |
+| 3 | `design_approved` | → **[HITL]** → Implementer (plan) | `impl_planned` | `design_approved` *(self-retry)* |
+| 4 | `impl_planned` | → **[HITL]** → Implementer (execute) | `impl_done` | `impl_planned` *(self-retry)* |
+| 5 | `impl_done` | → **[HITL]** → Reviewer (plan) | `review_planned` | `impl_done` *(self-retry)* |
+| 6 | `review_planned` | → **[HITL]** → Reviewer (execute) | `review_done` | `impl_planned` *(rollback to impl)* |
+| 7 | `review_done` | → **[HITL]** → Tester (plan) | `test_planned` | `review_done` *(self-retry)* |
+| 8 | `test_planned` | → **[HITL]** → Tester (execute) | `test_done` | `impl_planned` *(rollback to impl)* |
+| 9 | `test_done` | → **[HITL]** → Acceptor (accept-plan) | `accept_planned` | `test_done` *(self-retry)* |
+| 10 | `accept_planned` | → **[HITL]** → Acceptor (accept-exec) | `done` | `design_approved` *(rollback to design)* |
 
 - **10 HITL gates** — every phase has a HITL gate; no auto-advancement
-- **Verdict-based routing** — review/test/acceptance report verdicts drive the next status
-- Rejection routes backward to the appropriate phase
+- **Verdict-based routing** — plan phases self-retry on reject; execute phases roll back to the relevant plan phase
 - Subagent errors pause the loop and report to the user
+- See [PIPELINE.md](PIPELINE.md) for the full phase-by-phase workflow reference
 
 ### Task Board Schema
 
@@ -588,9 +591,9 @@ The orchestrator backs up `codenook/task-board.json` to `codenook/task-board.jso
 
 ## Migrating from v3.x / v4.x
 
-v4.9 adds dual-agent cross-examination, Phase Constitution, knowledge accumulation, and genericized skill provisioning. Key changes:
+v4.9.2 adds build verification, 3-stage code review, module/system device testing, and preflight checks on top of v4.9's dual-agent cross-examination, Phase Constitution, and knowledge accumulation. Key changes:
 
-| v3.x | v4.0–4.2 | v4.6+ / v4.9 |
+| v3.x | v4.0–4.2 | v4.9+ |
 |------|----------|------|
 | 20 global skills | 1 global skill + project-level agents & engine | *(same)* |
 | 13 shell hooks | `tools` / `disallowedTools` in frontmatter | *(same)* |
@@ -606,12 +609,16 @@ v4.9 adds dual-agent cross-examination, Phase Constitution, knowledge accumulati
 | — | — | Dual-agent parallel mode with cross-examination |
 | — | — | Phase Constitution (per-phase quality criteria) |
 | — | — | Knowledge accumulation across tasks |
+| — | — | Build verification (production build + UT before HITL) |
+| — | — | 3-stage code review (local → remote → CI) |
+| — | — | Module + system testing on real devices |
+| — | — | Preflight checks for creation-time questions |
 
 **Migration steps:**
 
 **From v3.x:**
 1. Remove old global skills, hooks, and rules from `~/.claude/` or `~/.copilot/`
-2. Install v4.9 (`curl` one-liner or manual copy)
+2. Install v4.9.2 (`curl` one-liner or manual copy)
 3. In your project, run "initialize agent system" to generate new files
 4. Migrate existing tasks manually if needed
 

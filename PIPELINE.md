@@ -139,6 +139,16 @@ test_planned → tester(execute)
 test_done → acceptor(plan) → HITL → acceptor(exec) → HITL → done ✅
 ```
 
+**Phase 9 — Acceptance Plan** (`acceptance-plan.md`):
+- Acceptor reviews all upstream documents and defines acceptance criteria
+- Maps requirements to verification methods
+- HITL approves the acceptance plan
+
+**Phase 10 — Acceptance Execution** (`acceptance-report.md`):
+- Acceptor verifies each acceptance criterion against evidence
+- Produces final acceptance report with deployment readiness assessment
+- HITL makes the final go/no-go decision
+
 ---
 
 ## Quality Gates Summary
