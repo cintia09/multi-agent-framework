@@ -660,8 +660,8 @@ function build_synthesis_prompt(role, phase, current_task, doc_a, doc_b, model_a
 function detect_adapter_from_env():
   # Auto-detects HITL adapter from environment variables.
   if $SSH_TTY: return "terminal"
-  if $DISPLAY or macOS: return "local-html"
-  if /.dockerenv: return "terminal"
+  if $DISPLAY or (platform.system() == "Darwin"): return "local-html"
+  if exists /.dockerenv: return "terminal"
   return "terminal"
 
 function load_adapter(adapter_name):
@@ -1079,12 +1079,23 @@ function build_lightweight_routing(pipeline):
 
   # Chain steps: each step's approve → next step's status, last → "done"
   # First step starts from "created"
-  # Status names: "{agent}_{phase}" with hyphens preserved
+  # Status names: "{agent}_{phase}" with suffix for duplicates
   # Examples: "implementer_plan", "tester_execute", "acceptor_accept-plan"
   prev_status = "created"
+  seen_statuses = set()
   for i, step in enumerate(steps):
     current_status = prev_status
-    next_status = "done" if i == len(steps) - 1 else f"{steps[i+1].agent}_{steps[i+1].phase}"
+    if i < len(steps) - 1:
+      next_base = f"{steps[i+1].agent}_{steps[i+1].phase}"
+      # Disambiguate duplicate agents by appending occurrence count
+      suffix = ""
+      if next_base in seen_statuses:
+        count = sum(1 for s in seen_statuses if s.startswith(next_base))
+        suffix = f"_{count + 1}"
+      next_status = next_base + suffix
+      seen_statuses.add(next_status)
+    else:
+      next_status = "done"
     # Reject routing:
     # - execute/accept-exec phases → back to this agent's plan phase
     # - plan/design/requirements phases → retry (same status)
@@ -1395,7 +1406,7 @@ function orchestrate(task_id):
     # Per-status retry limit + global iteration limit
     status_label = f"{role}/{phase}" if current_task.mode == "lightweight" else current_task.status
     current_task.total_iterations = (current_task.total_iterations or 0) + 1
-    retry_count = (current_task.retry_counts[current_task.status] or 0) + 1
+    retry_count = current_task.retry_counts.get(current_task.status, 0) + 1
     current_task.retry_counts[current_task.status] = retry_count
     if retry_count > 3 or current_task.total_iterations >= 30:
       reason = f"status '{status_label}' retried {retry_count - 1}x (entering attempt {retry_count})" if retry_count > 3 else f"total iterations reached {current_task.total_iterations}"
@@ -1407,8 +1418,8 @@ function orchestrate(task_id):
 
     # ── Step 1: Build Context ──
     upstream_docs = {}
-    for each artifact in current_task.artifacts:
-      if artifact is not null and artifact not in ("(external)", "(skipped)"):
+    for key, filename in current_task.artifacts.items():
+      if filename is not null and filename not in ("(external)", "(skipped)"):
         upstream_docs[key] = read DOCS_DIR/{filename}
     memory   = load ${ROOT}/codenook/memory/<task_id>-<role>-<phase>-memory.md (if exists)
     # Fallback: for cross-phase continuity, walk AGENT_PHASES backward for the same role
@@ -1594,7 +1605,14 @@ function orchestrate(task_id):
     if decision == "approve":
       # Verdict-based routing: only reviewer, tester, and acceptor produce verdicts
       if phase == "accept-exec" or (phase == "execute" and role in ("reviewer", "tester")):
-        verdict = extract verdict from document
+        # Extract verdict from the document's ## Verdict / ## Result section
+        # Look for keywords: APPROVED, APPROVED_WITH_NOTES, CHANGES_REQUESTED, FAIL, ACCEPT, REJECT
+        doc_content = read DOCS_DIR/{route.doc}
+        verdict = None
+        for keyword in ["APPROVED_WITH_NOTES", "CHANGES_REQUESTED", "APPROVED", "ACCEPT", "REJECT", "FAIL"]:
+          if keyword in doc_content.upper():
+            verdict = keyword; break
+        if verdict is None: verdict = "APPROVED"  # default: trust HITL approval
         # Acceptor uses ACCEPT/REJECT; reviewer/tester use APPROVED/CHANGES_REQUESTED/FAIL
         if role == "acceptor":
           if verdict == "REJECT":

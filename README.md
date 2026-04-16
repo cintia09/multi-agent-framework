@@ -514,6 +514,7 @@ After initialization, `codenook/config.json` lives under `.claude/codenook/`:
     "auto_extract": true,
     "max_items_per_role": 100,
     "max_items_per_topic": 50,
+    "max_chars": 8000,
     "confidence_threshold": "MEDIUM"
   },
   "phase_defaults": {},
@@ -539,8 +540,12 @@ After initialization, `codenook/config.json` lives under `.claude/codenook/`:
 | `skills.agent_mapping` | Per-agent skill assignments (`{}` = all skills for all agents) |
 | `dual_mode.enabled` | Enable dual-agent cross-examination mode |
 | `dual_mode.phases` | Which phases use dual mode (`["all"]` or specific phase names) |
-| `dual_mode.models` | Model pairing for agent A, agent B, and synthesizer |
+| `dual_mode.models` | Model pairing: `agent_a`, `agent_b` for cross-examination, `synthesizer` for merging (null = platform default) |
 | `knowledge.enabled` | Enable knowledge extraction after each task |
+| `knowledge.auto_extract` | Auto-extract knowledge items from agent outputs |
+| `knowledge.max_items_per_role` | Max knowledge items per agent role (default: 100) |
+| `knowledge.max_items_per_topic` | Max knowledge items per topic (default: 50) |
+| `knowledge.max_chars` | Max chars of knowledge injected into agent prompt (default: 8000) |
 | `knowledge.confidence_threshold` | Minimum confidence for extracted items (`LOW`/`MEDIUM`/`HIGH`) |
 | `phase_defaults` | Default configuration per phase |
 | `preferences` | Coding conventions, review checklist, phase entry decisions |

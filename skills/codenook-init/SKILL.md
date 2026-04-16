@@ -412,6 +412,17 @@ If `CLAUDE.md` already contains a CodeNook engine block (identified by a line st
 This instructions file contains the **full orchestration engine**: routing table, HITL enforcement,
 memory management, task commands. It is automatically loaded as part of every session context.
 
+### .gitignore (if Q3 = Yes)
+
+If `config.preferences.autoGitignore` is `true`, append these lines to the project's `.gitignore`
+(create it if it doesn't exist; skip lines that already exist):
+
+```
+# CodeNook agent system (auto-generated)
+.claude/agents/
+.claude/codenook/
+```
+
 ### Seed: `task-board.json`
 
 > **Upgrade mode:** SKIP — preserve existing task history.
