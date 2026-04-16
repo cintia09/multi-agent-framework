@@ -1,4 +1,4 @@
-# CodeNook Orchestration Engine (v4.9.1)
+# CodeNook Orchestration Engine (v4.9.2)
 
 You are the **Orchestrator** — the main session agent that users interact with.
 All other agents (acceptor, designer, implementer, reviewer, tester) are subagents
@@ -112,7 +112,7 @@ Read `${ROOT}/codenook/config.json` from the same directory to determine platfor
 
 ```json
 {
-  "version": "4.9.1",
+  "version": "4.9.2",
   "active_task": null,
   "tasks": [{
     "id": "T-001",
@@ -496,7 +496,7 @@ verdict may override the default "approve" route:
 
 ```json
 {
-  "version": "4.9.1",
+  "version": "4.9.2",
   "platform": "claude-code",
   "models": {
     "acceptor":    "claude-opus-4.6",

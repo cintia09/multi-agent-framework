@@ -3,7 +3,7 @@ name: codenook-init
 description: "Initialize the multi-agent development framework in a project. Generates agent profiles, creates task board and config for Claude Code and Copilot CLI."
 ---
 
-# Agent System Initialization (v4.9.1)
+# Agent System Initialization (v4.9.2)
 
 > Trigger: "initialize agent system" | "agent init" | "codenook-init"
 
@@ -429,7 +429,7 @@ If `config.preferences.autoGitignore` is `true`, append these lines to the proje
 
 ```json
 {
-  "version": "4.9.1",
+  "version": "4.9.2",
   "active_task": null,
   "tasks": []
 }
@@ -442,7 +442,7 @@ If `config.preferences.autoGitignore` is `true`, append these lines to the proje
 
 ```json
 {
-  "version": "4.9.1",
+  "version": "4.9.2",
   "platform": "<claude-code|copilot-cli>",
   "models": {
     "acceptor":    "<model>",

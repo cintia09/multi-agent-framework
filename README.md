@@ -287,7 +287,7 @@ You approve or provide feedback at each of the 10 HITL gates. That's it.
 
 ```json
 {
-  "version": "4.9.1",
+  "version": "4.9.2",
   "active_task": null,
   "tasks": [{
     "id": "T-001",
@@ -472,7 +472,7 @@ After initialization, `codenook/config.json` lives under `.claude/codenook/`:
 
 ```json
 {
-  "version": "4.9.1",
+  "version": "4.9.2",
   "platform": "<claude-code|copilot-cli>",
   "models": {
     "acceptor":    "claude-opus-4.6",
