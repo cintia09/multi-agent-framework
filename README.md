@@ -291,7 +291,7 @@ You approve or provide feedback at each of the 10 HITL gates. That's it.
 
 ```json
 {
-  "version": "4.9.2",
+  "version": "4.9.3",
   "active_task": null,
   "tasks": [{
     "id": "T-001",
@@ -476,7 +476,7 @@ After initialization, `codenook/config.json` lives under `.claude/codenook/`:
 
 ```json
 {
-  "version": "4.9.2",
+  "version": "4.9.3",
   "platform": "<claude-code|copilot-cli>",
   "models": {
     "acceptor":    "claude-opus-4.6",
@@ -592,7 +592,7 @@ The orchestrator backs up `codenook/task-board.json` to `codenook/task-board.jso
 
 ## Migrating from v3.x / v4.x
 
-v4.9.2 adds build verification, 3-stage code review, module/system device testing, and preflight checks on top of v4.9's dual-agent cross-examination, Phase Constitution, and knowledge accumulation. Key changes:
+v4.9.3 adds build verification, 3-stage code review, module/system device testing, and preflight checks on top of v4.9's dual-agent cross-examination, Phase Constitution, and knowledge accumulation. Key changes:
 
 | v3.x | v4.0–4.2 | v4.9+ |
 |------|----------|------|
@@ -619,7 +619,7 @@ v4.9.2 adds build verification, 3-stage code review, module/system device testin
 
 **From v3.x:**
 1. Remove old global skills, hooks, and rules from `~/.claude/` or `~/.copilot/`
-2. Install v4.9.2 (`curl` one-liner or manual copy)
+2. Install v4.9.3 (`curl` one-liner or manual copy)
 3. In your project, run "initialize agent system" to generate new files
 4. Migrate existing tasks manually if needed
 
