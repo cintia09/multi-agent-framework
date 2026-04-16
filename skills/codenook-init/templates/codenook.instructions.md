@@ -474,6 +474,11 @@ verdict may override the default "approve" route:
 | tester | `PASS` / `PASS_WITH_ISSUES` / `FAIL` | `FAIL` → `impl_planned` |
 | acceptor | `ACCEPT` / `REJECT` | `REJECT` → `design_approved` |
 
+**Verdict extraction safety:**
+- Verdict is extracted ONLY from `## Verdict` or `## Result` sections (never full document).
+- If no verdict section is found, or no keyword matches, the user is asked to decide.
+- Malformed agent output NEVER defaults to APPROVED.
+
 **Reject routing logic:**
 - Planning document rejected → same agent retries with user feedback
 - Execution report rejected (HITL says "redo") → route depends on context:
@@ -1735,13 +1740,26 @@ function orchestrate(task_id):
         # (e.g., "acceptable" matching ACCEPT, "failure mode" matching FAIL)
         verdict_section = extract_section(doc_content, "## Verdict")
         if not verdict_section: verdict_section = extract_section(doc_content, "## Result")
-        if not verdict_section: verdict_section = doc_content  # fallback to full doc
+        if not verdict_section:
+          # SAFETY: Do NOT fallback to full doc — prose words cause false matches.
+          # Ask user to resolve the ambiguous verdict.
+          verdict_section = None
         verdict = None
-        for keyword in ["APPROVED_WITH_NOTES", "CHANGES_REQUESTED", "PASS_WITH_ISSUES",
-                         "APPROVED", "PASS", "ACCEPT", "REJECT", "FAIL"]:
-          if keyword in verdict_section.upper():
-            verdict = keyword; break
-        if verdict is None: verdict = "APPROVED"  # default: trust HITL approval
+        if verdict_section:
+          for keyword in ["APPROVED_WITH_NOTES", "CHANGES_REQUESTED", "PASS_WITH_ISSUES",
+                           "APPROVED", "PASS", "ACCEPT", "REJECT", "FAIL"]:
+            if keyword in verdict_section.upper():
+              verdict = keyword; break
+        if verdict is None:
+          # SAFETY: Do NOT default to APPROVED — malformed output must not bypass gates.
+          # Present the document to the user and ask them to decide the verdict.
+          user_verdict = ask_user(
+            f"⚠️ Could not extract verdict from {role}'s document ({route.doc}).\n"
+            f"No '## Verdict' or '## Result' section found, or no recognized keyword.\n"
+            f"Please review the document and choose a verdict:",
+            choices=["APPROVED", "APPROVED_WITH_NOTES", "CHANGES_REQUESTED", "FAIL", "REJECT"]
+          )
+          verdict = user_verdict
         # Acceptor uses ACCEPT/REJECT; reviewer/tester use APPROVED/CHANGES_REQUESTED/FAIL
         if role == "acceptor":
           if verdict == "REJECT":

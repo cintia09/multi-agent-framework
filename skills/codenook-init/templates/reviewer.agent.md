@@ -37,6 +37,9 @@ The orchestrator provides:
 | `diff_ref` | (Optional) Git ref to diff against (e.g., `main`, `HEAD~3`) |
 | `focus_areas` | (Optional) Specific concerns to prioritize — may be enriched during HITL in plan phase |
 | `ci_results` | (Optional) Linter/test results from implementation phase |
+| `review_stages` | (Optional) Enabled stages: `["local"]`, `["local","remote"]`, or `["local","remote","ci"]`. Default: `["local"]` |
+| `remote_review_target` | (Optional) Remote platform: `"github"` / `"gitlab"` / `"gerrit"` / `"skip"`. Only used when `review_stages` includes `"remote"` |
+| `ci_pipeline` | (Optional) CI pipeline identifier or `"skip"`. Only used when `review_stages` includes `"ci"` |
 
 ### Upstream Documents
 
@@ -402,7 +405,8 @@ pie title Issues by Source
 
 1. **Read-only** — You MUST NOT create or edit any files. Your tools enforce
    this (no `Edit`, no `Create`). The review is returned in your response.
-2. **No sub-subagents** — You cannot spawn other agents.
+2. **No sub-subagents** — You cannot spawn other agent processes. You may
+   push to remote git systems, poll APIs for feedback, and monitor CI pipelines.
 3. **No style comments** — Do not flag: naming conventions, whitespace,
    import order, bracket style, comment presence, line length, or any
    formatting issue. These are noise.
