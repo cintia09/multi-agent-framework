@@ -222,20 +222,23 @@ created → implementer (plan) → HITL → implementer (execute) → HITL
 - Or shortcut: "quick fix: <title>", "开发: <title>", "test only: <title>"
 - Quick Trigger keywords also work: user says "测试" with no matching task → prompt to create a lightweight test-only task
 
-## Dual-Agent Parallel Mode
+## Dual-Agent Mode
 
-Enable **two sub-agents** with different models working on the same phase,
-followed by **iterative cross-examination** (up to 3 convergence rounds) and
-**synthesis** — producing higher-quality outputs at the cost of 5–9× agent
-invocations per dual-mode phase.
+Enable **two sub-agents** with different models working on the same phase
+**sequentially** (Agent A first, then Agent B), followed by **iterative
+cross-examination** (up to 3 convergence rounds) and **synthesis** — producing
+higher-quality outputs at the cost of 5–9× agent invocations per dual-mode phase.
+The user is asked to confirm before each dual-agent phase execution.
 
 ### Flow Per Dual-Mode Phase
 
 ```
-① Parallel Execute (2 calls)
-   Agent A (Model 1) ───┐
-                        ├── each produces document independently
-   Agent B (Model 2) ───┘
+⓪ Confirm (user decision)
+   "Dual-agent enabled for this phase. Proceed?" → Yes / No (single agent fallback)
+
+① Sequential Execute (2 calls, A first then B)
+   Agent A (Model 1) ─── produces document
+   Agent B (Model 2) ─── produces document (after A completes)
 
 ② Iterative Cross-Examination (up to 3 rounds × 2 challenges + analysis)
    ┌──────────────────────────────────────────────────────────┐
@@ -1204,7 +1207,7 @@ function resolve_dual_mode(task, config, route):
 
 # Execute one phase in dual-agent mode with iterative convergence.
 # Returns the synthesized result (same shape as a normal agent result).
-# Flow: ① parallel execution → ② iterative cross-examination (≤3 rounds) → ③ synthesis
+# Flow: ① sequential execution (A then B) → ② iterative cross-examination (≤3 rounds) → ③ synthesis
 function orchestrate_dual_phase(current_task, route, dual_config, base_prompt, DOCS_DIR, config):
   role = route.agent
   phase = route.phase
@@ -1219,19 +1222,24 @@ function orchestrate_dual_phase(current_task, route, dual_config, base_prompt, D
   if role == "reviewer" and phase == "execute":
     agent_type = config.get("reviewer_agent_type", "code-review")
 
-  # ── Phase ①: Parallel initial execution ──
-  result_a = task(agent_type=agent_type, prompt=base_prompt, model=model_a, mode="background")
-  result_b = task(agent_type=agent_type, prompt=base_prompt, model=model_b, mode="background")
-  wait for both result_a, result_b
-
-  if result_a.failed and result_b.failed:
-    return { failed: true, error: "Both dual agents failed" }
-  if result_a.failed or result_b.failed:
-    return result_a if not result_a.failed else result_b
-
+  # ── Phase ①: Sequential initial execution ──
+  # Run agents serially (A first, then B) to avoid resource contention
+  # and allow the user to monitor progress step by step.
+  result_a = task(agent_type=agent_type, prompt=base_prompt, model=model_a)
+  if result_a.failed:
+    # Agent A failed — try Agent B as sole producer
+    result_b = task(agent_type=agent_type, prompt=base_prompt, model=model_b)
+    return result_b  # whether it succeeded or failed
   doc_a = result_a.document
-  doc_b = result_b.document
   write doc_a → DOCS_DIR/{doc_base}-agent-a-r0.md
+
+  result_b = task(agent_type=agent_type, prompt=base_prompt, model=model_b)
+  if result_b.failed:
+    # Agent B failed — use Agent A's result as sole output
+    write doc_a → DOCS_DIR/{route.doc}
+    return result_a
+
+  doc_b = result_b.document
   write doc_b → DOCS_DIR/{doc_base}-agent-b-r0.md
 
   # ── Phase ②: Iterative cross-examination (max 3 rounds) ──
@@ -1571,7 +1579,21 @@ function orchestrate(task_id):
     # ── Step 2: Spawn Agent (single or dual mode) ──
     dual_config = resolve_dual_mode(current_task, config, route)
     if dual_config:
-      result = orchestrate_dual_phase(current_task, route, dual_config, prompt, DOCS_DIR, config)
+      # Confirm with user before each dual-agent execution
+      phase_label = resolve_phase_name(role, phase)
+      dual_confirm = get_user_decision(
+        f"Dual-agent mode is enabled for '{phase_label}'. "
+        f"Models: {dual_config.models.agent_a} + {dual_config.models.agent_b}. "
+        f"Proceed with dual-agent mode? (Agents run sequentially: A first, then B)",
+        ["Yes, run dual-agent ★", "No, run single agent this time"])
+      if dual_confirm.startswith("Yes"):
+        result = orchestrate_dual_phase(current_task, route, dual_config, prompt, DOCS_DIR, config)
+      else:
+        # User opted out for this phase — run single agent with agent_a model
+        agent_type = role
+        if role == "reviewer" and phase == "execute":
+          agent_type = config.get("reviewer_agent_type", "code-review")
+        result = task(agent_type=agent_type, prompt=prompt, model=dual_config.models.agent_a)
     else:
       # For reviewer execute phase: consider "code-review" agent_type
       agent_type = role

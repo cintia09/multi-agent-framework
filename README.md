@@ -65,7 +65,7 @@ Five specialized AI agents collaborate through an orchestrator that routes tasks
 - **Memory Chain** — Each phase writes a snapshot; downstream agents receive upstream context
 - **Knowledge Accumulation** — Agents automatically extract cross-task lessons (code conventions, pitfalls, architecture decisions) indexed by role and topic; accumulated knowledge injected into future agent prompts
 - **DFMEA Risk Management** — Implementer outputs failure-mode analysis (S×O×D → RPN)
-- **Dual-Agent Mode** — Two models work in parallel with iterative cross-examination (up to 3 convergence rounds) and blind challenge protocol
+- **Dual-Agent Mode** — Two models work sequentially with iterative cross-examination (up to 3 convergence rounds), blind challenge protocol, and per-phase user confirmation
 - **Build Verification** — Implementer runs production build + unit tests before HITL gate; failures auto-retry with feedback
 - **3-Stage Code Review** — Local code-review agent → Remote formal review (Gerrit/GitHub) → CI pipeline verification
 - **Module + System Testing** — Tester designs module integration tests and system tests for real device/hardware execution
@@ -263,7 +263,7 @@ You approve or provide feedback at each of the 10 HITL gates. That's it.
 
 **Key principle:** The orchestrator is the sole writer of `codenook/task-board.json`. Every agent produces a document before executing — Plan → Approve → Act → Report → Approve. Documents are stored to `codenook/docs/T-NNN/` with Mermaid diagrams mandatory in all outputs.
 
-**Dual-Agent Mode:** When enabled for a phase, two models produce documents independently, the orchestrator analyzes divergence using Phase Constitution criteria, challenges each agent on its weaknesses (blind — neither sees the other's work), and synthesizes the final output. Up to 3 convergence rounds before synthesis.
+**Dual-Agent Mode:** When enabled for a phase, the user is asked to confirm before each dual-agent execution. Two models then produce documents sequentially (Agent A first, then Agent B), the orchestrator analyzes divergence using Phase Constitution criteria, challenges each agent on its weaknesses (blind — neither sees the other's work), and synthesizes the final output. Up to 3 convergence rounds before synthesis.
 
 ## Task Lifecycle
 
