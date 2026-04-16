@@ -455,7 +455,10 @@ design_approved     → implementer (plan)      → implementation-doc.md      �
 impl_planned        → implementer (execute)   → dfmea-doc.md              → impl_done           → impl_planned (retry)
 impl_done           → reviewer (plan)         → review-prep.md            → review_planned       → impl_done (retry)
 review_planned      → reviewer (execute)      → review-report.md          → review_done †        → impl_planned (fix)
+                      ↳ Stage 1: Local review → Stage 2: Remote review → Stage 3: CI verification
+                      ↳ CI MUST pass before advancing to test phase (CI fail → impl_planned)
 review_done         → tester (plan)           → test-plan.md              → test_planned         → review_done (retry)
+                      ↳ Pre-condition: review verdict == APPROVED (includes CI pass)
 test_planned        → tester (execute)        → test-report.md            → test_done †          → impl_planned (fix)
 test_done           → acceptor (accept-plan)  → acceptance-plan.md        → accept_planned       → test_done (retry)
 accept_planned      → acceptor (accept-exec)  → acceptance-report.md      → done †               → design_approved (redesign)
@@ -1732,6 +1735,8 @@ function orchestrate(task_id):
         else:
           # reviewer or tester
           if verdict in ("CHANGES_REQUESTED", "FAIL"):
+            # CI failure in review phase → CHANGES_REQUESTED → back to implementer
+            # This ensures CI MUST pass before test phase can begin.
             if current_task.mode == "lightweight":
               current_task.status = find_status_for_agent("implementer", ROUTING) or route.reject
             else:
