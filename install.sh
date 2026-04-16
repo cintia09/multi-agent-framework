@@ -69,16 +69,15 @@ download() {
     echo "🔐 Running security scan..."
     if [ -f "$TMP_DIR/skill-security-scan.sh" ]; then
         chmod +x "$TMP_DIR/skill-security-scan.sh"
-        if ! "$TMP_DIR/skill-security-scan.sh" "$TMP_DIR/skills/codenook-init"; then
-            local scan_exit=$?
-            if [ "$scan_exit" -eq 2 ]; then
-                error "Security scan BLOCKED installation. Critical issues found."
-            else
-                warn "Security scan found warnings. Review above before proceeding."
-                read -r -p "Continue installation? [y/N] " confirm
-                if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-                    error "Installation cancelled by user."
-                fi
+        local scan_exit=0
+        "$TMP_DIR/skill-security-scan.sh" "$TMP_DIR/skills/codenook-init" || scan_exit=$?
+        if [ "$scan_exit" -eq 2 ]; then
+            error "Security scan BLOCKED installation. Critical issues found."
+        elif [ "$scan_exit" -eq 1 ]; then
+            warn "Security scan found warnings. Review above before proceeding."
+            read -r -p "Continue installation? [y/N] " confirm
+            if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+                error "Installation cancelled by user."
             fi
         fi
     else

@@ -83,7 +83,7 @@ URL_PATTERN='https?://[a-zA-Z0-9.-]+\.[a-z]{2,}'
 SAFE_DOMAINS='github\.com|githubusercontent\.com|docs\.|localhost|127\.0\.0\.1|example\.com|npmjs\.com|pypi\.org|maven\.org|crates\.io|rubygems\.org|stackoverflow\.com|wikipedia\.org|mermaid\.ink|atlassian\.net'
 if files=$(grep -rlE "$URL_PATTERN" "$SCAN_DIR" --include="*.md" 2>/dev/null); then
   while IFS= read -r f; do
-    suspicious=$(grep -noE "$URL_PATTERN" "$f" 2>/dev/null | grep -vE "$SAFE_DOMAINS" | head -5)
+    suspicious=$(grep -noE "$URL_PATTERN" "$f" 2>/dev/null | grep -vE "$SAFE_DOMAINS" | head -5 || true)
     if [ -n "$suspicious" ]; then
       warn "$(basename "$f"): external URLs (verify intent)"
       echo "$suspicious" | sed 's/^/      /'
@@ -109,7 +109,7 @@ echo ""
 
 # ── Rule 6: File system write to sensitive locations ──
 echo "Rule 6: Sensitive path writes"
-WRITE_PATTERNS='write.*(/etc/|/usr/|/root/|~\/\.|%APPDATA%|%USERPROFILE%)|>(>?)\s*/etc/|chmod\s+[0-7]*\s+/'
+WRITE_PATTERNS='(write|save|output|redirect).*(/etc/|/usr/|/root/|~\/\.)|(>|>>)\s*/etc/|chmod\s+[0-7]{3,}\s+/|/etc/cron'
 if files=$(grep -rlE "$WRITE_PATTERNS" "$SCAN_DIR" --include="*.md" 2>/dev/null); then
   while IFS= read -r f; do
     crit "$(basename "$f"): writes to sensitive system paths"
@@ -136,7 +136,7 @@ echo ""
 # ── Rule 8: HITL adapter scripts (executable code) ──
 echo "Rule 8: Executable script safety"
 script_count=0
-for script in "$SCAN_DIR"/**/*.sh "$SCAN_DIR"/**/*.py; do
+while IFS= read -r script; do
   [ -f "$script" ] 2>/dev/null || continue
   script_count=$((script_count + 1))
   # Check for outbound network in scripts
@@ -148,7 +148,7 @@ for script in "$SCAN_DIR"/**/*.sh "$SCAN_DIR"/**/*.py; do
       warn "$(basename "$script"): network calls in executable script"
     fi
   fi
-done
+done < <(find "$SCAN_DIR" \( -name "*.sh" -o -name "*.py" \) -type f 2>/dev/null)
 if [ "$script_count" -eq 0 ]; then
   clean "No executable scripts found"
 else
