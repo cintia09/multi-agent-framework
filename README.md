@@ -402,9 +402,9 @@ Every phase transition passes through a human review gate. The adapter is auto-d
 Each adapter implements three operations:
 
 ```bash
-adapter.sh publish  <task_id> <role> <file>   # Present output for review
-adapter.sh poll     <task_id> <role>           # Check for response
-adapter.sh get_feedback <task_id> <role>       # Return decision + comments
+adapter.sh publish      <task_id> <role> <phase> <file>  # Present output for review
+adapter.sh get_feedback <task_id> <role> <phase>         # Block until decision + comments
+adapter.sh stop         <task_id> <role> <phase>         # Clean up (kill server, close page)
 ```
 
 ### Feedback Loop
