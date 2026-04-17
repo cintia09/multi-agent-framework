@@ -28,6 +28,7 @@ run_test "T10 dual-agent parallel" "$SCRIPT_DIR/t10-dual-agent-parallel.sh"
 run_test "T11 clarifier role"     "$SCRIPT_DIR/t11-clarifier-role.sh"
 run_test "T12 full pipeline"      "$SCRIPT_DIR/t12-full-pipeline.sh"
 run_test "T13 planner + subtasks" "$SCRIPT_DIR/t13-planner-subtasks.sh"
+run_test "T14 skill trigger"      "$SCRIPT_DIR/t14-skill-trigger.sh"
 
 echo ""
 echo "════════════════════════════════════════════"

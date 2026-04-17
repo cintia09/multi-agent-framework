@@ -19,6 +19,9 @@ Read the manifest file path from the invocation prompt. Parse:
 ### Step 2: Read the Template
 Read the file referenced by `Template:`. This is your role-specific instruction set (modes, quality bar, output contract).
 
+### Step 2.5: Skill Trigger (conditional)
+If the manifest contains an `Invoke_skill: <skill-name>` field, emit the literal string `<skill-name>` verbatim in your next reasoning output (a one-line note is enough). This triggers platform skill auto-loading in YOUR fresh context; the orchestrator has never uttered the string, so its context stays clean. If the field is absent, skip this step. Do NOT invent or substitute skill names that are not present in the manifest.
+
 ### Step 3: Resolve @ References
 For each variable value starting with `@`, read that file. Paths are relative to the manifest file's directory.
 

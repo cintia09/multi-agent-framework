@@ -258,6 +258,25 @@ Rules:
 - Paths are relative to the manifest file location
 - Never inline the template content itself
 
+### Optional `Invoke_skill:` Field (Skill Trigger Channel)
+
+When a sub-agent should invoke a platform skill (e.g. a distillation skill), add an `Invoke_skill:` line to the manifest:
+
+```markdown
+Template: @prompts-templates/distiller.md
+Invoke_skill: codenook-distill/knowledge-extract
+Variables:
+  ...
+```
+
+**Why this exists**: you (the orchestrator) must never say a skill name in your own reasoning — platforms auto-load skill bundles when their triggers appear in the assistant's completion stream, which would pollute your context. The `Invoke_skill` field lets you hand the skill name to a sub-agent via a **file** (Write/Edit tool arguments are not part of your completion stream). The sub-agent then utters the skill name in its own fresh context, where the auto-load is contained and disposed of with that agent.
+
+Hard rules:
+- Use ONLY the `Write` / `Edit` tool to place the skill name into the manifest. Never type the skill name into your own chat response, your reasoning, or a Bash `echo`/`cat <<EOF` command.
+- Only one `Invoke_skill:` line per manifest. Multiple skills → multiple dispatches.
+- The value must be a registered skill identifier (e.g. `codenook-distill/knowledge-extract`).
+- Sub-agent profiles MUST have a "Skill Trigger" step in their self-bootstrap (see Step 2.5 in every `*.agent.md`).
+
 ---
 
 ## 7. Sub-Agent Dispatch Protocol
@@ -325,13 +344,19 @@ You cannot delete your own context, only prevent growth. Rely on `/clear` + boot
 
 ## 11. Skill Invocation Rule
 
-You must NEVER mention skill names or role names in user-facing text. Instead:
+You must NEVER mention skill names or role names in user-facing text or in your own reasoning output. Instead:
 
-- To trigger distillation (future): write the skill invocation into the sub-agent's prompt manifest
-- The sub-agent mentions and executes the skill in ITS OWN context
-- This prevents platform auto-loading from polluting YOUR context
+- To trigger a skill, write the skill name into the sub-agent's prompt manifest as `Invoke_skill: <name>` (see §6).
+- The `Write` / `Edit` tool arguments are **not** part of your completion stream, so this does not trigger platform auto-load in your context.
+- The sub-agent's self-bootstrap includes a "Skill Trigger" step that utters the name verbatim in its fresh context, triggering auto-load only there.
+- The sub-agent's context is disposed of when it returns — pollution cannot leak back.
 
-For this POC, distillation is not implemented. Only implementer + validator agents are used.
+**Absolute prohibitions** (violating these causes pollution):
+- ❌ `echo "codenook-distill/..."` in a Bash tool call (captured in tool output shown to you).
+- ❌ Typing the skill name in any assistant message visible to the user.
+- ❌ Pasting the skill name into a heredoc that your own process prints back.
+
+For this POC, no skill consumers exist yet; `Invoke_skill` is reserved infrastructure. First consumer will be the distiller agent (v5.1).
 
 ---
 
