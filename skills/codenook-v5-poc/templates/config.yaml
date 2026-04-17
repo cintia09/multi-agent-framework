@@ -3,6 +3,7 @@ version: "5.0-poc"
 
 models:
   default: claude-sonnet-4.5
+  clarifier: claude-sonnet-4.5
   implementer: claude-sonnet-4.5
   reviewer: claude-sonnet-4.5
   reviewer_a: claude-sonnet-4.5
@@ -21,9 +22,9 @@ routing:
   # POC minimal 3-phase pipeline
   phases:
     - name: clarify
-      agent: implementer
-      mode: clarify
-      template: prompts-templates/implementer.md
+      agent: clarifier
+      template: prompts-templates/clarifier.md
+      criteria: prompts-criteria/criteria-clarify.md
     - name: implement
       agent: implementer
       mode: implement

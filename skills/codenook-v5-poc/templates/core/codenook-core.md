@@ -90,7 +90,7 @@ When `dual_mode == "off"`, the `iterations` array contains a single entry with `
 
 | Phase / Iter Role   | Agent Type   | Prompt Manifest Path                                       | Template                                |
 |---------------------|--------------|------------------------------------------------------------|-----------------------------------------|
-| clarify             | implementer  | tasks/T-xxx/prompts/phase-1-clarify.md                     | prompts-templates/implementer.md (mode=clarify) |
+| clarify             | clarifier    | tasks/T-xxx/prompts/phase-1-clarifier.md                   | prompts-templates/clarifier.md          |
 | implement (iter N)  | implementer  | tasks/T-xxx/prompts/iter-N-implementer.md                  | prompts-templates/implementer.md        |
 | review (iter N)     | reviewer     | tasks/T-xxx/prompts/iter-N-reviewer.md                     | prompts-templates/reviewer.md           |
 | review-a (iter N)   | reviewer     | tasks/T-xxx/prompts/iter-N-reviewer-a.md                   | prompts-templates/reviewer.md (focus=A) |
@@ -99,11 +99,16 @@ When `dual_mode == "off"`, the `iterations` array contains a single entry with `
 | validate            | validator    | tasks/T-xxx/prompts/phase-3-validator.md                   | prompts-templates/validator.md          |
 
 Routing by `dual_mode`:
-- `off`      → implementer → validator
-- `serial`   → implementer ⇄ reviewer loop → validator (see §15)
-- `parallel` → implementer → (reviewer-a ∥ reviewer-b) → synthesizer → loop (see §16)
+- `off`      → clarifier → implementer → validator
+- `serial`   → clarifier → (implementer ⇄ reviewer) → validator (see §15)
+- `parallel` → clarifier → (implementer → reviewer-a ∥ reviewer-b → synthesizer) → validator (see §16)
 
-(POC uses implementer in clarify mode; full v5.0 has a dedicated clarifier.)
+The clarifier runs once per task (phase-1). Its `clarity_verdict` gates whether the implement phase is reached at all:
+- `ready_to_implement` → proceed
+- `needs_user_input` → HITL before implement
+- `fundamental_ambiguity` → HITL recommending task rewrite
+
+(Full v5.0 has dedicated clarifier — now implemented in this POC as of §15/§16.)
 
 ---
 
@@ -133,8 +138,8 @@ while true:
         mkdir(.codenook/tasks/{T_id}/{prompts,outputs,validations,hitl,memory})
         write(tasks/{T_id}/task.md, user's task description, ≤ 500 tokens)
         init_state(tasks/{T_id}/state.json, phase="clarify")
-        write_manifest(phase-1-clarify.md)  # see §6
-        dispatch_implementer(phase=1, mode=clarify)
+        write_manifest(phase-1-clarifier.md)  # see §6
+        dispatch_clarifier(phase=1)
 
     elif decision == "advance_phase":
         next_phase = transition(task_state.phase)
