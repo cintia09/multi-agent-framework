@@ -193,6 +193,55 @@ done < "$LOG_TSV"
 [[ $escapes -eq 0 ]] && { note_o; echo "  ✅ no workspace-escape attempts in log"; }
 
 # -----------------------------------------------------------------------
+# Check 6: dual-mode iteration consistency. For tasks whose state.json
+# declares dual_mode in {serial, parallel}, the iterations/ directory
+# MUST exist and contain at least one iteration sub-dir per dispatched
+# implement/review pair. Catches the case where dual_mode was set but
+# the orchestrator forgot to create iteration scoping.
+# -----------------------------------------------------------------------
+echo ""
+echo "[6] Dual-agent iteration consistency:"
+dual_issues=0
+if [[ -d "$WS/tasks" ]]; then
+  while IFS= read -r sj; do
+    [[ -z "$sj" ]] && continue
+    tid=$(basename "$(dirname "$sj")")
+    if [[ -n "$FILTER" && "$tid" != "$FILTER" ]]; then continue; fi
+    dm=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('dual_mode') or '')" "$sj" 2>/dev/null || echo "")
+    case "$dm" in
+      serial|parallel)
+        idir="$WS/tasks/$tid/iterations"
+        if [[ ! -d "$idir" ]]; then
+          # Only flag if we have any implement/review dispatches in the
+          # log for this task — otherwise it just hasn't started yet.
+          n=$(awk -F'\t' -v t="$tid" '$2==t && ($3=="implement"||$3=="review")' "$LOG_TSV" | wc -l | tr -d ' ')
+          if [[ $n -gt 0 ]]; then
+            note_v "$tid: dual_mode=$dm but no iterations/ dir (saw $n dispatches)"
+            dual_issues=$((dual_issues+1))
+          fi
+        else
+          # Verify each implement dispatch references an iteration path.
+          while IFS=$'\t' read -r ts2 task2 phase2 role2 manifest2 out2 invid2; do
+            [[ "$task2" != "$tid" ]] && continue
+            [[ "$role2" != implementer && "$role2" != reviewer && "$role2" != synthesizer ]] && continue
+            if [[ -n "$out2" && "$out2" != *iterations/* ]]; then
+              note_w "$tid: $role2 output not in iterations/: $out2 (invid=$invid2)"
+            fi
+          done < "$LOG_TSV"
+        fi
+        ;;
+      ""|off|none)
+        : # nothing to verify
+        ;;
+      *)
+        note_w "$tid: unknown dual_mode value '$dm'"
+        ;;
+    esac
+  done < <(find "$WS/tasks" -maxdepth 2 -name state.json 2>/dev/null)
+fi
+[[ $dual_issues -eq 0 ]] && { note_o; echo "  ✅ dual-mode tasks have iteration scoping"; }
+
+# -----------------------------------------------------------------------
 # Summary
 # -----------------------------------------------------------------------
 echo ""

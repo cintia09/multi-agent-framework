@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# CodeNook v4.9.5 Installer
+# CodeNook v4.9.5 (stable) + v5.0 POC Installer
 # Usage: curl -sL https://raw.githubusercontent.com/cintia09/CodeNook/main/install.sh | bash
+#
+# Note: v5.0 POC is shipped under skills/codenook-v5-poc/ but is not
+# auto-initialized. To try it in a project, see skills/codenook-v5-poc/README.md.
 
 VERSION="latest"
 REPO="https://github.com/cintia09/CodeNook.git"

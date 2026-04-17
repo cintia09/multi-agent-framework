@@ -40,6 +40,8 @@ run_test "T22 Security"            "$SCRIPT_DIR/t22-security.sh"
 run_test "T23 Windows compat"      "$SCRIPT_DIR/t23-windows-compat.sh"
 run_test "T24 Preflight + OPT-7"   "$SCRIPT_DIR/t24-preflight-opt7.sh"
 run_test "T25 Workspace security"  "$SCRIPT_DIR/t25-workspace-security.sh"
+run_test "T26 session-runner"      "$SCRIPT_DIR/t26-session-runner.sh"
+run_test "T27 dual-mode audit"     "$SCRIPT_DIR/t27-dual-mode-audit.sh"
 
 echo ""
 echo "════════════════════════════════════════════"

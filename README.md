@@ -22,6 +22,10 @@
 </p>
 
 <p align="center">
+  🧪 <strong>v5.0 POC available</strong> — clean-slate workspace-OS redesign in <a href="skills/codenook-v5-poc/README.md"><code>skills/codenook-v5-poc/</code></a> (router-only main session, Mode B sub-agents, OS-keyring credentials, mandatory startup security audit). Not part of the v4.9.5 stable installer.
+</p>
+
+<p align="center">
   <a href="#installation">Installation</a> ·
   <a href="#quick-start">Quick Start</a> ·
   <a href="#architecture">Architecture</a> ·
