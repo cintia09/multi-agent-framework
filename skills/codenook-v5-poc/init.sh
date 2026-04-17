@@ -165,6 +165,8 @@ cp "$TEMPLATES_DIR/session-runner.sh"                  .codenook/
 chmod +x .codenook/session-runner.sh
 cp "$TEMPLATES_DIR/model-config.sh"                    .codenook/
 chmod +x .codenook/model-config.sh
+cp "$TEMPLATES_DIR/security-audit.sh"                  .codenook/
+chmod +x .codenook/security-audit.sh
 mkdir -p .codenook/history/security
 if [[ ! -f .codenook/.secretignore ]]; then
 cat > .codenook/.secretignore <<'EOF'

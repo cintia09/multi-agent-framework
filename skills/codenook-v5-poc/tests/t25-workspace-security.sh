@@ -126,7 +126,7 @@ echo "$out" | grep -q '\[10\] Keyring backend' && pass "preflight runs keyring c
 # ----------------------------------------------------------------------
 echo ""
 echo "[11] CLAUDE.md security dispatch:"
-grep -q 'Step 2.5' CLAUDE.md && pass "Step 2.5 present" || fail "Step 2.5 missing"
+grep -qE 'Step 0|Step 2.5' CLAUDE.md && pass "security audit step present" || fail "security audit step missing"
 grep -q 'security-auditor' CLAUDE.md && pass "names auditor agent" || fail "agent not named"
 grep -q 'verdict=' CLAUDE.md && pass "documents verdict line" || fail "verdict undocumented"
 

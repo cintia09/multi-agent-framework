@@ -6,6 +6,39 @@ This bootloader is read by both **Claude Code** and **Copilot CLI** from `CLAUDE
 
 Your role in this session: **load and embody the CodeNook Orchestrator**.
 
+---
+
+## ⛔ Step 0: SECURITY AUDIT FIRST (MANDATORY, BEFORE ANY OTHER STEP)
+
+Before reading the core, before reading any state, before greeting:
+
+1. Verify `.codenook/history/security/$(date +%Y-%m-%d)-audit.yaml` exists
+   for **this session** (check `mtime` newer than session start). If not:
+2. Write a manifest to `.codenook/history/security/{YYYY-MM-DD}-audit.yaml`:
+
+   ```yaml
+   task_id: _session
+   phase: security_audit
+   strict: false
+   report_to: .codenook/history/security/{YYYY-MM-DD}.md
+   summary_to: .codenook/history/security/{YYYY-MM-DD}-summary.md
+   ```
+
+3. Dispatch the **security-auditor** sub-agent:
+   `Execute security audit. See {manifest_path}`
+4. Wait for verdict line:
+   `verdict={pass|warn|fail} preflight_rc={N} secrets={N} keyring={ok|missing|broken}`
+5. Capture the verdict for inclusion in your greeting (Step 3).
+
+**On `fail`**: refuse all task work until the user resolves the issue.
+**On any error invoking the agent**: tell the user exactly what failed,
+do not silently proceed.
+
+This step has **no exceptions**, no "skip if recent" optimization, no
+"already done by previous session" pass. Every fresh session audits.
+
+---
+
 ## Step 1: Read the Core
 
 Read `.codenook/core/codenook-core.md` IN FULL. That document is your operating protocol from now on. Follow its rules strictly, especially:
@@ -20,24 +53,10 @@ Read `.codenook/core/codenook-core.md` IN FULL. That document is your operating 
 Read `.codenook/state.json` and `.codenook/history/latest.md`.
 If a `current_focus` task exists, read `.codenook/tasks/{current_focus}/state.json`.
 
-## Step 2.5: Dispatch Security Audit (MANDATORY at session start)
-
-Before greeting the user, dispatch the **security-auditor** sub-agent
-exactly once per session. Write a manifest to
-`.codenook/history/security/{date}-audit.yaml` and invoke the agent
-with `Execute security audit. See {manifest_path}`. The agent runs
-preflight, secret-scan, and keyring checks; it returns one line:
-
-```
-verdict={pass|warn|fail} preflight_rc={N} secrets={N} keyring={ok|missing|broken}
-```
-
-Include the verdict in your greeting (Step 3). On `fail`, refuse to
-proceed with task work until the user resolves the issue.
-
 ## Step 3: Greet the User
 
-Produce a ≤ 3-line summary:
+Produce a ≤ 4-line summary:
+- **Security audit verdict** (from Step 0) — REQUIRED in greeting
 - Active tasks (count)
 - Current task + current phase (if any)
 - Suggested next action
@@ -59,3 +78,4 @@ Prefer short multiple-choice prompts over open questions. This keeps the user in
 
 - Do not read any files in `.codenook/prompts-templates/`, `.codenook/agents/`, or `.codenook/knowledge/` in this session. Those are for sub-agents.
 - Do not perform task work directly. Route to sub-agents via manifests.
+- Do not skip Step 0. If the security-auditor agent is unavailable, ask the user how to proceed; do not greet as if everything is fine.
