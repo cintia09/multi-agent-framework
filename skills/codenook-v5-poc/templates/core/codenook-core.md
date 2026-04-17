@@ -1307,3 +1307,68 @@ The dispatch log is **always on**. It is cheap (one JSONL line per
 dispatch, ~300 bytes). The audit script is opt-in (run on demand).
 There is no flag to disable logging in v5.0 — it is part of the Mode B
 contract.
+
+---
+
+## 21. Helper-Script Security Invariants
+
+CodeNook ships three bash helpers (`subtask-runner.sh`, `queue-runner.sh`,
+`dispatch-audit.sh`) plus the `hitl-adapters/terminal.sh`. Every argument
+and every field parsed from a template file (plan.md, dependency-graph.md,
+hitl pending items, dispatch-log.jsonl) is treated as **untrusted LLM
+output**. These scripts apply strict input validation before using any
+value to construct a filesystem path or write metadata.
+
+### 21.1 Validation Rules (enforced in-script)
+
+- **task_id**: `^T-[A-Za-z0-9]+$` (parent) or `^T-[A-Za-z0-9]+\.[0-9]+$`
+  (subtask). No `..`, no `/`, no shell metacharacters.
+- **status**: whitelist `pending|in_progress|done|blocked`.
+- **phase**: `^[a-z][a-z0-9_-]*$`.
+- **lock path**: no leading `/`, no `..` segment, no whitespace,
+  character class `[A-Za-z0-9_.:@/-]+`.
+- **agent_id**: `[A-Za-z0-9_.@:-]+` (prevents newline injection into
+  YAML-ish lock files).
+- **pending-item id**: `[A-Za-z0-9._-]+`.
+- **node ids in dependency-graph.md** and **row ids in plan.md Subtask
+  List table** filtered through `^T-[A-Za-z0-9]+(\.[0-9]+)?$` before any
+  use. Malformed entries are silently dropped (visible via `deps` debug).
+
+### 21.2 Workspace Containment
+
+All helper-written paths (`state.json`, `task.md`, lock files, decision
+records) resolve under `.codenook/`. The scripts never follow `..`
+segments from user input. A final sweep test in T22 verifies that no
+malicious input produces a file outside `.codenook/` (CLAUDE.md
+bootloader at the workspace root is the sole exception).
+
+### 21.3 Dispatch-Log Hygiene
+
+`dispatch-audit.sh` check [5] flags log entries whose `manifest` or
+`output_expected` fields:
+- start with `/` (absolute path);
+- contain `..` (traversal attempt);
+- live outside `.codenook/` (warning).
+
+These indicate an orchestrator that tried to have a sub-agent read or
+write outside the workspace — a serious router-discipline failure. The
+audit is post-hoc; it does not prevent the dispatch but makes the
+attempt auditable.
+
+### 21.4 What This Does NOT Protect Against
+
+- Sub-agents that, once dispatched legitimately, decide to write outside
+  the workspace anyway. That is a sub-agent-profile invariant, not a
+  runner invariant.
+- Content injection inside validated files (e.g., a malicious `task.md`
+  containing prompt-injection text). Content safety is the
+  clarifier/designer agents' responsibility.
+- Race conditions across parallel helper invocations (lock acquisition
+  is file-based and advisory).
+
+### 21.5 When to Fail Closed
+
+All validation failures exit with code `2` (usage / bad input),
+consistent with the existing convention. The orchestrator should treat
+exit `2` from any runner as a programmer/prompt bug, not a workflow
+decision — re-issuing the same call will produce the same rejection.

@@ -167,6 +167,32 @@ done
 [[ $mismatches -eq 0 ]] && { note_o; echo "  ✅ all observed phases were dispatched"; }
 
 # -----------------------------------------------------------------------
+# Check 5: workspace containment — manifest / output_expected paths must
+# not escape the workspace or point at absolute roots. A traversal path in
+# the log suggests an orchestrator attempted to have a sub-agent read or
+# write outside .codenook/ — flag aggressively.
+# -----------------------------------------------------------------------
+echo ""
+echo "[5] Workspace containment:"
+escapes=0
+while IFS=$'\t' read -r ts task phase role manifest out invid; do
+  if [[ -n "$FILTER" && "$task" != "$FILTER" ]]; then continue; fi
+  for p in "$manifest" "$out"; do
+    [[ -z "$p" ]] && continue
+    if [[ "$p" == /* ]]; then
+      note_v "absolute path in log: $p (invid=$invid)"
+      escapes=$((escapes+1))
+    elif [[ "$p" == *..* ]]; then
+      note_v "traversal segment '..' in log path: $p (invid=$invid)"
+      escapes=$((escapes+1))
+    elif [[ "$p" != .codenook/* && "$p" != "$WS"/* ]]; then
+      note_w "path outside $WS/: $p (invid=$invid)"
+    fi
+  done
+done < "$LOG_TSV"
+[[ $escapes -eq 0 ]] && { note_o; echo "  ✅ no workspace-escape attempts in log"; }
+
+# -----------------------------------------------------------------------
 # Summary
 # -----------------------------------------------------------------------
 echo ""

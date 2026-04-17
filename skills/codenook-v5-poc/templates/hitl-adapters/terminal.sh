@@ -31,6 +31,28 @@ cmd="${1:-help}"
 
 iso_now() { date -u +"%Y%m%dT%H%M%SZ"; }
 
+# ------------------------------------------------------------ validators
+# Security: pending-item IDs, task_ids, and phases from YAML are all used to
+# construct filesystem paths. Validate strictly.
+_assert_pending_id() {
+  [[ "$1" =~ ^[A-Za-z0-9._-]+$ ]] || {
+    echo "error: invalid pending id: '$1' (allowed: [A-Za-z0-9._-]+)" >&2
+    exit 2
+  }
+}
+_assert_task_id() {
+  [[ "$1" =~ ^T-[A-Za-z0-9]+(\.[0-9]+)?$ ]] || {
+    echo "error: invalid task_id in pending item: '$1'" >&2
+    exit 2
+  }
+}
+_assert_phase() {
+  [[ "$1" =~ ^[a-z][a-z0-9_-]*$ ]] || {
+    echo "error: invalid phase in pending item: '$1'" >&2
+    exit 2
+  }
+}
+
 yaml_get() {
   awk -v k="$2" '
     /^---$/{n++; next}
@@ -96,6 +118,8 @@ case "$cmd" in
       echo "usage: terminal.sh answer <id> <option-id> [note...]" >&2
       exit 2
     }
+    _assert_pending_id "$id"
+    _assert_pending_id "$opt"
     f="$P/$id.md"
     [[ -f "$f" ]] || { echo "error: pending item $id not found" >&2; exit 1; }
 
@@ -105,6 +129,8 @@ case "$cmd" in
       echo "error: pending item $id missing task_id or phase" >&2
       exit 1
     }
+    _assert_task_id "$task"
+    _assert_phase "$phase"
 
     hitl_dir="$WS/tasks/$task/hitl"
     mkdir -p "$hitl_dir"

@@ -32,6 +32,42 @@ QDIR="$WS/queue"
 LOCKS="$WS/locks"
 TASKS="$WS/tasks"
 
+# ------------------------------------------------------------ validators
+# Security: all IDs, paths, and agent identifiers reaching this script may
+# be LLM-generated. Validate before using them to construct filesystem paths
+# or write metadata.
+_re_task_id='^T-[A-Za-z0-9]+(\.[0-9]+)?$'
+_re_safe_slug='^[A-Za-z0-9_.:@/-]+$'
+
+_assert_task_id() {
+  [[ "$1" =~ $_re_task_id ]] || {
+    echo "error: invalid task_id: '$1' (must match $_re_task_id)" >&2
+    exit 2
+  }
+}
+
+# Accept common filesystem path characters but reject control chars,
+# backslashes, whitespace, and .. traversal segments. Absolute paths are
+# also rejected — locks are workspace-scoped.
+_assert_safe_path() {
+  local p="$1"
+  [[ "$p" != /* ]] || { echo "error: absolute path not allowed: '$p'" >&2; exit 2; }
+  [[ "$p" == *..* ]] && { echo "error: path must not contain '..': '$p'" >&2; exit 2; }
+  [[ "$p" =~ $_re_safe_slug ]] || {
+    echo "error: unsafe path: '$p' (allowed: $_re_safe_slug)" >&2
+    exit 2
+  }
+}
+
+# Agent IDs are written verbatim into YAML-like lock files; forbid newlines
+# and control chars to prevent log/format injection.
+_assert_safe_agent_id() {
+  [[ "$1" =~ ^[A-Za-z0-9_.@:-]+$ ]] || {
+    echo "error: invalid agent_id: '$1' (allowed: [A-Za-z0-9_.@:-]+)" >&2
+    exit 2
+  }
+}
+
 iso_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 # ---- small JSON helpers (schema: queue files are {"items":[...]}) ----
@@ -197,6 +233,7 @@ PY
 cmd_ready() {
   local tid="${1:-}"
   [[ -z "$tid" ]] && { echo "usage: queue-runner.sh ready <task_id>" >&2; return 1; }
+  _assert_task_id "$tid"
   local graph="$TASKS/$tid/decomposition/dependency-graph.md"
   local state="$TASKS/$tid/state.json"
   [[ -f "$graph" ]] || { echo "no dependency-graph.md for $tid" >&2; return 2; }
@@ -234,6 +271,7 @@ PY
 cmd_deps() {
   local tid="${1:-}"
   [[ -z "$tid" ]] && { echo "usage: queue-runner.sh deps <task_id>" >&2; return 1; }
+  _assert_task_id "$tid"
   local graph="$TASKS/$tid/decomposition/dependency-graph.md"
   parse_edges "$graph"
 }
@@ -241,6 +279,7 @@ cmd_deps() {
 cmd_cycles() {
   local tid="${1:-}"
   [[ -z "$tid" ]] && { echo "usage: queue-runner.sh cycles <task_id>" >&2; return 1; }
+  _assert_task_id "$tid"
   local graph="$TASKS/$tid/decomposition/dependency-graph.md"
   if detect_cycles "$graph"; then echo "acyclic"; return 0; else return 2; fi
 }
@@ -248,6 +287,8 @@ cmd_cycles() {
 cmd_lock() {
   local path="${1:-}" agent="${2:-}"
   [[ -z "$path" || -z "$agent" ]] && { echo "usage: queue-runner.sh lock <path> <agent_id>" >&2; return 1; }
+  _assert_safe_path "$path"
+  _assert_safe_agent_id "$agent"
   mkdir -p "$LOCKS"
   local lockfile="$LOCKS/$(printf '%s' "$path" | tr '/' '-').lock"
   if [[ -f "$lockfile" ]]; then
@@ -266,6 +307,7 @@ EOF
 cmd_unlock() {
   local path="${1:-}"
   [[ -z "$path" ]] && { echo "usage: queue-runner.sh unlock <path>" >&2; return 1; }
+  _assert_safe_path "$path"
   local lockfile="$LOCKS/$(printf '%s' "$path" | tr '/' '-').lock"
   [[ -f "$lockfile" ]] && rm -f "$lockfile" && echo "unlocked: $path" || echo "(no lock for $path)"
 }

@@ -23,6 +23,29 @@ set -uo pipefail
 WS=".codenook"
 TASKS="$WS/tasks"
 
+# ------------------------------------------------------------ validators
+# Security: every task/subtask id and status value reaching this script is
+# assumed to originate from LLM-generated orchestrator text or a user prompt.
+# Validate aggressively; refuse on anything that is not strictly the
+# documented form. Never interpolate unvalidated values into paths.
+
+_re_task_id='^T-[A-Za-z0-9]+$'
+_re_subtask_id='^T-[A-Za-z0-9]+\.[0-9]+$'
+
+_assert_task_id() {
+  [[ "$1" =~ $_re_task_id ]] || {
+    echo "error: invalid task_id: '$1' (must match $_re_task_id)" >&2
+    exit 2
+  }
+}
+
+_assert_subtask_id() {
+  [[ "$1" =~ $_re_subtask_id ]] || {
+    echo "error: invalid subtask_id: '$1' (must match $_re_subtask_id)" >&2
+    exit 2
+  }
+}
+
 usage() { sed -n '2,16p' "$0" >&2; exit 2; }
 
 [[ $# -ge 1 ]] || usage
@@ -32,6 +55,7 @@ CMD="$1"; shift
 
 require_task() {
   local t="$1"
+  _assert_task_id "$t"
   [[ -d "$TASKS/$t" ]] || { echo "error: task $t not found at $TASKS/$t" >&2; exit 2; }
 }
 
@@ -63,10 +87,10 @@ for line in text:
     body = s[2:]
     if section == "nodes":
         nid = body.split(":", 1)[0].strip()
-        if nid:
+        if nid and re.match(r"^T-[A-Za-z0-9]+(?:\.[0-9]+)?$", nid):
             nodes.append(nid)
     elif section == "edges":
-        m = re.match(r"^(\S+)\s+depends_on\s+(\S+)\s*$", body)
+        m = re.match(r"^(T-[A-Za-z0-9]+(?:\.[0-9]+)?)\s+depends_on\s+(T-[A-Za-z0-9]+(?:\.[0-9]+)?)\s*$", body)
         if not m:
             print(f"__EDGE_PARSE_ERROR__\t{body}", file=sys.stderr)
             continue
@@ -210,9 +234,10 @@ for line in pathlib.Path(gf).read_text().splitlines():
     body = s[2:]
     if section == "nodes":
         nid = body.split(":", 1)[0].strip()
-        if nid: nodes.append(nid)
+        if nid and re.match(r"^T-[A-Za-z0-9]+(?:\.[0-9]+)?$", nid):
+            nodes.append(nid)
     elif section == "edges":
-        m = re.match(r"^(\S+)\s+depends_on\s+(\S+)\s*$", body)
+        m = re.match(r"^(T-[A-Za-z0-9]+(?:\.[0-9]+)?)\s+depends_on\s+(T-[A-Za-z0-9]+(?:\.[0-9]+)?)\s*$", body)
         if not m:
             print(f"  warn: unparsable edge: {body!r}", file=sys.stderr)
             continue
@@ -246,7 +271,7 @@ for line in pathlib.Path(pf).read_text().splitlines():
     if len(cells) < 4:
         continue
     sid = cells[0]
-    if not re.match(r"^T-\S+\.\d+$", sid):
+    if not re.match(r"^T-[A-Za-z0-9]+\.[0-9]+$", sid):
         continue
     rows.append((sid, cells[1], cells[2], cells[3]))
 
@@ -351,6 +376,7 @@ PY
 
 cmd_mark() {
   local sid="$1" status="$2"
+  _assert_subtask_id "$sid"
   case "$status" in pending|in_progress|done|blocked) ;; *)
     echo "error: status must be pending|in_progress|done|blocked" >&2; exit 2 ;;
   esac
