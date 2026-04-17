@@ -5,8 +5,11 @@ models:
   default: claude-sonnet-4.5
   implementer: claude-sonnet-4.5
   reviewer: claude-sonnet-4.5
+  reviewer_a: claude-sonnet-4.5
+  reviewer_b: claude-sonnet-4.5
+  synthesizer: claude-sonnet-4.5
   validator: claude-haiku-4.5
-  # dual_a / dual_b / synthesizer reserved for full v5.0
+  # dedicated dual_a / dual_b reserved for model-diversity experiments
 
 orchestrator:
   max_context_ratio_warn: 0.5
@@ -47,8 +50,13 @@ distillation:
 
 dual_agent:
   enabled: true
-  default_mode: "serial"        # "serial" | "off" ; "parallel" reserved for post-POC
+  default_mode: "serial"        # "serial" | "parallel" | "off"
   max_iterations: 2
   escalate_on_fundamental: true
   reviewer_template: prompts-templates/reviewer.md
   review_criteria: prompts-criteria/criteria-review.md
+  parallel:
+    reviewer_a_focus: "correctness+security"
+    reviewer_b_focus: "design+conventions"
+    synthesizer_template: prompts-templates/synthesizer.md
+    min_agreement_ratio: 0.5    # below this, escalate HITL regardless of verdict

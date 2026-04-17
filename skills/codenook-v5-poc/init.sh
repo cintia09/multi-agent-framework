@@ -30,11 +30,13 @@ mkdir -p .codenook/{core,prompts-templates,prompts-criteria,agents,project,tasks
 cp "$TEMPLATES_DIR/core/codenook-core.md"              .codenook/core/
 cp "$TEMPLATES_DIR/prompts-templates/implementer.md"   .codenook/prompts-templates/
 cp "$TEMPLATES_DIR/prompts-templates/reviewer.md"      .codenook/prompts-templates/
+cp "$TEMPLATES_DIR/prompts-templates/synthesizer.md"   .codenook/prompts-templates/
 cp "$TEMPLATES_DIR/prompts-templates/validator.md"     .codenook/prompts-templates/
 cp "$TEMPLATES_DIR/prompts-criteria/criteria-implement.md" .codenook/prompts-criteria/
 cp "$TEMPLATES_DIR/prompts-criteria/criteria-review.md"    .codenook/prompts-criteria/
 cp "$TEMPLATES_DIR/agents/implementer.agent.md"        .codenook/agents/
 cp "$TEMPLATES_DIR/agents/reviewer.agent.md"           .codenook/agents/
+cp "$TEMPLATES_DIR/agents/synthesizer.agent.md"        .codenook/agents/
 cp "$TEMPLATES_DIR/agents/validator.agent.md"          .codenook/agents/
 cp "$TEMPLATES_DIR/project/ENVIRONMENT.md"             .codenook/project/
 cp "$TEMPLATES_DIR/project/CONVENTIONS.md"             .codenook/project/

@@ -88,14 +88,20 @@ When `dual_mode == "off"`, the `iterations` array contains a single entry with `
 
 ### Routing Table
 
-| Phase / Iter Role  | Agent Type  | Prompt Manifest Path                                       | Template                                |
-|--------------------|-------------|------------------------------------------------------------|-----------------------------------------|
-| clarify            | implementer | tasks/T-xxx/prompts/phase-1-clarify.md                     | prompts-templates/implementer.md (mode=clarify) |
-| implement (iter N) | implementer | tasks/T-xxx/prompts/iter-N-implementer.md                  | prompts-templates/implementer.md        |
-| review (iter N)    | reviewer    | tasks/T-xxx/prompts/iter-N-reviewer.md                     | prompts-templates/reviewer.md           |
-| validate           | validator   | tasks/T-xxx/prompts/phase-3-validator.md                   | prompts-templates/validator.md          |
+| Phase / Iter Role   | Agent Type   | Prompt Manifest Path                                       | Template                                |
+|---------------------|--------------|------------------------------------------------------------|-----------------------------------------|
+| clarify             | implementer  | tasks/T-xxx/prompts/phase-1-clarify.md                     | prompts-templates/implementer.md (mode=clarify) |
+| implement (iter N)  | implementer  | tasks/T-xxx/prompts/iter-N-implementer.md                  | prompts-templates/implementer.md        |
+| review (iter N)     | reviewer     | tasks/T-xxx/prompts/iter-N-reviewer.md                     | prompts-templates/reviewer.md           |
+| review-a (iter N)   | reviewer     | tasks/T-xxx/prompts/iter-N-reviewer-a.md                   | prompts-templates/reviewer.md (focus=A) |
+| review-b (iter N)   | reviewer     | tasks/T-xxx/prompts/iter-N-reviewer-b.md                   | prompts-templates/reviewer.md (focus=B) |
+| synthesize (iter N) | synthesizer  | tasks/T-xxx/prompts/iter-N-synthesizer.md                  | prompts-templates/synthesizer.md        |
+| validate            | validator    | tasks/T-xxx/prompts/phase-3-validator.md                   | prompts-templates/validator.md          |
 
-When `dual_mode == "off"`, the loop degenerates to a single `implement` dispatch (no reviewer, straight to validator).
+Routing by `dual_mode`:
+- `off`      → implementer → validator
+- `serial`   → implementer ⇄ reviewer loop → validator (see §15)
+- `parallel` → implementer → (reviewer-a ∥ reviewer-b) → synthesizer → loop (see §16)
 
 (POC uses implementer in clarify mode; full v5.0 has a dedicated clarifier.)
 
@@ -132,8 +138,13 @@ while true:
 
     elif decision == "advance_phase":
         next_phase = transition(task_state.phase)
-        if next_phase == "implement" and task_state.dual_mode == "serial":
-            run_dual_agent_loop(task_state)    # see §15
+        if next_phase == "implement":
+            if task_state.dual_mode == "serial":
+                run_dual_agent_serial_loop(task_state)      # see §15
+            elif task_state.dual_mode == "parallel":
+                run_dual_agent_parallel_loop(task_state)    # see §16
+            else:
+                dispatch_implementer_only(task_state)       # dual_mode == "off"
         else:
             write_manifest(phase-N-{role}.md)
             dispatch_agent(role, phase=N)
@@ -407,7 +418,123 @@ Two iterations + validator ≈ 2100 tokens added to main session. Still well bel
 From `config.yaml`:
 ```yaml
 dual_agent:
-  default_mode: "serial"        # "serial" | "off" ; "parallel" reserved for post-POC
+  default_mode: "serial"        # "serial" | "parallel" | "off"
   max_iterations: 2
   escalate_on_fundamental: true
 ```
+
+---
+
+## 16. Dual-Agent Parallel + Synthesizer Protocol
+
+When `task.dual_mode == "parallel"`, each iteration runs **two reviewers in parallel** (R-A and R-B) on the same implementer output, followed by a **Synthesizer** that merges their reports into a unified review. The merged review then drives the next implementer iteration.
+
+Use parallel mode when:
+- You want cross-examination from different angles (correctness+security vs design+conventions)
+- You want to detect reviewer blind spots (agreement_ratio signal)
+- The platform supports concurrent sub-agent dispatch
+
+### Directory Layout per Iteration
+
+```
+tasks/T-xxx/iterations/iter-N/
+  implement.md
+  implement-summary.md
+  review-a.md                 # Reviewer A full report
+  review-a-summary.md
+  review-b.md                 # Reviewer B full report
+  review-b-summary.md
+  review-synthesized.md       # merged review (what implementer reads next iteration)
+  review-synthesized-summary.md
+```
+
+### Loop Algorithm
+
+```
+iteration = 1
+while iteration <= task.max_iterations:
+    # Step 1 — dispatch implementer (same as serial)
+    impl_result = dispatch_implementer(iteration)
+    if impl_result.status != "success": escalate_hitl(); return
+
+    # Step 2 — dispatch TWO reviewers in parallel
+    write_manifest(
+        iter-{iteration}-reviewer-a.md,
+        template = reviewer.md,
+        variables = { ..., review_focus: config.parallel.reviewer_a_focus },
+        output_to = iterations/iter-{iteration}/review-a.md,
+    )
+    write_manifest(
+        iter-{iteration}-reviewer-b.md,
+        template = reviewer.md,
+        variables = { ..., review_focus: config.parallel.reviewer_b_focus },
+        output_to = iterations/iter-{iteration}/review-b.md,
+    )
+    [a_result, b_result] = dispatch_parallel(["reviewer", "reviewer"])
+
+    # Step 3 — dispatch synthesizer after both complete
+    write_manifest(
+        iter-{iteration}-synthesizer.md,
+        template = synthesizer.md,
+        variables = {
+            review_a: @../iterations/iter-{iteration}/review-a.md,
+            review_a_summary: @../iterations/iter-{iteration}/review-a-summary.md,
+            review_b: @../iterations/iter-{iteration}/review-b.md,
+            review_b_summary: @../iterations/iter-{iteration}/review-b-summary.md,
+            implementer_summary: @../iterations/iter-{iteration}/implement-summary.md,
+        },
+        output_to = iterations/iter-{iteration}/review-synthesized.md,
+    )
+    synth = dispatch("synthesizer", iteration)
+
+    # Step 4 — record and decide
+    append_to(state.iterations, { n, implementer_output, review_a, review_b,
+                                   review_synthesized, overall_verdict: synth.overall_verdict,
+                                   agreement_ratio: synth.agreement_ratio,
+                                   issue_count: synth.issue_count })
+
+    # Step 5 — exit conditions (use synthesized verdict)
+    if synth.overall_verdict == "looks_good":
+        break
+    if synth.overall_verdict == "fundamental_problems":
+        escalate_hitl("both reviewers agree on fundamental problems"); return
+    if synth.agreement_ratio < config.parallel.min_agreement_ratio:
+        escalate_hitl("reviewers disagree too much (ratio={})".format(synth.agreement_ratio)); return
+    iteration += 1
+
+dispatch_validator()
+```
+
+### Implementer Contract Difference
+
+In parallel mode, the next iteration's implementer reads `@../iterations/iter-{prev}/review-synthesized.md`, **not** the individual A/B reviews. This keeps the implementer's context small and avoids conflicting guidance.
+
+### Budget
+
+| Event                               | Tokens (per iteration) |
+|-------------------------------------|------------------------|
+| Implementer dispatch + summary      | ~370                   |
+| Two reviewer manifests              | ~240                   |
+| Two reviewer summaries (parallel)   | ~500                   |
+| Synthesizer manifest + summary      | ~370                   |
+| State update                        | ~100                   |
+| **Per-iteration total**             | **~1580**              |
+
+Two iterations + validator ≈ 3600 tokens to main. Still < 22K steady state.
+
+### Rules
+
+- You NEVER read `review-a.md` or `review-b.md` in your own context — only the synthesized summary.
+- Low `agreement_ratio` is a HITL trigger — it means the work is ambiguous enough that automated consensus is unsafe.
+- If either reviewer returns `blocked` or `failure`: do NOT run synthesizer. Escalate HITL with the partial results.
+- Hard cap: `max_iterations` applies to the number of implement-review-synth cycles, not per-sub-agent.
+
+### When to Prefer Serial vs. Parallel
+
+| Mode      | Best for                                              | Cost        | Latency          |
+|-----------|-------------------------------------------------------|-------------|------------------|
+| serial    | tight HITL loops, simple tasks, single perspective    | ~820/iter   | sequential       |
+| parallel  | broader coverage, ambiguous tasks, catching blind spots | ~1580/iter | ~same as serial if platform runs reviewers concurrently |
+| off       | trusted implementer, validator-only pipeline           | ~470/iter   | fastest          |
+
+POC default is `serial`. Set `default_mode: "parallel"` in `config.yaml` to opt in.
