@@ -895,6 +895,54 @@ After all subtasks reach `accept_verdict == accept`, the parent:
   fan-out PAUSES; HITL is queued with options (re-plan / abandon /
   manually patch subtask plan).
 
+### 17.6 Mechanical helper: `subtask-runner.sh`
+
+Subtask seeding, dependency-graph parsing, ready-set computation, and
+parent ↔ subtask `state.json` bookkeeping are deterministic file-shuffling
+work — they cost no thinking and would waste LLM tokens if done by the
+orchestrator inline. v5.0 ships `.codenook/subtask-runner.sh` so the
+orchestrator can delegate this drudgery to a shell call:
+
+```
+bash .codenook/subtask-runner.sh seed              <T-XXX>
+bash .codenook/subtask-runner.sh status            <T-XXX>
+bash .codenook/subtask-runner.sh ready             <T-XXX>            # exit 0 = some ready, 1 = none
+bash .codenook/subtask-runner.sh mark              <T-XXX.N> <status> # pending|in_progress|done|blocked
+bash .codenook/subtask-runner.sh integration-ready <T-XXX>            # exit 0 = all done
+bash .codenook/subtask-runner.sh deps              <T-XXX>            # debug: print parsed graph
+```
+
+What `seed` does (and what the orchestrator therefore does NOT do
+inline):
+
+1. Reads `tasks/<T-XXX>/decomposition/plan.md` and parses the **Subtask
+   List** Markdown table (rows must follow the planner-template column
+   order: id | title | scope | primary_outputs | size | parent_section).
+2. Reads `tasks/<T-XXX>/decomposition/dependency-graph.md` per the
+   `## Nodes` / `## Edges` schema (`dependency-graph-schema.md`) — the
+   only edge vocabulary is `depends_on`.
+3. For each subtask row, creates `subtasks/<T-XXX.N>/{prompts,outputs,
+   iterations}/`, writes a synthesised `task.md` (scope + primary outputs
+   + parent context pointers), and writes an initial `state.json` with
+   `status: pending`, `phase: clarify`, the parsed `depends_on`, and
+   `dual_mode: inherit`.
+4. Rewrites the parent's `state.json` `subtasks` array from the on-disk
+   subtask state files (so the parent state is a derived cache; the
+   subtask state files are authoritative). Sets parent `phase` to
+   `subtasks_in_flight` if it was earlier.
+5. Warns (stderr) if any node appears in the graph but not in the plan
+   table (orphan), or vice versa. Does not abort — the orchestrator
+   decides whether to retry planner.
+
+Re-running `seed` is idempotent: existing `subtasks/<T-XXX.N>/`
+directories are skipped, never overwritten. To restart a subtask the
+orchestrator must explicitly remove the dir first.
+
+The runner is **the only** allowed mutator of subtask `state.json` files
+during fan-out. The orchestrator must call `mark` for status changes and
+must NOT edit those JSON files in-context — same router-discipline rule
+as §1/§2.
+
 ---
 
 ## 18. Session Lifecycle Protocol (`history/` persistence)

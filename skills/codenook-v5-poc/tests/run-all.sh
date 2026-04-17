@@ -35,6 +35,7 @@ run_test "T17 HITL adapter"        "$SCRIPT_DIR/t17-hitl-adapter.sh"
 run_test "T18 Queue runtime"       "$SCRIPT_DIR/t18-queue-runtime.sh"
 run_test "T19 Mode B dispatch"     "$SCRIPT_DIR/t19-mode-b-dispatch.sh"
 run_test "T20 Dispatch audit"      "$SCRIPT_DIR/t20-dispatch-audit.sh"
+run_test "T21 Subtask runner"      "$SCRIPT_DIR/t21-subtask-runner.sh"
 
 echo ""
 echo "════════════════════════════════════════════"
