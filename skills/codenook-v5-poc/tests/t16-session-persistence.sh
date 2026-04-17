@@ -108,6 +108,17 @@ echo "$section4" | grep -q 'last_session'    && pass "§4 reads state.last_sessi
 echo "$section4" | grep -q 'sessions/'       && pass "§4 mentions sessions/ dir"       || fail "§4 no sessions/ ref"
 echo "$section4" | grep -q 'Do NOT scan'     && pass "§4 forbids scanning all sessions" || fail "§4 no scan-prohibition"
 
+# ----------------------------------------------------------------------
+# [6] CLAUDE.md + core §12 have end-of-turn rule
+# ----------------------------------------------------------------------
+echo ""
+echo "[6] End-of-turn ask-next rule:"
+grep -q 'Interaction Rule' ./CLAUDE.md              && pass "CLAUDE.md has Interaction Rule section"    || fail "CLAUDE.md missing Interaction Rule"
+grep -qi 'end of EVERY response' ./CLAUDE.md        && pass "CLAUDE.md enforces end-of-turn ask"        || fail "CLAUDE.md doesn't enforce end-of-turn"
+section12=$(awk '/^## 12\./,/^## 13\./' "$C")
+echo "$section12" | grep -q 'End-of-turn rule'      && pass "§12 has End-of-turn rule"                  || fail "§12 missing end-of-turn rule"
+echo "$section12" | grep -qi 'must end with'        && pass "§12 mandates question at end"              || fail "§12 doesn't mandate question"
+
 echo ""
 if [[ $FAIL -eq 0 ]]; then
   echo "=== T16 PASSED ==="

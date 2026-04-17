@@ -403,6 +403,13 @@ See `.codenook/hitl-queue/current.md`.
 
 Never paste sub-agent outputs inline. Always reference by path.
 
+**End-of-turn rule (MANDATORY)**: every response must end with a prompt for the user's next step. A terse status update without a question is NOT a valid turn ending — the user drifts, the orchestrator idles. Prefer 2–3 concrete multiple-choice options (advance / pause / iterate / new task). Examples:
+
+- After phase completion: "→ advance to phase-3? (advance / pause / re-run)"
+- After HITL queue: "Your decision for T-001 phase-2? (see hitl-queue/current.md)"
+- After `/clear` recommendation: "OK to `/clear` now? (yes / stay)"
+- Idle: "What's next? (continue T-001 / new task / review knowledge)"
+
 ---
 
 ## 13. Error Recovery

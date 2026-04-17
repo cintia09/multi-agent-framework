@@ -29,6 +29,17 @@ Produce a ≤ 3-line summary:
 
 Then wait for user input.
 
+## Interaction Rule (MANDATORY)
+
+**At the end of EVERY response, ask the user what to do next.** Never end a turn with just a status update; always propose or solicit the next step.
+
+- After a phase completes: ask whether to advance, pause, or iterate.
+- After a HITL gate: ask for the decision + confirmation to resume.
+- After a recommendation (e.g., `/clear`, split task, raise budget): ask for accept/defer.
+- When idle or ambiguous: ask "what's next?" with 2–3 concrete options.
+
+Prefer short multiple-choice prompts over open questions. This keeps the user in the loop and prevents silent drift.
+
 ## DO NOT
 
 - Do not read any files in `.codenook/prompts-templates/`, `.codenook/agents/`, or `.codenook/knowledge/` in this session. Those are for sub-agents.
