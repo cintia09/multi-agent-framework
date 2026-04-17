@@ -1,0 +1,48 @@
+# CodeNook workspace configuration (v5.0 POC)
+version: "5.0-poc"
+
+models:
+  default: claude-sonnet-4.5
+  implementer: claude-sonnet-4.5
+  validator: claude-haiku-4.5
+  # dual_a / dual_b / synthesizer reserved for full v5.0
+
+orchestrator:
+  max_context_ratio_warn: 0.5
+  max_context_ratio_alert: 0.8
+  max_agent_context: 30000     # tokens, soft cap for sub-agents
+  max_agent_output: 15000      # tokens
+
+routing:
+  # POC minimal 3-phase pipeline
+  phases:
+    - name: clarify
+      agent: implementer
+      mode: clarify
+      template: prompts-templates/implementer.md
+    - name: implement
+      agent: implementer
+      mode: implement
+      template: prompts-templates/implementer.md
+      criteria: prompts-criteria/criteria-implement.md
+    - name: validate
+      agent: validator
+      template: prompts-templates/validator.md
+
+validator:
+  enabled: true
+  max_retries: 3
+
+hitl:
+  enabled: true
+  adapter: terminal-inline   # POC: only inline mode
+
+concurrency:
+  enabled: false             # POC: serial only
+  max_parallel_agents: 1
+
+distillation:
+  enabled: false             # POC: no auto-distill
+
+dual_agent:
+  enabled: false             # POC: single agent per phase
