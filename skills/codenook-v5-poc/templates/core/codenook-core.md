@@ -1164,3 +1164,98 @@ orchestrator **still** uses `pending.json`/`dispatching.json`/`completed.json`
 as a log (everything is max-1 in flight) so that switching the flag on does
 not require any data migration. This is the same degenerate-serial pattern as
 §19.2.
+
+---
+
+## 20. Dispatch Log & Delegation Audit
+
+The orchestrator is a **pure router** (§1, §2). The single most common
+failure mode is the orchestrator silently doing the work itself — reading
+large files, writing long outputs, mutating `state.json` without ever
+invoking a sub-agent. A prompt rule alone cannot catch this; we need an
+auditable record of every Mode B dispatch.
+
+### 20.1 The dispatch log
+
+Path: `.codenook/history/dispatch-log.jsonl`
+
+Append-only **JSON Lines**. One record per Mode B sub-agent dispatch.
+Schema (all fields required):
+
+```json
+{
+  "ts": "2025-07-15T14:32:01Z",
+  "task_id": "T-003",
+  "phase": "phase-3-implement",
+  "role": "implementer",
+  "manifest": ".codenook/tasks/T-003/prompts/phase-3-implementer.md",
+  "output_expected": ".codenook/tasks/T-003/outputs/phase-3-implementer.md",
+  "invocation_id": "d-1721053921-implementer-T003-3"
+}
+```
+
+`invocation_id` MUST be unique per dispatch. Convention:
+`d-<unix-ts>-<role>-<task-no-dots>-<phase-num>`.
+
+### 20.2 Logging protocol (MANDATORY)
+
+For every Mode B dispatch the orchestrator performs the following two
+steps **in this exact order**:
+
+1. **WRITE** one line to `dispatch-log.jsonl` (append).
+2. Invoke the platform's generic task runner (`general-purpose`) with the
+   §7 dispatch prompt.
+
+Logging happens **BEFORE** the task tool call, not after. If the
+orchestrator crashes between steps 1 and 2, we have a "promised but never
+ran" record — easy to detect and recover. If we logged after, a crash
+would leave silent gaps that look like the orchestrator doing the work
+itself, which is exactly the failure we are trying to detect.
+
+### 20.3 Audit script
+
+Path: `.codenook/dispatch-audit.sh` (copied by `init.sh`).
+
+Run anytime:
+
+```
+bash .codenook/dispatch-audit.sh           # audit whole workspace
+bash .codenook/dispatch-audit.sh T-003     # audit single task
+```
+
+Checks performed:
+
+- **Output coverage**: every file under `tasks/*/outputs/` has at least
+  one dispatch-log entry whose `output_expected` matches it. Missing
+  entries indicate ghost work — the orchestrator wrote it directly.
+- **Phase coverage**: for each task, every distinct `phase-N-<name>`
+  output present must correspond to a dispatch with the same
+  `task_id`+`phase`. (Phases without outputs are not yet audited; they
+  may be in flight.)
+- **Manifest existence**: every dispatch entry's `manifest` path must
+  exist on disk. A dangling manifest means the orchestrator dispatched
+  without writing the manifest first.
+- **Unique invocation IDs**: duplicates indicate replay or copy-paste
+  bugs in the orchestrator.
+
+The audit is post-hoc and read-only. It does not block work; it surfaces
+discipline violations after the fact so the human can see them.
+
+### 20.4 What audit does NOT enforce
+
+- It cannot prove the sub-agent actually ran (only that a dispatch was
+  recorded). For run-time verification we would need the sub-agent to
+  also write a "I started" marker — out of scope for v5.0 POC.
+- It does not check return-value contracts (status/summary/output_path).
+  That belongs to a contract-test layer (T19, future T20+).
+- It does not enforce the orchestrator router rule (no large reads in
+  main context). That is a prompt-discipline matter; the dispatch log
+  only catches cases where work was attributed to the orchestrator
+  rather than a sub-agent.
+
+### 20.5 Default behaviour
+
+The dispatch log is **always on**. It is cheap (one JSONL line per
+dispatch, ~300 bytes). The audit script is opt-in (run on demand).
+There is no flag to disable logging in v5.0 — it is part of the Mode B
+contract.

@@ -34,6 +34,7 @@ run_test "T16 session persistence" "$SCRIPT_DIR/t16-session-persistence.sh"
 run_test "T17 HITL adapter"        "$SCRIPT_DIR/t17-hitl-adapter.sh"
 run_test "T18 Queue runtime"       "$SCRIPT_DIR/t18-queue-runtime.sh"
 run_test "T19 Mode B dispatch"     "$SCRIPT_DIR/t19-mode-b-dispatch.sh"
+run_test "T20 Dispatch audit"      "$SCRIPT_DIR/t20-dispatch-audit.sh"
 
 echo ""
 echo "════════════════════════════════════════════"

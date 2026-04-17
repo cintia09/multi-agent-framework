@@ -70,6 +70,9 @@ chmod +x .codenook/hitl-adapters/terminal.sh
 cp "$TEMPLATES_DIR/dependency-graph-schema.md"         .codenook/
 cp "$TEMPLATES_DIR/queue-runner.sh"                    .codenook/
 chmod +x .codenook/queue-runner.sh
+cp "$TEMPLATES_DIR/dispatch-audit.sh"                  .codenook/
+chmod +x .codenook/dispatch-audit.sh
+: > .codenook/history/dispatch-log.jsonl
 printf '{"items":[]}\n' > .codenook/queue/pending.json
 printf '{"items":[]}\n' > .codenook/queue/dispatching.json
 printf '{"items":[]}\n' > .codenook/queue/completed.json
