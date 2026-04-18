@@ -1,0 +1,27 @@
+# plugins/generic/config-defaults.yaml
+# Layer-1 defaults for the generic fallback plugin.
+#
+# Models use tier_* symbols (architecture §3.2.4.2) — config-resolve
+# expands them against the workspace's model catalog at dispatch time.
+# The fallback plugin biases toward cheaper tiers because it handles
+# a long tail of low-cost utility tasks.
+
+models:
+  clarifier: tier_balanced
+  analyzer:  tier_balanced
+  executor:  tier_balanced
+  deliverer: tier_cheap
+  default:   tier_balanced
+
+hitl:
+  mode: confirm
+  gates: []
+
+concurrency:
+  max_parallel: 2
+
+knowledge:
+  consumes: [workspace, plugin_shipped, plugin_local]
+
+skills:
+  consumes: [workspace.builtin, workspace.custom, plugin_shipped, plugin_local]

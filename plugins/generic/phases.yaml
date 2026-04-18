@@ -1,0 +1,25 @@
+# plugins/generic/phases.yaml
+# 4-phase universal fallback pipeline (impl-v6 §M7.1, L833-846).
+#
+# Pinned: clarify -> analyze -> execute -> deliver
+# (matches spec verbatim; the prompt's alternative wording
+#  "clarify -> execute -> review -> ship" is rejected in favour of
+#  the spec because the spec is the authoritative reference for M7.)
+
+phases:
+  - id: clarify
+    role: clarifier
+    produces: outputs/phase-1-clarifier.md
+
+  - id: analyze
+    role: analyzer
+    produces: outputs/phase-2-analyzer.md
+
+  - id: execute
+    role: executor
+    produces: outputs/phase-3-executor.md
+    post_validate: validators/post-execute.sh
+
+  - id: deliver
+    role: deliverer
+    produces: outputs/phase-4-deliverer.md

@@ -1,0 +1,40 @@
+# plugins/generic/config-schema.yaml
+# M5 YAML DSL — consumed by skills/builtin/config-validate. Mirrors the
+# shape of plugins/development/config-schema.yaml (NOT JSON-Schema).
+
+fields:
+  models:
+    type: object
+    required: true
+    fields:
+      clarifier: { type: string, min_length: 1 }
+      analyzer:  { type: string, min_length: 1 }
+      executor:  { type: string, min_length: 1 }
+      deliverer: { type: string, min_length: 1 }
+      default:   { type: string, min_length: 1 }
+
+  hitl:
+    type: object
+    fields:
+      mode:
+        type: string
+        enum: [auto, confirm, ask]
+      gates:
+        type: array
+
+  concurrency:
+    type: object
+    fields:
+      max_parallel:
+        type: integer
+        min: 1
+
+  knowledge:
+    type: object
+    fields:
+      consumes: { type: array }
+
+  skills:
+    type: object
+    fields:
+      consumes: { type: array }

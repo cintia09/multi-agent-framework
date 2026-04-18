@@ -1,0 +1,16 @@
+# plugins/generic/entry-questions.yaml
+# Phase-keyed required state.json fields (orchestrator-tick gate).
+# The generic fallback intentionally requires NOTHING — it must work
+# for arbitrary one-shot user requests with no setup overhead.
+
+clarify:
+  required: []
+
+analyze:
+  required: []
+
+execute:
+  required: []
+
+deliver:
+  required: []

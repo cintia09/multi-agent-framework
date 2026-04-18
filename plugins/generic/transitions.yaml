@@ -1,0 +1,30 @@
+# plugins/generic/transitions.yaml
+# Verdict-driven transitions for the 4-phase generic pipeline.
+#
+# Verdict enum is shared with the rest of v6:
+#   ok              -> advance per table
+#   needs_revision  -> self-loop (iteration cap from state.max_iterations)
+#   blocked         -> caller pauses task
+#
+# `complete` terminates the task and triggers the distiller.
+
+transitions:
+  clarify:
+    ok: analyze
+    needs_revision: clarify
+    blocked: clarify
+
+  analyze:
+    ok: execute
+    needs_revision: analyze
+    blocked: analyze
+
+  execute:
+    ok: deliver
+    needs_revision: execute
+    blocked: execute
+
+  deliver:
+    ok: complete
+    needs_revision: deliver
+    blocked: deliver

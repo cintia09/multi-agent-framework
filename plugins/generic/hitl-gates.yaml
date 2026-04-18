@@ -1,0 +1,6 @@
+# plugins/generic/hitl-gates.yaml
+# The generic fallback ships with NO HITL gates by default. Workspace
+# operators can opt in by overriding `hitl.gates` in
+# .codenook/config.yaml (see config-defaults.yaml comments).
+
+gates: {}

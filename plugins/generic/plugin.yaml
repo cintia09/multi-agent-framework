@@ -1,0 +1,83 @@
+# plugins/generic/plugin.yaml
+# Generic fallback plugin manifest (v6 M7).
+#
+# This is the "catch-all" plugin. The router selects it when no
+# specialised plugin (development, writing, ...) wins on
+# keywords/applies_to. Priority is intentionally low (10) so any
+# specialised plugin (priority 50) wins ties.
+#
+# Two contracts coexist (same as development):
+#   1. M2 install-pipeline contract (REQUIRED, gates G02..G07).
+#   2. v6 architecture/§9.2 packaging contract (router + runtime).
+
+# ── M2 install-pipeline contract ────────────────────────────────────────
+id: generic
+version: 0.1.0
+type: domain
+entry_points:
+  install: phases.yaml
+declared_subsystems:
+  - domain/generic
+requires:
+  core_version: ">=0.5.0-m5,<1.0.0"
+
+# ── v6 architecture surface (router + packaging) ────────────────────────
+name: generic
+applies_to: ["*"]
+codenook_core_version: ">=0.5.0-m5 <1.0.0"
+summary: >
+  Universal fallback pipeline: clarify -> analyze -> execute -> deliver.
+  Used when no specialised plugin matches the task.
+keywords:
+  - summarize
+  - summarise
+  - explain
+  - help
+  - question
+  - research
+  - todo
+  - list
+  - generic
+examples:
+  - "Summarise this PDF"
+  - "Help me brainstorm holiday ideas"
+  - "Explain how a transformer works"
+anti_examples:
+  - "Implement a Python CLI"
+  - "Write a blog post about RAG"
+
+# Routing surface consumed by lib/router_select.py (M7 shim). A
+# specialised plugin should always beat the fallback, so generic pins
+# the low end of the priority scale.
+routing:
+  priority: 10
+
+supports_dual_mode: false
+supports_fanout: false
+supports_concurrency: true
+
+data_layout: workspace
+data_glob:
+  - "**/*.md"
+  - "**/*.txt"
+data_excludes:
+  - ".codenook/**"
+  - ".git/**"
+
+entry_point: phases.yaml
+
+knowledge:
+  produces:
+    default_target: plugin_local
+  consumes: [workspace, plugin_shipped, plugin_local]
+  retention:
+    by_role: keep_last 50
+
+skills:
+  produces:
+    default_target: plugin_local
+  consumes: [workspace.builtin, workspace.custom, plugin_shipped, plugin_local]
+
+config:
+  schema: config-schema.yaml
+  defaults: config-defaults.yaml
