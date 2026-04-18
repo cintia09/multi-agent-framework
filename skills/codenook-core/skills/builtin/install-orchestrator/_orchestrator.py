@@ -1,0 +1,323 @@
+#!/usr/bin/env python3
+"""install-orchestrator — runs the 12-gate plugin install pipeline.
+
+Inputs (env, set by orchestrator.sh):
+  CN_SRC            tarball or directory
+  CN_WORKSPACE      target workspace root
+  CN_UPGRADE        "1" if --upgrade
+  CN_DRY_RUN        "1" if --dry-run
+  CN_JSON           "1" if --json (machine-readable summary on stdout)
+  CN_REQUIRE_SIG    "1" propagated to plugin-signature gate
+  CN_BUILTIN_DIR    absolute path to skills/codenook-core/skills/builtin
+  CN_CORE_VERSION   contents of VERSION file (no whitespace)
+
+Exit codes:
+  0  installed (or dry-run pass)
+  1  any gate failed
+  2  usage / IO error
+  3  G03 reported "already installed" without --upgrade
+"""
+from __future__ import annotations
+
+import json
+import os
+import secrets
+import shutil
+import subprocess
+import sys
+import tarfile
+from pathlib import Path
+
+import yaml
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_lib"))
+from atomic import atomic_write_json  # noqa: E402
+
+GATE_SEQ = [
+    ("G01", "plugin-format",          "format-check.sh",     False),
+    ("G02", "plugin-schema",          "schema-check.sh",     False),
+    ("G03", "plugin-id-validate",     "id-validate.sh",      True),  # workspace-aware
+    ("G04", "plugin-version-check",   "version-check.sh",    True),
+    ("G05", "plugin-signature",       "signature-check.sh",  False),
+    ("G06", "plugin-deps-check",      "deps-check.sh",       False),
+    ("G07", "plugin-subsystem-claim", "subsystem-claim.sh",  True),
+    # G08 sec-audit handled inline below
+    # G09 size handled inline below
+    ("G10", "plugin-shebang-scan",    "shebang-scan.sh",     False),
+    ("G11", "plugin-path-normalize",  "path-normalize.sh",   False),
+]
+
+MAX_TOTAL_BYTES = 10 * 1024 * 1024
+MAX_FILE_BYTES = 1 * 1024 * 1024
+
+
+def stage_source(src: Path, staging_root: Path) -> Path:
+    """Copy/extract src into a fresh staging dir; return staged path."""
+    staging_root.mkdir(parents=True, exist_ok=True)
+    name = "stage-" + secrets.token_hex(6)
+    dest = staging_root / name
+    if src.is_dir():
+        shutil.copytree(src, dest, symlinks=True)
+        return dest
+    if src.is_file() and (src.suffixes[-2:] == [".tar", ".gz"]
+                          or src.suffix in (".tgz", ".gz")):
+        dest.mkdir()
+        with tarfile.open(src, "r:gz") as tf:
+            # safe extract: refuse absolute / .. members
+            for m in tf.getmembers():
+                if m.name.startswith("/") or ".." in Path(m.name).parts:
+                    raise RuntimeError(f"unsafe tar member: {m.name}")
+            tf.extractall(dest)
+        # If the tarball contains a single top-level directory, descend
+        # into it so plugin.yaml is at the staged root.
+        entries = [p for p in dest.iterdir()]
+        if len(entries) == 1 and entries[0].is_dir():
+            inner = entries[0]
+            for child in inner.iterdir():
+                shutil.move(str(child), str(dest / child.name))
+            inner.rmdir()
+        return dest
+    raise RuntimeError(f"unsupported --src kind: {src}")
+
+
+def run_gate(skill_sh: Path, staged: Path, workspace: Path,
+             upgrade: bool, extra_env: dict | None = None,
+             ws_aware: bool = False) -> dict:
+    cmd = [str(skill_sh), "--src", str(staged), "--json"]
+    if ws_aware:
+        cmd += ["--workspace", str(workspace)]
+        if upgrade:
+            cmd += ["--upgrade"]
+    env = os.environ.copy()
+    if extra_env:
+        env.update(extra_env)
+    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    try:
+        out = json.loads(proc.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        out = {"ok": False, "gate": skill_sh.parent.name,
+               "reasons": [f"gate did not emit JSON (stderr={proc.stderr!r})"]}
+    return out
+
+
+def run_sec_audit(builtin_dir: Path, staged: Path) -> dict:
+    audit_sh = builtin_dir / "sec-audit" / "audit.sh"
+    proc = subprocess.run(
+        [str(audit_sh), "--workspace", str(staged), "--json"],
+        capture_output=True, text=True,
+    )
+    reasons: list[str] = []
+    if proc.returncode == 1:
+        # sec-audit JSON envelope is {findings:[{type,...}]} on stderr/stdout.
+        for line in proc.stderr.splitlines():
+            s = line.strip()
+            if s:
+                reasons.append(s)
+        if not reasons:
+            reasons.append("sec-audit reported findings (no detail captured)")
+    elif proc.returncode != 0:
+        reasons.append(f"sec-audit failed to run (exit {proc.returncode})")
+    return {"ok": not reasons, "gate": "sec-audit", "reasons": reasons}
+
+
+def check_size(staged: Path) -> dict:
+    reasons: list[str] = []
+    total = 0
+    for root, _, files in os.walk(staged, followlinks=False):
+        for n in files:
+            p = Path(root) / n
+            if p.is_symlink():
+                continue
+            try:
+                sz = p.stat().st_size
+            except OSError:
+                continue
+            total += sz
+            if sz > MAX_FILE_BYTES:
+                reasons.append(
+                    f"file {p.relative_to(staged)} is {sz} bytes "
+                    f"(> {MAX_FILE_BYTES} per-file limit)"
+                )
+    if total > MAX_TOTAL_BYTES:
+        reasons.append(
+            f"total size {total} bytes > {MAX_TOTAL_BYTES} (10MB) limit"
+        )
+    return {"ok": not reasons, "gate": "size", "reasons": reasons}
+
+
+def commit(staged: Path, workspace: Path, plugin_id: str,
+           upgrade: bool) -> None:
+    plugins_root = workspace / ".codenook" / "plugins"
+    plugins_root.mkdir(parents=True, exist_ok=True)
+    dest = plugins_root / plugin_id
+    if dest.exists():
+        if not upgrade:
+            raise RuntimeError(
+                f"destination {dest} exists and --upgrade not set"
+            )
+        # Remove the old install before atomic move.
+        shutil.rmtree(dest)
+    os.replace(staged, dest)
+
+
+def update_state_json(workspace: Path, plugin_id: str, version: str) -> None:
+    sj = workspace / ".codenook" / "state.json"
+    if sj.is_file():
+        try:
+            data = json.loads(sj.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            data = {}
+    else:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    installs = data.get("installed_plugins")
+    if not isinstance(installs, list):
+        installs = []
+    installs = [r for r in installs
+                if not (isinstance(r, dict) and r.get("id") == plugin_id)]
+    installs.append({"id": plugin_id, "version": version})
+    data["installed_plugins"] = installs
+    sj.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(str(sj), data)
+
+
+def emit(json_out: bool, ok: bool, plugin_id: str | None, version: str | None,
+         results: list[dict], dry_run: bool, exit_code: int) -> int:
+    if json_out:
+        print(json.dumps({
+            "ok": ok,
+            "plugin_id": plugin_id,
+            "version": version,
+            "dry_run": dry_run,
+            "gate_results": results,
+        }))
+    else:
+        for r in results:
+            if not r.get("ok"):
+                gate = r.get("gate", "?")
+                code_map = {
+                    "plugin-format": "G01",
+                    "plugin-schema": "G02",
+                    "plugin-id-validate": "G03",
+                    "plugin-version-check": "G04",
+                    "plugin-signature": "G05",
+                    "plugin-deps-check": "G06",
+                    "plugin-subsystem-claim": "G07",
+                    "sec-audit": "G08",
+                    "size": "G09",
+                    "plugin-shebang-scan": "G10",
+                    "plugin-path-normalize": "G11",
+                }
+                code = code_map.get(gate, "Gxx")
+                for reason in r.get("reasons", []):
+                    text = reason if reason.startswith(f"[{code}]") \
+                        else f"[{code}] {reason}"
+                    print(text, file=sys.stderr)
+        if ok:
+            tag = "DRY-RUN OK" if dry_run else "INSTALLED"
+            print(f"✓ {tag}: plugin {plugin_id} {version or ''}".rstrip(),
+                  file=sys.stderr)
+    return exit_code
+
+
+def main() -> int:
+    src = Path(os.environ["CN_SRC"])
+    workspace = Path(os.environ["CN_WORKSPACE"]).resolve()
+    upgrade = os.environ.get("CN_UPGRADE", "0") == "1"
+    dry_run = os.environ.get("CN_DRY_RUN", "0") == "1"
+    json_out = os.environ.get("CN_JSON", "0") == "1"
+    require_sig = os.environ.get("CN_REQUIRE_SIG", "0") == "1"
+    builtin_dir = Path(os.environ["CN_BUILTIN_DIR"]).resolve()
+
+    if not src.exists():
+        print(f"orchestrator: --src not found: {src}", file=sys.stderr)
+        return 2
+
+    staging_root = workspace / ".codenook" / "staging"
+    try:
+        staged = stage_source(src, staging_root)
+    except Exception as e:
+        print(f"orchestrator: failed to stage source: {e}", file=sys.stderr)
+        return 2
+
+    results: list[dict] = []
+    plugin_id: str | None = None
+    version: str | None = None
+
+    # Try to read plugin.yaml early (best-effort, used for reporting only).
+    pl = staged / "plugin.yaml"
+    if pl.is_file():
+        try:
+            doc = yaml.safe_load(pl.read_text(encoding="utf-8")) or {}
+            if isinstance(doc, dict):
+                plugin_id = doc.get("id") if isinstance(doc.get("id"), str) else None
+                version = doc.get("version") if isinstance(doc.get("version"), str) else None
+        except yaml.YAMLError:
+            pass
+
+    extra_env = {"CODENOOK_REQUIRE_SIG": "1"} if require_sig else {}
+
+    # G01..G07, then G10/G11 — runs gate skills via subprocess.
+    early = [g for g in GATE_SEQ if g[0] in ("G01", "G02", "G03", "G04",
+                                              "G05", "G06", "G07")]
+    late = [g for g in GATE_SEQ if g[0] in ("G10", "G11")]
+    for code, name, sh, ws_aware in early:
+        skill_sh = builtin_dir / name / sh
+        env = extra_env if name == "plugin-signature" else None
+        results.append(run_gate(skill_sh, staged, workspace, upgrade,
+                                extra_env=env, ws_aware=ws_aware))
+
+    # G08 sec-audit
+    results.append(run_sec_audit(builtin_dir, staged))
+    # G09 size
+    results.append(check_size(staged))
+
+    for code, name, sh, ws_aware in late:
+        skill_sh = builtin_dir / name / sh
+        results.append(run_gate(skill_sh, staged, workspace, upgrade,
+                                ws_aware=ws_aware))
+
+    failed = [r for r in results if not r.get("ok")]
+    if failed:
+        # Promote G03 "already installed" to exit 3 when --upgrade absent.
+        if not upgrade:
+            for r in failed:
+                if r.get("gate") == "plugin-id-validate":
+                    if any("already installed" in s for s in r.get("reasons", [])):
+                        return emit(json_out, False, plugin_id, version,
+                                    results, dry_run, 3)
+        return emit(json_out, False, plugin_id, version, results, dry_run, 1)
+
+    if dry_run:
+        # Cleanup staging on dry-run pass too.
+        shutil.rmtree(staged, ignore_errors=True)
+        _cleanup_staging_root(staging_root)
+        return emit(json_out, True, plugin_id, version, results, dry_run, 0)
+
+    # G12 commit
+    try:
+        if not plugin_id:
+            raise RuntimeError("plugin id missing after gates passed (bug)")
+        commit(staged, workspace, plugin_id, upgrade)
+        update_state_json(workspace, plugin_id, version or "")
+    except Exception as e:
+        commit_result = {"ok": False, "gate": "commit",
+                         "reasons": [f"commit failed: {e}"]}
+        results.append(commit_result)
+        return emit(json_out, False, plugin_id, version, results, dry_run, 1)
+
+    _cleanup_staging_root(staging_root)
+    return emit(json_out, True, plugin_id, version, results, dry_run, 0)
+
+
+def _cleanup_staging_root(staging_root: Path) -> None:
+    try:
+        if staging_root.exists() and not any(staging_root.iterdir()):
+            staging_root.rmdir()
+    except OSError:
+        pass
+
+
+if __name__ == "__main__":
+    sys.exit(main())

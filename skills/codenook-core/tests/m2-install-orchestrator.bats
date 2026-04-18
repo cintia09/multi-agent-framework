@@ -32,7 +32,7 @@ entry_points:
 declared_subsystems:
   - skills/foo-runner
 requires:
-  core_version: '>=0.2.0'
+  core_version: '>=0.2.0-m2'
 YAML
   cat >"$d/skills/x/run.sh" <<'SH'
 #!/usr/bin/env bash
