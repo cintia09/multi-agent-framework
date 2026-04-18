@@ -57,6 +57,23 @@ tests/fixtures/plugins/     static plugin fixtures (one per gate failure mode)
   - 13 static fixtures under `tests/fixtures/plugins/`
 - M3+ — pending (see implementation doc §M3..M7)
 
+## ⚠️ Plugin-author note — SemVer pre-release precedence during M2
+
+Per [SemVer §11.4](https://semver.org/#spec-item-11), `0.2.0-m2.1` sorts
+**before** `0.2.0` (a pre-release version is *less than* the same version
+without a pre-release tag). While core is on `0.2.0-m2.x`, plugins that
+need "M2 or newer" must declare their floor with an explicit pre-release:
+
+```yaml
+# plugin.yaml
+requires:
+  core_version: '>=0.2.0-m2'     # ✅ matches 0.2.0-m2.1, 0.2.0-m2.2, 0.2.0, ...
+  # core_version: '>=0.2.0'      # ❌ rejects every M2 pre-release build
+```
+
+See `skills/builtin/plugin-deps-check/SKILL.md` for the full constraint
+syntax. Plain `>=0.2.0` becomes correct once core ships final `0.2.0`.
+
 ## Running tests
 
 ```bash
