@@ -12,8 +12,26 @@
 
 set -u
 
+# Auto-locate the workspace root: walk up from the script's directory
+# looking for a `.codenook/` sibling. This makes the script robust to
+# any cwd (including hook invocations from sub-agents whose cwd is the
+# parent process's cwd, not the workspace).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# When installed by init.sh, the script lives at <workspace>/.codenook/security-audit.sh
+# so the workspace root is the parent of SCRIPT_DIR.
+if [[ -d "$SCRIPT_DIR/../.codenook" ]]; then
+  WS_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+elif [[ -d "$(pwd)/.codenook" ]]; then
+  # Fallback: caller is in a workspace root.
+  WS_ROOT="$(pwd)"
+else
+  echo "error: cannot locate CodeNook workspace (no .codenook/ at script location or cwd)" >&2
+  exit 2
+fi
+cd "$WS_ROOT"
+
 WS=".codenook"
-[[ -d "$WS" ]] || { echo "error: not in a CodeNook workspace" >&2; exit 2; }
+[[ -d "$WS" ]] || { echo "error: not in a CodeNook workspace ($WS_ROOT/.codenook missing)" >&2; exit 2; }
 
 DATE=$(date +%Y-%m-%d)
 REPORT="$WS/history/security/${DATE}.md"
