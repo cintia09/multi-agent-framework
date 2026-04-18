@@ -157,3 +157,26 @@ EOF
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.dispatch_payload == null' >/dev/null
 }
+
+@test "fix#3: malicious ReDoS plugin pattern is rejected and triage stays fast" {
+  ws="$(stage_ws "$M3_FX/workspaces/empty")"
+  mkdir -p "$ws/.codenook/plugins/redos-stub"
+  cat > "$ws/.codenook/plugins/redos-stub/plugin.yaml" <<'EOF'
+id: redos-stub
+version: 0.1.0
+type: domain
+entry_points: {install: install.sh}
+declared_subsystems: [skills]
+intent_patterns:
+  - "(a+)+b"
+EOF
+  evil="$(python3 -c "print('a'*40 + '!', end='')")"
+  start=$(python3 -c "import time;print(time.time())")
+  run_with_stderr "\"$TRIAGE_SH\" --user-input '$evil' --workspace \"$ws\" --json"
+  end=$(python3 -c "import time;print(time.time())")
+  elapsed=$(python3 -c "print(${end}-${start})")
+  [ "$status" -eq 0 ]
+  python3 -c "import sys; sys.exit(0 if ${elapsed} < 2.0 else 1)" \
+    || { echo "triage took ${elapsed}s (>2s) — ReDoS not mitigated" >&2; exit 1; }
+  echo "$output" | jq -e '.reasons | any(. | contains("regex rejected: ReDoS risk"))' >/dev/null
+}

@@ -24,6 +24,23 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_lib"))
 from manifest_load import load_all  # noqa: E402
 
+# Reject pathological plugin patterns before compiling them — a
+# malicious manifest could otherwise stall the router with an
+# exponential-backtrack regex like (a+)+b on adversarial input.
+PATTERN_MAX_LEN = 256
+REDOS_BLACKLIST = re.compile(
+    r"(\([^)]*[+*]\)[+*])"          # (a+)+ , (.*)*  ...
+    r"|(\([^)]*\\[swdSWD]\+\)[+*])"  # (\w+)+ , (\d+)*
+)
+
+
+def regex_is_safe(pat: str) -> bool:
+    if len(pat) > PATTERN_MAX_LEN:
+        return False
+    if REDOS_BLACKLIST.search(pat):
+        return False
+    return True
+
 # ---------------------------------------------------------------- builtin table
 BUILTIN_INTENTS: list[tuple[str, re.Pattern[str]]] = [
     ("list-plugins", re.compile(r"\b(list|show)\b.*\bplugins?\b", re.IGNORECASE)),
@@ -40,13 +57,24 @@ def match_builtin(text: str) -> tuple[str, str] | None:
     return None
 
 
-def match_plugins(text: str, manifests: list[dict]) -> list[tuple[str, str]]:
-    """Return list of (plugin_id, matched_pattern) — empty if none."""
+def match_plugins(text: str, manifests: list[dict],
+                  reasons: list[str] | None = None) -> list[tuple[str, str]]:
+    """Return list of (plugin_id, matched_pattern) — empty if none.
+
+    Patterns failing the ReDoS safety check are skipped and recorded in
+    reasons[] (when provided).
+    """
     hits: list[tuple[str, str]] = []
     for m in manifests:
         if "_error" in m:
             continue
         for pat_str in m.get("intent_patterns") or []:
+            if not regex_is_safe(pat_str):
+                if reasons is not None:
+                    reasons.append(
+                        f"regex rejected: ReDoS risk ({m.get('id')}: {pat_str!r})"
+                    )
+                continue
             try:
                 if re.search(pat_str, text, re.IGNORECASE):
                     hits.append((m["id"], pat_str))
@@ -100,7 +128,7 @@ def main() -> int:
 
     else:
         # 2. plugin patterns
-        hits = match_plugins(user_input, manifests)
+        hits = match_plugins(user_input, manifests, reasons)
         if len(hits) == 1:
             target = hits[0][0]
             decision = "plugin"
