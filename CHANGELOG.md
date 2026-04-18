@@ -2,6 +2,59 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-m7.2] - 2026-04-18
+
+### 🚀 v6.0 Milestones M3–M7 + E2E Acceptance
+
+v6 ships as the production successor to the v5 PoC: a single-workspace,
+plugin-based architecture with a 12-gate install pipeline, a generic
+orchestrator-tick state machine, 4-layer config resolution, and three
+first-party plugins. **588/588 bats tests green.**
+
+#### Added — Core (`skills/codenook-core/`)
+- **M3** `router-triage` skill: dual-mode question, intent regex routing,
+  4 PHASE_ENTRY_QUESTIONS contracts.
+- **M4** `orchestrator-tick` skill: full state machine with phase advance,
+  unit fan-out, HITL gate suspend/resume, recovery branch, session resume,
+  iteration cap. Companion `hitl-adapter` (terminal + queue) and
+  `session-resume` skills.
+- **M5** `config-resolve` skill: 4-layer cascade (defaults → workspace →
+  plugin → task) with tier-symbol expansion against
+  `model_catalog.resolved_tiers`, full provenance trace, decisions #43/#44/#45
+  enforced (warn+fallback unknown tier, router=tier_strong invariant,
+  10-key whitelist). Companion `config-mutator` and
+  `task-config-set` skills.
+- Shared `_lib/`: `atomic.py`, `semver.py`, `manifest_load.py`,
+  `builtin_catalog.py`, `jsonschema_lite.py`, `expr_eval.py` (no Python
+  eval/exec), `config_layers.py`, `provenance.py`, `router_select.py`.
+
+#### Added — Plugins (`plugins/`)
+- **M6** `plugins/development/` — 8-phase software-development pipeline
+  (clarify → design → plan → implement → test → accept → validate → ship)
+  ported from v5 PoC. 8 role profiles, 8 manifest templates, 3 HITL gates
+  (design_signoff, pre_test_review, acceptance), shipped test-runner skill,
+  validators, prompts, knowledge.
+- **M7** `plugins/generic/` — universal fallback plugin (clarify →
+  analyze → execute → deliver), routing priority 10.
+- **M7** `plugins/writing/` — long-form writing plugin (outline → draft →
+  review → revise → publish) with `pre_publish` HITL gate, routing
+  priority 50.
+
+#### E2E Acceptance (12/12 PASS)
+Real-CLI smoke test in a clean workspace:
+- core install + 3-plugin install via 12-gate pipeline
+- idempotency (rc=3 on re-install w/o `--upgrade`)
+- 3/3 input-to-plugin routing
+- full 8-phase task lifecycle in 12 ticks with 3 HITL approvals
+- 4-layer config resolution (task-tier wins, provenance present)
+- plugin upgrade path
+
+#### Documented gaps (tracked as issues)
+- #1 — `init.sh --workspace` is an M1 stub
+- #2 — test-plan config layer paths don't match shipped contract
+- #3 — Plugin upgrade does not archive prior version
+- #4 — `router-triage` doesn't yet consume packaging fields
+
 ## [5.0.0-poc.1] - 2026-04-18
 
 ### 🧪 v5.0 POC — Workspace-First Architecture (preview, opt-in)
