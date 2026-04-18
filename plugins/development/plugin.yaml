@@ -95,3 +95,10 @@ skills:
 config:
   schema: config-schema.yaml
   defaults: config-defaults.yaml
+
+# Routing priority: specialised tier (50). Wins over `generic` (10) on
+# tied keyword/applies_to scores; ties with `writing` (50) are broken
+# alphabetically by id ("development" < "writing"), giving development
+# precedence on overlapping inputs.
+routing:
+  priority: 50
