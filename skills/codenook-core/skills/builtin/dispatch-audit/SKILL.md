@@ -43,6 +43,16 @@ Appended to `<ws>/.codenook/history/dispatch.jsonl`:
 Note: full payload is **never** written — only sha256 + an 80-char
 preview. Privacy by construction.
 
+## Redaction
+
+Before the 80-char preview is sliced, the payload is run through a
+best-effort secret scrubber that masks common high-confidence patterns
+(OpenAI `sk-` / `sk-proj-`, Anthropic `sk-ant-` / `sk-ant-api03-`, AWS
+`AKIA…`, GitHub `ghp_` / `gho_` / `github_pat_`, and PEM private-key
+headers) with the literal string `[REDACTED]`. This is best-effort
+defence-in-depth, not a substitute for keeping secrets out of payloads
+(callers SHOULD pass `${env:NAME}` placeholders, not resolved values).
+
 ## M1 notes
 
 - Single-line append; no explicit flock (line sizes are far below

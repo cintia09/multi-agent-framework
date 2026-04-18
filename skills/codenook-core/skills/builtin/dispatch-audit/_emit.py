@@ -16,12 +16,32 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
 
 PAYLOAD_LIMIT = 500
 PREVIEW_LEN = 80
+
+# Best-effort secret redaction for the payload preview. Full payload is
+# never written, but the 80-char preview is — so scrub recognised keys
+# before slicing. See SKILL.md "Redaction" section.
+SECRET_PATTERNS = [
+    re.compile(r'sk-(?:proj-)?[A-Za-z0-9_-]{20,}'),
+    re.compile(r'sk-ant-(?:api03-)?[A-Za-z0-9_-]{20,}'),
+    re.compile(r'AKIA[A-Z0-9]{16}'),
+    re.compile(r'ghp_[A-Za-z0-9]{20,}'),
+    re.compile(r'gho_[A-Za-z0-9]{20,}'),
+    re.compile(r'github_pat_[A-Za-z0-9_]{20,}'),
+    re.compile(r'-----BEGIN [A-Z ]+PRIVATE KEY-----'),
+]
+
+
+def redact(s: str) -> str:
+    for p in SECRET_PATTERNS:
+        s = p.sub('[REDACTED]', s)
+    return s
 
 
 def main() -> int:
@@ -49,7 +69,7 @@ def main() -> int:
         "role": role,
         "payload_size": size,
         "payload_sha256": hashlib.sha256(payload.encode("utf-8")).hexdigest(),
-        "payload_preview": payload[:PREVIEW_LEN],
+        "payload_preview": redact(payload)[:PREVIEW_LEN],
     }
 
     # Single-line append — atomic enough at M1 for typical `write()` sizes

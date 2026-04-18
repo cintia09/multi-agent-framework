@@ -107,3 +107,14 @@ str_n() {
   [ "$status" -eq 0 ]
   assert_file_exists "$ws/.codenook/history/dispatch.jsonl"
 }
+
+@test "payload_preview redacts sk-proj-* secrets" {
+  ws="$(mk_ws)"
+  payload='{"k":"sk-proj-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}'
+  run_with_stderr "\"$EMIT_SH\" --role planner --payload '$payload' --workspace \"$ws\""
+  [ "$status" -eq 0 ]
+  log="$ws/.codenook/history/dispatch.jsonl"
+  assert_file_exists "$log"
+  grep -q '\[REDACTED\]' "$log"
+  ! grep -q 'sk-proj-' "$log"
+}
