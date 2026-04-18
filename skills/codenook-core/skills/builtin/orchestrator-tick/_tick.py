@@ -34,6 +34,22 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_lib"))
 from atomic import atomic_write_json  # noqa: E402
 
+
+def _assert_under(p: Path, root: Path) -> Path:
+    """Resolve `p` and ensure it stays under `root`. Exits 2 on escape (S3)."""
+    try:
+        rp = p.resolve()
+        root_r = root.resolve()
+        rp.relative_to(root_r)
+    except (ValueError, OSError):
+        print(f"_tick.py: path escapes task root: {p}", file=sys.stderr)
+        sys.exit(2)
+    return rp
+
+
+def task_root(workspace: Path, task_id: str) -> Path:
+    return workspace / ".codenook" / "tasks" / task_id
+
 try:
     import yaml  # PyYAML
 except ImportError as e:  # pragma: no cover
@@ -78,14 +94,16 @@ _FM_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 def output_ready(workspace: Path, task_id: str, expected_output: str) -> bool:
     """File exists AND has frontmatter `verdict: <v>` matching enum."""
-    p = workspace / ".codenook" / "tasks" / task_id / expected_output
+    root = task_root(workspace, task_id)
+    p = _assert_under(root / expected_output, root)
     if not p.is_file():
         return False
     return read_verdict(workspace, task_id, expected_output) is not None
 
 
 def read_verdict(workspace: Path, task_id: str, expected_output: str) -> str | None:
-    p = workspace / ".codenook" / "tasks" / task_id / expected_output
+    root = task_root(workspace, task_id)
+    p = _assert_under(root / expected_output, root)
     text = p.read_text(encoding="utf-8")
     m = _FM_RE.match(text)
     if not m:
@@ -146,8 +164,10 @@ def dispatch_agent(workspace: Path, state: dict, phase: dict, n: int = 1) -> str
     pid = phase.get("id", "?")
     role = phase.get("role", "?")
     agent_id = f"ag_{state['task_id']}_{pid}_{n}"
-    marker = workspace / ".codenook" / "tasks" / state["task_id"] / "outputs" \
-             / f"phase-{pid}-{role}.dispatched"
+    root = task_root(workspace, state["task_id"])
+    marker = _assert_under(
+        root / "outputs" / f"phase-{pid}-{role}.dispatched", root
+    )
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text(render_manifest(state, phase) + "\n", encoding="utf-8")
     return agent_id
