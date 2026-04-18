@@ -50,6 +50,16 @@ def _assert_under(p: Path, root: Path) -> Path:
 def task_root(workspace: Path, task_id: str) -> Path:
     return workspace / ".codenook" / "tasks" / task_id
 
+
+# ── Fix #5: task_id format guard (S4) ───────────────────────────────────
+_TASK_ID_RE = re.compile(r"^T-[A-Za-z0-9_-]+$")
+
+
+def _check_task_id(tid: str) -> None:
+    if not isinstance(tid, str) or not _TASK_ID_RE.match(tid):
+        print(f"_tick.py: invalid task_id format: {tid!r}", file=sys.stderr)
+        sys.exit(2)
+
 try:
     import yaml  # PyYAML
 except ImportError as e:  # pragma: no cover
@@ -277,12 +287,14 @@ def check_entry_questions(workspace: Path, plugin: str, phase_id: str,
 # ── seed_subtasks (fanout) ──────────────────────────────────────────────
 def seed_subtasks(workspace: Path, state: dict, phase: dict) -> dict:
     parent = state["task_id"]
+    _check_task_id(parent)
     units = state.get("subtasks") or [f"u{i+1}" for i in range(2)]
     queue_dir = workspace / ".codenook" / "queue"
     queue_dir.mkdir(parents=True, exist_ok=True)
     created: list[str] = []
     for i, _u in enumerate(units, 1):
         cid = f"{parent}-c{i}"
+        _check_task_id(cid)
         cdir = workspace / ".codenook" / "tasks" / cid
         (cdir / "outputs").mkdir(parents=True, exist_ok=True)
         child_state = {
