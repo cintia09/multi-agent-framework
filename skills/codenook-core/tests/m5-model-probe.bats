@@ -57,3 +57,16 @@ setup() {
   [ -f "$ws/.codenook/state.json" ]
   assert_jq "$ws/.codenook/state.json" '.model_catalog.resolved_tiers.strong == "opus-4.7"'
 }
+
+@test "m5-probe: --check-ttl handles tz-aware refreshed_at (+08:00 offset)" {
+  ws="$(make_scratch)"
+  mkdir -p "$ws/.codenook"
+  # 2099 + tz offset → comfortably fresh.
+  cat >"$ws/.codenook/state.json" <<'JSON'
+{"refreshed_at": "2099-01-01T00:00:00+08:00", "ttl_days": 30}
+JSON
+  run_with_stderr "\"$PROBE_SH\" --check-ttl \"$ws/.codenook/state.json\" --ttl-days 30"
+  [ "$status" -eq 0 ]
+  assert_not_contains "$STDERR" "unparsable"
+  assert_not_contains "$STDERR" "Traceback"
+}

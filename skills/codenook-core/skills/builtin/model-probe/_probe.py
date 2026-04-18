@@ -131,7 +131,10 @@ def now_iso() -> str:
 def parse_iso(ts: str) -> dt.datetime:
     if ts.endswith("Z"):
         ts = ts[:-1] + "+00:00"
-    return dt.datetime.fromisoformat(ts).replace(tzinfo=None)
+    when = dt.datetime.fromisoformat(ts)
+    if when.tzinfo is not None:
+        when = when.astimezone(dt.timezone.utc).replace(tzinfo=None)
+    return when
 
 
 def check_ttl(path: str, ttl_days: int) -> int:
