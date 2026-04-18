@@ -1,0 +1,10 @@
+id: coding-stub
+version: 0.1.0
+type: domain
+entry_points:
+  install: skills/install.sh
+declared_subsystems:
+  - skills/coding-stub
+intent_patterns:
+  - "debug"
+  - "fix bug.*"

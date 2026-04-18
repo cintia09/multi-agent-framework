@@ -1,0 +1,10 @@
+id: writing-stub
+version: 0.1.0
+type: domain
+entry_points:
+  install: skills/install.sh
+declared_subsystems:
+  - skills/writing-stub
+intent_patterns:
+  - "新建小说.*"
+  - "写章节"

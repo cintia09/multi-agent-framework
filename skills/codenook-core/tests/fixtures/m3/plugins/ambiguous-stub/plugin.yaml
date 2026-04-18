@@ -1,0 +1,9 @@
+id: ambiguous-stub
+version: 0.1.0
+type: domain
+entry_points:
+  install: skills/install.sh
+declared_subsystems:
+  - skills/ambiguous-stub
+intent_patterns:
+  - "help"

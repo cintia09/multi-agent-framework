@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "task_id": "T-001",
+  "plugin": "writing-stub",
+  "phase": "draft",
+  "status": "in_progress",
+  "last_tick_at": "2026-04-18T09:30:00Z",
+  "subtasks": ["T-001.1"]
+}

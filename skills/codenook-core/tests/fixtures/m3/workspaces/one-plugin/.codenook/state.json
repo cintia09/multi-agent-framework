@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "installed_plugins": {
+    "writing-stub": {"version": "0.1.0"}
+  },
+  "active_tasks": []
+}
