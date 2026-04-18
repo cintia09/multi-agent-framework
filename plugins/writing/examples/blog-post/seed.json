@@ -1,0 +1,7 @@
+{
+  "input": "Write a blog post about retrieval-augmented generation",
+  "title": "RAG: a practical primer",
+  "dual_mode": "serial",
+  "max_iterations": 2,
+  "expected_verdicts": ["ok", "ok", "ok", "ok", "ok"]
+}
