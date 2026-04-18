@@ -49,9 +49,9 @@ def main() -> int:
     payload = os.environ["CN_PAYLOAD"]
     ws = Path(os.environ["CN_WORKSPACE"])
 
-    size = len(payload)
+    size = len(payload.encode("utf-8"))
     if size > PAYLOAD_LIMIT:
-        print(f"emit.sh: payload {size} chars exceeds 500 char limit", file=sys.stderr)
+        print(f"emit.sh: payload {size} bytes exceeds 500 byte limit", file=sys.stderr)
         return 1
 
     try:

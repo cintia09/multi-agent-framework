@@ -143,3 +143,11 @@ EOF
   [ "$status" -eq 1 ]
   assert_contains "$STDERR" "invalid target name"
 }
+
+@test "fix#5: 200 CJK '章' chars (600 UTF-8 bytes) exceeds 500-byte limit → exit 1" {
+  ws="$(stage_ws "$M3_FX/workspaces/full")"
+  cjk=$(python3 -c "print('章'*200, end='')")
+  run_with_stderr "\"$BUILD_SH\" --target writing-stub --user-input '$cjk' --workspace \"$ws\" --json"
+  [ "$status" -eq 1 ]
+  assert_contains "$STDERR" "payload still too large"
+}

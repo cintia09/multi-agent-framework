@@ -54,7 +54,7 @@ str_n() {
   [ "$status" -eq 0 ]
 }
 
-@test "501-char payload → exit 1 + stderr mentions 500 char limit" {
+@test "501-byte payload → exit 1 + stderr mentions 500 byte limit" {
   ws="$(mk_ws)"
   export payload="$(python3 -c "import json; s='x'*493; print(json.dumps({'k':s},separators=(',',':')),end='')")"
   run_with_stderr "\"$EMIT_SH\" --role planner --payload \"\$payload\" --workspace \"$ws\""

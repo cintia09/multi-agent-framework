@@ -4,8 +4,9 @@
 
 Redacted append-only logger for sub-agent dispatches. Every time the main
 session (or orchestrator-tick) dispatches a helper/worker agent, it calls
-this skill to log a one-line audit record AND enforce the 500-char
-payload hard limit (architecture §3.1.7 / v6 decision #T-3).
+this skill to log a one-line audit record AND enforce the 500-byte
+payload hard limit (architecture §3.1.7 / v6 decision #T-3). The
+limit is measured in UTF-8 bytes (CJK-safe).
 
 ## CLI
 
@@ -14,7 +15,7 @@ emit.sh --role <name> --payload <json-string> [--workspace <dir>]
 ```
 
 - `--role` e.g. `planner`, `coder`, `reviewer` — the downstream role.
-- `--payload` raw JSON string; must parse and be ≤ 500 chars total.
+- `--payload` raw JSON string; must parse and be ≤ 500 bytes (UTF-8) total.
 - `--workspace` defaults to `$CODENOOK_WORKSPACE`; if unset, upward search
   for a directory containing `.codenook/`.
 
@@ -23,7 +24,7 @@ emit.sh --role <name> --payload <json-string> [--workspace <dir>]
 | code | meaning                                    |
 |------|--------------------------------------------|
 | 0    | logged                                     |
-| 1    | payload > 500 chars, or not valid JSON     |
+| 1    | payload > 500 bytes, or not valid JSON     |
 | 2    | usage error / workspace not resolvable     |
 
 ## Log line shape

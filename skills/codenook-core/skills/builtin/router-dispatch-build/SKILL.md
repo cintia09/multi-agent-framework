@@ -9,9 +9,10 @@ Two responsibilities:
 
 1. **Construct** a JSON payload conforming to architecture §3.1.7:
    `{role, target, task?, user_input, context: {plugins, active_phase?}}`
-2. **Enforce** the 500-char hard limit (decision #T-3) — truncating
+2. **Enforce** the 500-byte hard limit (decision #T-3) — truncating
    `user_input` to 200 chars + `"..."` if needed; failing if the
-   envelope still doesn't fit after truncation.
+   envelope still doesn't fit after truncation. The limit is measured
+   in UTF-8 bytes (CJK-safe).
 3. **Audit** the dispatch by calling `dispatch-audit emit` with the
    final payload, so the architectural invariant "every handoff is
    logged" holds even when the router builds payloads inline.
@@ -39,7 +40,7 @@ build.sh --target <plugin-id|skill-name>
 | code | meaning                                              |
 |------|------------------------------------------------------|
 | 0    | payload built + audited; envelope on stdout          |
-| 1    | manifest missing OR payload still >500 after truncate|
+| 1    | manifest missing OR payload still >500 bytes after truncate|
 | 2    | usage error                                          |
 
 ## Output schema (also written to dispatch.jsonl preview)

@@ -37,7 +37,8 @@ def truncate_input(s: str) -> str:
 
 
 def envelope_size(payload: dict) -> int:
-    return len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+    return len(json.dumps(payload, ensure_ascii=False,
+                          separators=(",", ":")).encode("utf-8"))
 
 
 def main() -> int:
