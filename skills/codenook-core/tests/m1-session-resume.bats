@@ -44,7 +44,7 @@ EOF
   run bash -c "\"$RESUME_SH\" --workspace \"$ws\" --json"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.active_task == null' >/dev/null
-  echo "$output" | jq -e '.summary | contains("no active")' >/dev/null
+  echo "$output" | jq -e '.summary | contains("No active")' >/dev/null
 }
 
 @test "single active task → includes task id + phase + iteration + last_action_ts" {
