@@ -43,8 +43,8 @@ write_content() {
 }
 
 @test "m5-distiller: matching rule routes to .codenook/knowledge/by-topic/" {
-  ws="$(mk_ws_with_plugin "  promote_to_workspace_when:
-    - 'topic == \"pytest-style\"'")"
+  ws="$(mk_ws_with_plugin "    promote_to_workspace_when:
+      - 'topic == \"pytest-style\"'")"
   c="${BATS_TEST_TMPDIR}/c.md"; write_content "$c" "body"
   run_with_stderr "\"$DISTILL_SH\" --plugin development --topic pytest-style --content \"$c\" --workspace \"$ws\""
   [ "$status" -eq 0 ]
@@ -66,8 +66,8 @@ write_content() {
 }
 
 @test "m5-distiller: malicious __import__ expression rejected" {
-  ws="$(mk_ws_with_plugin "  promote_to_workspace_when:
-    - '__import__(\"os\")'")"
+  ws="$(mk_ws_with_plugin "    promote_to_workspace_when:
+      - '__import__(\"os\")'")"
   c="${BATS_TEST_TMPDIR}/c.md"; write_content "$c" "x"
   run_with_stderr "\"$DISTILL_SH\" --plugin development --topic foo --content \"$c\" --workspace \"$ws\""
   # Either reject (exit 1) or treat as no-match. Per spec: rejected.
@@ -85,8 +85,8 @@ write_content() {
 }
 
 @test "m5-distiller: topic == \"pytest-style\" rule with non-matching topic stays in memory" {
-  ws="$(mk_ws_with_plugin "  promote_to_workspace_when:
-    - 'topic == \"pytest-style\"'")"
+  ws="$(mk_ws_with_plugin "    promote_to_workspace_when:
+      - 'topic == \"pytest-style\"'")"
   c="${BATS_TEST_TMPDIR}/c.md"; write_content "$c" "body"
   run_with_stderr "\"$DISTILL_SH\" --plugin development --topic some-other-topic --content \"$c\" --workspace \"$ws\""
   [ "$status" -eq 0 ]
