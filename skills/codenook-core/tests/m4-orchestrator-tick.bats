@@ -260,3 +260,19 @@ open('$ws/.codenook/plugins/generic/entry-questions.yaml','w').write(yaml.safe_d
   # Result must be valid JSON (no broken UTF-8).
   echo "$output" | python3 -c "import json,sys; json.loads(sys.stdin.read())"
 }
+
+# ── Fix #8: schema validation on state.json writes ──────────────────────
+@test "schema validation: state.json with extra unknown field → reject on persist" {
+  ws="$(mk_ws_with_plugin)"
+  mk_state "$ws" "T-130"
+  python3 -c "
+import json,sys
+p='$ws/.codenook/tasks/T-130/state.json'
+d=json.load(open(p))
+d['rogue_field']=42
+json.dump(d, open(p,'w'))
+"
+  run_with_stderr "\"$TICK_SH\" --task T-130 --workspace \"$ws\" --json"
+  [ "$status" -eq 1 ]
+  assert_contains "$STDERR" "schema violation"
+}

@@ -17,9 +17,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_lib"))
-from atomic import atomic_write_json  # noqa: E402
+from atomic import atomic_write_json_validated  # noqa: E402
 
 VALID_DECISIONS = ("approve", "reject", "needs_changes")
+
+SCHEMAS_DIR = Path(__file__).resolve().parents[3] / "schemas"
+HITL_ENTRY_SCHEMA = str(SCHEMAS_DIR / "hitl-entry.schema.json")
 
 _EID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
@@ -128,7 +131,7 @@ def cmd_decide(ws: Path, eid: str, decision: str, reviewer: str,
     entry["reviewer"] = reviewer
     entry["comment"] = comment if comment else None
 
-    atomic_write_json(str(entry_path(ws, eid)), entry)
+    atomic_write_json_validated(str(entry_path(ws, eid)), entry, HITL_ENTRY_SCHEMA)
 
     # Mirror to append-only history.
     hist = ws / ".codenook" / "history" / "hitl.jsonl"

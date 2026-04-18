@@ -32,7 +32,17 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_lib"))
-from atomic import atomic_write_json  # noqa: E402
+from atomic import atomic_write_json, atomic_write_json_validated  # noqa: E402
+
+# Schemas live at codenook-core/schemas/.
+SCHEMAS_DIR = Path(__file__).resolve().parents[3] / "schemas"
+TASK_STATE_SCHEMA = str(SCHEMAS_DIR / "task-state.schema.json")
+HITL_ENTRY_SCHEMA = str(SCHEMAS_DIR / "hitl-entry.schema.json")
+QUEUE_ENTRY_SCHEMA = str(SCHEMAS_DIR / "queue-entry.schema.json")
+
+
+def persist_state(state_file: Path, state: dict) -> None:
+    atomic_write_json_validated(str(state_file), state, TASK_STATE_SCHEMA)
 
 
 def _assert_under(p: Path, root: Path) -> Path:
@@ -264,7 +274,7 @@ def write_hitl_entry(workspace: Path, state: dict, phase: dict,
         "comment": None,
         "verdict_at_gate": verdict,
     }
-    atomic_write_json(str(path), entry)
+    atomic_write_json_validated(str(path), entry, HITL_ENTRY_SCHEMA)
     return path
 
 
@@ -350,15 +360,17 @@ def seed_subtasks(workspace: Path, state: dict, phase: dict) -> dict:
             "config_overrides": state.get("config_overrides", {}),
             "history": [],
         }
-        atomic_write_json(str(cdir / "state.json"), child_state)
-        atomic_write_json(str(queue_dir / f"{cid}.json"), {
+        atomic_write_json_validated(
+            str(cdir / "state.json"), child_state, TASK_STATE_SCHEMA
+        )
+        atomic_write_json_validated(str(queue_dir / f"{cid}.json"), {
             "task_id": cid,
             "plugin": state["plugin"],
             "priority": 5,
             "ready_at": now_iso(),
             "blocked_by": [],
             "next_action": f"dispatch_role:{phase.get('role','')}",
-        })
+        }, QUEUE_ENTRY_SCHEMA)
         created.append(cid)
     return {
         "status": "advanced",
@@ -703,7 +715,7 @@ def main() -> None:
                   ("done", "cancelled", "error", "blocked", "waiting"))
     if not (waiting_noop or inert_noop):
         new_state["updated_at"] = now_iso()
-        atomic_write_json(str(state_file), new_state)
+        persist_state(state_file, new_state)
     if json_mode:
         emit_summary(summary)
     sys.exit(_exit_for(summary))

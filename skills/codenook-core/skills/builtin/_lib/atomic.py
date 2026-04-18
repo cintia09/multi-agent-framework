@@ -17,8 +17,11 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
 from typing import Any
+
+_SCHEMA_CACHE: dict[str, dict] = {}
 
 
 def atomic_write_json(path: str, data: Any) -> None:
@@ -37,3 +40,32 @@ def atomic_write_json(path: str, data: Any) -> None:
         except OSError:
             pass
         raise
+
+
+def _load_schema(schema_path: str) -> dict:
+    cached = _SCHEMA_CACHE.get(schema_path)
+    if cached is not None:
+        return cached
+    with open(schema_path, "r", encoding="utf-8") as f:
+        schema = json.load(f)
+    _SCHEMA_CACHE[schema_path] = schema
+    return schema
+
+
+def atomic_write_json_validated(path: str, data: Any, schema_path: str) -> None:
+    """Validate `data` against the JSON-Schema at `schema_path` BEFORE writing.
+
+    On schema violation: print "schema violation: <message>" to stderr
+    and exit 1. On success: write atomically (no tempfile leaks).
+    Schemas are cached in-process by path.
+    """
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from jsonschema_lite import validate, ValidationError  # noqa: E402
+
+    schema = _load_schema(schema_path)
+    try:
+        validate(data, schema)
+    except ValidationError as e:
+        print(f"schema violation: {e}", file=sys.stderr)
+        sys.exit(1)
+    atomic_write_json(path, data)
