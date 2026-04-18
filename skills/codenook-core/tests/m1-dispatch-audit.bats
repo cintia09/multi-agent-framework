@@ -49,14 +49,14 @@ str_n() {
 @test "500-char payload → exit 0 (boundary ok)" {
   ws="$(mk_ws)"
   # Build exactly 500 chars
-  payload="$(python3 -c "import json; s='x'*496; print(json.dumps({'k':s}),end='')")"
+  export payload="$(python3 -c "import json; s='x'*492; print(json.dumps({'k':s},separators=(',',':')),end='')")"
   run_with_stderr "\"$EMIT_SH\" --role planner --payload \"\$payload\" --workspace \"$ws\""
   [ "$status" -eq 0 ]
 }
 
 @test "501-char payload → exit 1 + stderr mentions 500 char limit" {
   ws="$(mk_ws)"
-  payload="$(python3 -c "import json; s='x'*497; print(json.dumps({'k':s}),end='')")"
+  export payload="$(python3 -c "import json; s='x'*493; print(json.dumps({'k':s},separators=(',',':')),end='')")"
   run_with_stderr "\"$EMIT_SH\" --role planner --payload \"\$payload\" --workspace \"$ws\""
   [ "$status" -eq 1 ]
   assert_contains "$STDERR" "500"
