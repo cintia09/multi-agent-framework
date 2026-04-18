@@ -107,3 +107,19 @@ mk_clean_ws() {
   run_with_stderr "\"$AUDIT_SH\" --workspace \"$ws\""
   [ "$status" -eq 0 ]
 }
+
+@test "modern sk-proj-* OpenAI project key detected" {
+  ws="$(mk_clean_ws)"
+  printf 'token: sk-proj-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n' >"$ws/proj.txt"
+  run_with_stderr "\"$AUDIT_SH\" --workspace \"$ws\""
+  [ "$status" -eq 1 ]
+  assert_contains "$STDERR" "proj.txt"
+}
+
+@test "modern sk-ant-api03-* Anthropic key detected" {
+  ws="$(mk_clean_ws)"
+  printf 'token: sk-ant-api03-AAAAAAAAAAAAAAAAAAAA_BBBBBBBBBBBBBBBBBBBB\n' >"$ws/ant.txt"
+  run_with_stderr "\"$AUDIT_SH\" --workspace \"$ws\""
+  [ "$status" -eq 1 ]
+  assert_contains "$STDERR" "ant.txt"
+}
