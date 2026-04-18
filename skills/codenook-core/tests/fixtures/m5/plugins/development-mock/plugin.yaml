@@ -1,0 +1,8 @@
+id: development
+version: 1.0.0
+description: Mock development plugin for M5 e2e testing.
+knowledge:
+  consumes: [workspace, plugin_local]
+  produces:
+    promote_to_workspace_when:
+      - 'topic == "promote-me"'

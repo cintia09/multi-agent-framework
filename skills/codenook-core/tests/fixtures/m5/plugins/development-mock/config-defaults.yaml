@@ -1,0 +1,4 @@
+models:
+  reviewer: tier_balanced
+hitl:
+  gates: [design]

@@ -1,0 +1,7 @@
+fields:
+  models:
+    type: object
+    fields:
+      reviewer:
+        type: string
+        min_length: 1
