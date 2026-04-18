@@ -216,6 +216,14 @@ def main() -> None:
     catalog_for_resolve = catalog if catalog is not None else None
 
     # Tier expansion + provenance for models.*
+    # Pre-build the available-id set for catalog membership warnings.
+    available_ids: set[str] = set()
+    if catalog is not None:
+        for entry_av in catalog.get("available", []) or []:
+            if isinstance(entry_av, dict) and isinstance(entry_av.get("id"), str):
+                available_ids.add(entry_av["id"])
+            elif isinstance(entry_av, str):
+                available_ids.add(entry_av)
     models = merged.get("models", {}) or {}
     for role, raw_value in list(models.items()):
         path = ("models", role)
@@ -232,6 +240,10 @@ def main() -> None:
             if plugin == ROUTER_SENTINEL and role == "router" and router_attempts:
                 entry["router_invariant_enforced"] = True
             provenance[f"models.{role}"] = entry
+            # Warn on literal model that the catalog says isn't available.
+            if (symbol is None and catalog is not None
+                    and available_ids and literal not in available_ids):
+                warn(f"literal model {literal} at models.{role} not in catalog.available")
     merged["models"] = models
 
     # Minimal provenance for any other top-level scalar/list leaves so

@@ -123,3 +123,23 @@ EOF
   echo "$output" | jq -e '.models.default != "tier_strong"' >/dev/null
   echo "$output" | jq -e '._provenance["models.default"].resolved_via == "fallback:catalog_missing"' >/dev/null
 }
+
+@test "m5-resolve: literal model not in catalog.available emits warn" {
+  ws="$(mk_ws_bare)"
+  cat >"$ws/.codenook/state.json" <<'EOF'
+{"model_catalog": {"refreshed_at": "2099-01-01T00:00:00Z", "available": [{"id": "opus-4.7"}], "resolved_tiers": {"strong": "opus-4.7", "balanced": "opus-4.7", "cheap": "opus-4.7"}}}
+EOF
+  cat >"$ws/.codenook/config.yaml" <<'EOF'
+plugins:
+  development:
+    overrides:
+      models:
+        reviewer: gpt-4
+EOF
+  run_with_stderr "\"$RESOLVE_SH\" --plugin development --workspace \"$ws\" --catalog \"$ws/.codenook/state.json\""
+  [ "$status" -eq 0 ]
+  # value retained — only a warning fires
+  echo "$output" | jq -e '.models.reviewer == "gpt-4"' >/dev/null
+  assert_contains "$STDERR" "literal model gpt-4"
+  assert_contains "$STDERR" "not in catalog.available"
+}
