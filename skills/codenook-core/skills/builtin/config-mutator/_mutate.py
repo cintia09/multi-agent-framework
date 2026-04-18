@@ -132,8 +132,8 @@ def main() -> None:
 
     if actor not in ACTORS:
         die(f"actor must be one of {sorted(ACTORS)}, got {actor!r}", 2)
-    if path_key.startswith("_") or ".." in path_key:
-        die(f"invalid path: {path_key!r}", 2)
+    if any(p.startswith("_") or ".." in p for p in path_key.split(".")):
+        die("invalid path: segments cannot start with _ or contain ..", 2)
 
     parts = path_key.split(".")
     if not parts or not parts[0] or parts[0] not in WHITELIST:

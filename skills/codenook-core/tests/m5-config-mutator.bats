@@ -174,3 +174,10 @@ EOF
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.changed == true' >/dev/null
 }
+
+@test "m5-mutator: _-prefixed segment at any depth is rejected" {
+  ws="$(mk_ws)"
+  run_with_stderr "\"$MUTATE_SH\" --plugin development --path models._magic --value y --reason 'x' --actor user --workspace \"$ws\" --scope workspace"
+  [ "$status" -ne 0 ]
+  assert_contains "$STDERR" "invalid path"
+}
