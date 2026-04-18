@@ -244,6 +244,38 @@ EOF
   [ ! -d "$ws/.codenook/tasks/T-114-c1" ]
 }
 
+# ── Fix #10: recovery branch only fires on in_progress ──────────────────
+@test "recovery: status=waiting + no in_flight → noop (NOT re-dispatch)" {
+  ws="$(mk_ws_with_plugin)"
+  mk_state "$ws" "T-120" '{"phase":"clarify","status":"waiting"}'
+  before=$(cat "$ws/.codenook/tasks/T-120/state.json")
+  run bash -c "\"$TICK_SH\" --task T-120 --workspace \"$ws\" --json"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.status=="waiting" and .next_action=="noop"' >/dev/null
+  after=$(cat "$ws/.codenook/tasks/T-120/state.json")
+  [ "$before" = "$after" ]
+}
+
+@test "recovery: status=blocked + phase set + no in_flight → noop" {
+  ws="$(mk_ws_with_plugin)"
+  mk_state "$ws" "T-121" '{"phase":"clarify","status":"blocked"}'
+  before=$(cat "$ws/.codenook/tasks/T-121/state.json")
+  run bash -c "\"$TICK_SH\" --task T-121 --workspace \"$ws\" --json"
+  [ "$status" -eq 1 ]
+  echo "$output" | jq -e '.next_action=="noop"' >/dev/null
+  after=$(cat "$ws/.codenook/tasks/T-121/state.json")
+  [ "$before" = "$after" ]
+}
+
+@test "recovery: status=in_progress + phase set + no in_flight → re-dispatch (existing behavior)" {
+  ws="$(mk_ws_with_plugin)"
+  mk_state "$ws" "T-122" '{"phase":"clarify","status":"in_progress"}'
+  run bash -c "\"$TICK_SH\" --task T-122 --workspace \"$ws\" --json"
+  [ "$status" -eq 0 ]
+  jq -e '.in_flight_agent.role=="clarifier"' \
+     "$ws/.codenook/tasks/T-122/state.json" >/dev/null
+}
+
 # ── Fix #7: emit_summary loop fits CJK message_for_user ─────────────────
 @test "emit_summary loop: large CJK message_for_user fits ≤500 bytes valid JSON" {
   ws="$(mk_ws_with_plugin)"
