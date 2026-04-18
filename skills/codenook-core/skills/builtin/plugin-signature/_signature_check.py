@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import sys
@@ -40,7 +41,8 @@ def main() -> int:
         if s:
             token = s.split()[0]
             break
-    if token.lower() != expected.lower():
+    if not hmac.compare_digest(token.lower().encode("ascii"),
+                               expected.lower().encode("ascii")):
         reasons.append(
             f"signature mismatch: expected sha256={expected}, got {token!r}"
         )
