@@ -112,6 +112,35 @@ json.dump(d, open(p,'w'), indent=2)
   [ "$status" -eq 2 ]
 }
 
+# ── Fix #3: context_path containment (S2) ──────────────────────────────
+@test "show: context_path with .. traversal → exit 2 escapes workspace" {
+  ws="$(mk_ws_with_entry)"
+  python3 -c "
+import json
+p='$ws/.codenook/hitl-queue/T-501-design_signoff.json'
+d=json.load(open(p))
+d['context_path']='../../../../etc/passwd'
+json.dump(d, open(p,'w'), indent=2)
+"
+  run_with_stderr "\"$HITL_SH\" show --id T-501-design_signoff --workspace \"$ws\""
+  [ "$status" -eq 2 ]
+  assert_contains "$STDERR" "context_path escapes workspace"
+}
+
+@test "show: absolute context_path → exit 2 escapes workspace" {
+  ws="$(mk_ws_with_entry)"
+  python3 -c "
+import json
+p='$ws/.codenook/hitl-queue/T-501-design_signoff.json'
+d=json.load(open(p))
+d['context_path']='/etc/passwd'
+json.dump(d, open(p,'w'), indent=2)
+"
+  run_with_stderr "\"$HITL_SH\" show --id T-501-design_signoff --workspace \"$ws\""
+  [ "$status" -eq 2 ]
+  assert_contains "$STDERR" "context_path escapes workspace"
+}
+
 # ── Fix #2: --id path traversal (S1) ────────────────────────────────────
 @test "decide: --id with slash → exit 2 invalid --id" {
   ws="$(mk_ws_with_entry)"

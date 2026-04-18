@@ -86,7 +86,17 @@ def cmd_show(ws: Path, eid: str) -> int:
     cp = entry.get("context_path") or ""
     if not cp:
         print(f"terminal.sh: entry has no context_path", file=sys.stderr); return 1
-    target = (ws / cp) if not os.path.isabs(cp) else Path(cp)
+    # Reject absolute context_path outright (would escape ws).
+    if os.path.isabs(cp):
+        print("terminal.sh: context_path escapes workspace",
+              file=sys.stderr); return 2
+    target = (ws / cp).resolve()
+    ws_resolved = ws.resolve()
+    try:
+        target.relative_to(ws_resolved)
+    except ValueError:
+        print("terminal.sh: context_path escapes workspace",
+              file=sys.stderr); return 2
     if not target.is_file():
         print(f"terminal.sh: context file missing: {cp}", file=sys.stderr); return 1
     sys.stdout.write(target.read_text(encoding="utf-8"))
