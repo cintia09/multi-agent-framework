@@ -71,7 +71,7 @@ EOF
 
 @test "preflight fail → exit 1 + reasons in state.json.tick_log" {
   ws="$(mk_ws)"
-  # Create invalid task (missing dual_mode with iterations>1)
+  # Create invalid task (missing dual_mode at first tick: total_iterations<=1)
   local tdir="$ws/.codenook/tasks/T-002"
   mkdir -p "$tdir"
   cat >"$tdir/state.json" <<EOF
@@ -79,7 +79,7 @@ EOF
   "task_id": "T-002",
   "phase": "start",
   "iteration": 0,
-  "total_iterations": 5,
+  "total_iterations": 1,
   "dual_mode": null,
   "tick_log": []
 }

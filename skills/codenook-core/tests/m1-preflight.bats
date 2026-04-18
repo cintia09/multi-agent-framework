@@ -55,7 +55,7 @@ EOF
   [ "$status" -eq 0 ]
 }
 
-@test "task missing dual_mode (null) with total_iterations>1 → exit 1 + reason" {
+@test "task missing dual_mode (null) with total_iterations<=1 → exit 1 + reason" {
   ws="$(mk_ws)"
   local tdir="$ws/.codenook/tasks/T-002"
   mkdir -p "$tdir"
@@ -64,7 +64,7 @@ EOF
   "task_id": "T-002",
   "phase": "start",
   "iteration": 0,
-  "total_iterations": 5,
+  "total_iterations": 1,
   "dual_mode": null,
   "config_overrides": {}
 }
@@ -72,6 +72,45 @@ EOF
   run_with_stderr "\"$PREFLIGHT_SH\" --task T-002 --workspace \"$ws\""
   [ "$status" -eq 1 ]
   assert_contains "$STDERR" "dual_mode"
+}
+
+@test "task missing dual_mode but total_iterations>1 → no needs-dual_mode reason" {
+  # Symmetric pass case: once the task has run > 1 iteration without a
+  # dual_mode answer, preflight stops re-asking (other layers handle it).
+  ws="$(mk_ws)"
+  local tdir="$ws/.codenook/tasks/T-002b"
+  mkdir -p "$tdir"
+  cat >"$tdir/state.json" <<EOF
+{
+  "task_id": "T-002b",
+  "phase": "start",
+  "iteration": 2,
+  "total_iterations": 5,
+  "dual_mode": null,
+  "config_overrides": {}
+}
+EOF
+  run bash -c "\"$PREFLIGHT_SH\" --task T-002b --workspace \"$ws\" --json"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.reasons | map(select(. == "needs dual_mode")) | length == 0' >/dev/null
+}
+
+@test "task with dual_mode set + total_iterations<=1 → exit 0" {
+  ws="$(mk_ws)"
+  local tdir="$ws/.codenook/tasks/T-002c"
+  mkdir -p "$tdir"
+  cat >"$tdir/state.json" <<EOF
+{
+  "task_id": "T-002c",
+  "phase": "start",
+  "iteration": 0,
+  "total_iterations": 1,
+  "dual_mode": "serial",
+  "config_overrides": {}
+}
+EOF
+  run_with_stderr "\"$PREFLIGHT_SH\" --task T-002c --workspace \"$ws\""
+  [ "$status" -eq 0 ]
 }
 
 @test "task at unknown phase → exit 1" {

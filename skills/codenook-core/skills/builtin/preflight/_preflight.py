@@ -26,8 +26,11 @@ def main():
     dual_mode = state.get("dual_mode")
     config_overrides = state.get("config_overrides", {})
     
-    # Check 1: dual_mode required if total_iterations > 1
-    if total_iterations > 1 and dual_mode is None:
+    # Check 1: dual_mode required when task hasn't been told yet.
+    # The intent (per design): tasks created without answering dual_mode
+    # get blocked on first tick (iteration <= 1 / total_iterations <= 1)
+    # so the question is asked before any work happens.
+    if dual_mode is None and total_iterations <= 1:
         reasons.append("needs dual_mode")
     
     # Check 2: known phase
