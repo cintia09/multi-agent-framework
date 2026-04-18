@@ -122,3 +122,92 @@ EOF
   jq -e '.status == "done"' "$ws/.codenook/tasks/T-702/state.json" >/dev/null
   [ -f "$ws/.codenook/memory/_pending/T-702.json" ]
 }
+
+# ── Fix #9: HITL approve / reject / needs_changes round-trip (DoD G1) ───
+HITL_SH_E2E="$CORE_ROOT/skills/builtin/hitl-adapter/terminal.sh"
+
+init_ws_gated() {
+  local ws; ws="$(init_ws_with_core_and_generic)"
+  # Patch generic plugin so clarify has a HITL gate.
+  python3 -c "
+import yaml
+p='$ws/.codenook/plugins/generic/phases.yaml'
+d=yaml.safe_load(open(p))
+d['phases'][0]['gate']='design_signoff'
+open(p,'w').write(yaml.safe_dump(d, sort_keys=False))
+"
+  echo "$ws"
+}
+
+@test "M4 HITL DoD: approve → tick advances phase + status=in_progress" {
+  ws="$(init_ws_gated)"
+  create_task "$ws" "T-800" "generic" "hitl approve"
+
+  # First tick: dispatch clarifier
+  run bash -c "\"$TICK_SH\" --task T-800 --workspace \"$ws\" --json"
+  [ "$status" -eq 0 ]
+
+  # Write clarifier output verdict:ok
+  write_clarifier_output "$ws" "T-800"
+
+  # Second tick: hits HITL gate → status=waiting + entry written
+  run bash -c "\"$TICK_SH\" --task T-800 --workspace \"$ws\" --json"
+  [ "$status" -eq 0 ]
+  jq -e '.status=="waiting"' "$ws/.codenook/tasks/T-800/state.json" >/dev/null
+  [ -f "$ws/.codenook/hitl-queue/T-800-design_signoff.json" ]
+  jq -e '.verdict_at_gate=="ok"' \
+     "$ws/.codenook/hitl-queue/T-800-design_signoff.json" >/dev/null
+
+  # Approve via hitl-adapter
+  run bash -c "\"$HITL_SH_E2E\" decide --id T-800-design_signoff --decision approve --reviewer alice --workspace \"$ws\""
+  [ "$status" -eq 0 ]
+
+  # Third tick: phase advances to analyze + status=in_progress
+  run bash -c "\"$TICK_SH\" --task T-800 --workspace \"$ws\" --json"
+  [ "$status" -eq 0 ]
+  jq -e '.phase=="analyze"' "$ws/.codenook/tasks/T-800/state.json" >/dev/null
+  jq -e '.status=="in_progress"' "$ws/.codenook/tasks/T-800/state.json" >/dev/null
+  # Entry consumed → moved to _consumed/
+  [ ! -f "$ws/.codenook/hitl-queue/T-800-design_signoff.json" ]
+  [ -f "$ws/.codenook/hitl-queue/_consumed/T-800-design_signoff.json" ]
+}
+
+@test "M4 HITL DoD: reject → status=blocked" {
+  ws="$(init_ws_gated)"
+  create_task "$ws" "T-801" "generic" "hitl reject"
+  run bash -c "\"$TICK_SH\" --task T-801 --workspace \"$ws\" --json"
+  [ "$status" -eq 0 ]
+  write_clarifier_output "$ws" "T-801"
+  run bash -c "\"$TICK_SH\" --task T-801 --workspace \"$ws\" --json"
+  [ "$status" -eq 0 ]
+
+  run bash -c "\"$HITL_SH_E2E\" decide --id T-801-design_signoff --decision reject --reviewer bob --workspace \"$ws\""
+  [ "$status" -eq 0 ]
+
+  run bash -c "\"$TICK_SH\" --task T-801 --workspace \"$ws\" --json"
+  [ "$status" -eq 1 ]
+  jq -e '.status=="blocked"' "$ws/.codenook/tasks/T-801/state.json" >/dev/null
+  jq -e '[.history[]._warning] | map(select(. != null)) | any(test("hitl_rejected"))' \
+     "$ws/.codenook/tasks/T-801/state.json" >/dev/null
+}
+
+@test "M4 HITL DoD: needs_changes → iteration incremented, same phase" {
+  ws="$(init_ws_gated)"
+  create_task "$ws" "T-802" "generic" "hitl needs_changes"
+  run bash -c "\"$TICK_SH\" --task T-802 --workspace \"$ws\" --json"
+  [ "$status" -eq 0 ]
+  write_clarifier_output "$ws" "T-802"
+  run bash -c "\"$TICK_SH\" --task T-802 --workspace \"$ws\" --json"
+  [ "$status" -eq 0 ]
+  iter_before=$(jq -r '.iteration' "$ws/.codenook/tasks/T-802/state.json")
+
+  run bash -c "\"$HITL_SH_E2E\" decide --id T-802-design_signoff --decision needs_changes --reviewer carol --workspace \"$ws\""
+  [ "$status" -eq 0 ]
+
+  run bash -c "\"$TICK_SH\" --task T-802 --workspace \"$ws\" --json"
+  [ "$status" -eq 0 ]
+  jq -e '.phase=="clarify"' "$ws/.codenook/tasks/T-802/state.json" >/dev/null
+  iter_after=$(jq -r '.iteration' "$ws/.codenook/tasks/T-802/state.json")
+  [ "$iter_after" -gt "$iter_before" ]
+  [ ! -f "$ws/.codenook/hitl-queue/T-802-design_signoff.json" ]
+}
