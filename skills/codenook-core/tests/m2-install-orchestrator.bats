@@ -269,3 +269,15 @@ YAML
     [ "$n" -eq 0 ]
   fi
 }
+
+@test "staging area is cleaned up on gate failure" {
+  src="$(mk_minimal_good)"
+  mutate_yaml "$src" "d['id'] = 'BadID'"
+  ws="$(mk_ws)"
+  run_with_stderr "\"$INSTALL_SH\" --src \"$src\" --workspace \"$ws\""
+  [ "$status" -eq 1 ]
+  if [ -d "$ws/.codenook/staging" ]; then
+    n=$(find "$ws/.codenook/staging" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+    [ "$n" -eq 0 ]
+  fi
+}

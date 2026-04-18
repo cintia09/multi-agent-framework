@@ -259,70 +259,75 @@ def main() -> int:
     plugin_id: str | None = None
     version: str | None = None
 
-    # Try to read plugin.yaml early (best-effort, used for reporting only).
-    pl = staged / "plugin.yaml"
-    if pl.is_file():
-        try:
-            doc = yaml.safe_load(pl.read_text(encoding="utf-8")) or {}
-            if isinstance(doc, dict):
-                plugin_id = doc.get("id") if isinstance(doc.get("id"), str) else None
-                version = doc.get("version") if isinstance(doc.get("version"), str) else None
-        except yaml.YAMLError:
-            pass
-
-    extra_env = {"CODENOOK_REQUIRE_SIG": "1"} if require_sig else {}
-
-    # G01..G07, then G10/G11 — runs gate skills via subprocess.
-    early = [g for g in GATE_SEQ if g[0] in ("G01", "G02", "G03", "G04",
-                                              "G05", "G06", "G07")]
-    late = [g for g in GATE_SEQ if g[0] in ("G10", "G11")]
-    for code, name, sh, ws_aware in early:
-        skill_sh = builtin_dir / name / sh
-        env = extra_env if name == "plugin-signature" else None
-        results.append(run_gate(skill_sh, staged, workspace, upgrade,
-                                extra_env=env, ws_aware=ws_aware))
-
-    # G08 sec-audit
-    results.append(run_sec_audit(builtin_dir, staged))
-    # G09 size
-    results.append(check_size(staged))
-
-    for code, name, sh, ws_aware in late:
-        skill_sh = builtin_dir / name / sh
-        results.append(run_gate(skill_sh, staged, workspace, upgrade,
-                                ws_aware=ws_aware))
-
-    failed = [r for r in results if not r.get("ok")]
-    if failed:
-        # Promote G03 "already installed" to exit 3 when --upgrade absent.
-        if not upgrade:
-            for r in failed:
-                if r.get("gate") == "plugin-id-validate":
-                    if any("already installed" in s for s in r.get("reasons", [])):
-                        return emit(json_out, False, plugin_id, version,
-                                    results, dry_run, 3)
-        return emit(json_out, False, plugin_id, version, results, dry_run, 1)
-
-    if dry_run:
-        # Cleanup staging on dry-run pass too.
-        shutil.rmtree(staged, ignore_errors=True)
-        _cleanup_staging_root(staging_root)
-        return emit(json_out, True, plugin_id, version, results, dry_run, 0)
-
-    # G12 commit
     try:
-        if not plugin_id:
-            raise RuntimeError("plugin id missing after gates passed (bug)")
-        commit(staged, workspace, plugin_id, upgrade)
-        update_state_json(workspace, plugin_id, version or "")
-    except Exception as e:
-        commit_result = {"ok": False, "gate": "commit",
-                         "reasons": [f"commit failed: {e}"]}
-        results.append(commit_result)
-        return emit(json_out, False, plugin_id, version, results, dry_run, 1)
+        # Try to read plugin.yaml early (best-effort, used for reporting only).
+        pl = staged / "plugin.yaml"
+        if pl.is_file():
+            try:
+                doc = yaml.safe_load(pl.read_text(encoding="utf-8")) or {}
+                if isinstance(doc, dict):
+                    plugin_id = doc.get("id") if isinstance(doc.get("id"), str) else None
+                    version = doc.get("version") if isinstance(doc.get("version"), str) else None
+            except yaml.YAMLError:
+                pass
 
-    _cleanup_staging_root(staging_root)
-    return emit(json_out, True, plugin_id, version, results, dry_run, 0)
+        extra_env = {"CODENOOK_REQUIRE_SIG": "1"} if require_sig else {}
+
+        # G01..G07, then G10/G11 — runs gate skills via subprocess.
+        early = [g for g in GATE_SEQ if g[0] in ("G01", "G02", "G03", "G04",
+                                                  "G05", "G06", "G07")]
+        late = [g for g in GATE_SEQ if g[0] in ("G10", "G11")]
+        for code, name, sh, ws_aware in early:
+            skill_sh = builtin_dir / name / sh
+            env = extra_env if name == "plugin-signature" else None
+            results.append(run_gate(skill_sh, staged, workspace, upgrade,
+                                    extra_env=env, ws_aware=ws_aware))
+
+        # G08 sec-audit
+        results.append(run_sec_audit(builtin_dir, staged))
+        # G09 size
+        results.append(check_size(staged))
+
+        for code, name, sh, ws_aware in late:
+            skill_sh = builtin_dir / name / sh
+            results.append(run_gate(skill_sh, staged, workspace, upgrade,
+                                    ws_aware=ws_aware))
+
+        failed = [r for r in results if not r.get("ok")]
+        if failed:
+            # Promote G03 "already installed" to exit 3 when --upgrade absent.
+            if not upgrade:
+                for r in failed:
+                    if r.get("gate") == "plugin-id-validate":
+                        if any("already installed" in s
+                               for s in r.get("reasons", [])):
+                            return emit(json_out, False, plugin_id, version,
+                                        results, dry_run, 3)
+            return emit(json_out, False, plugin_id, version, results, dry_run, 1)
+
+        if dry_run:
+            return emit(json_out, True, plugin_id, version, results, dry_run, 0)
+
+        # G12 commit
+        try:
+            if not plugin_id:
+                raise RuntimeError("plugin id missing after gates passed (bug)")
+            commit(staged, workspace, plugin_id, upgrade)
+            # commit() consumed `staged` via os.replace; mark consumed so the
+            # finally block doesn't try to rmtree the now-installed plugin dir.
+            staged = None
+            update_state_json(workspace, plugin_id, version or "")
+        except Exception as e:
+            commit_result = {"ok": False, "gate": "commit",
+                             "reasons": [f"commit failed: {e}"]}
+            results.append(commit_result)
+            return emit(json_out, False, plugin_id, version, results, dry_run, 1)
+
+        return emit(json_out, True, plugin_id, version, results, dry_run, 0)
+    finally:
+        if staged is not None:
+            shutil.rmtree(staged, ignore_errors=True)
+        _cleanup_staging_root(staging_root)
 
 
 def _cleanup_staging_root(staging_root: Path) -> None:
