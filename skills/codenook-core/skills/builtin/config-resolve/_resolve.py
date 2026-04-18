@@ -28,6 +28,9 @@ KNOWN_TOP_KEYS = {
     "models", "hitl", "knowledge", "concurrency", "skills", "memory",
     # config-only sub-keys we tolerate at the override-root:
     "router",
+    # F-032 / decision #45 — additional top-level keys that may appear
+    # in workspace config.yaml or task overrides:
+    "plugins", "defaults", "secrets",
 }
 TIERS = ("strong", "balanced", "cheap")
 HARDCODED_FALLBACK = "opus-4.7"
