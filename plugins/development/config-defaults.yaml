@@ -1,0 +1,43 @@
+# plugins/development/config-defaults.yaml
+# Layer-1 defaults for the development plugin (architecture §3.2.4).
+#
+# Model values use tier_* symbols per §3.2.4.2 — config-resolve expands
+# these against the workspace's model catalog, so plugin authors never
+# pin a literal model name (which would break across environments / new
+# model releases).
+#
+# Override examples (in workspace .codenook/config.yaml):
+#   plugins:
+#     development:
+#       overrides:
+#         models:
+#           reviewer: gpt-5.4               # literal pin (skips tier expansion)
+#         hitl:
+#           gates: [acceptance]             # tighten gates
+#         concurrency:
+#           max_parallel: 1                  # single-task mode
+
+models:
+  clarifier:   tier_balanced
+  designer:    tier_strong
+  planner:     tier_strong
+  implementer: tier_strong
+  reviewer:    tier_strong
+  tester:      tier_balanced
+  acceptor:    tier_balanced
+  validator:   tier_balanced
+  distiller:   tier_cheap
+  default:     tier_strong
+
+hitl:
+  mode: confirm
+  gates: [design_signoff, pre_test_review, acceptance]
+
+concurrency:
+  max_parallel: 2
+
+knowledge:
+  consumes: [workspace, plugin_shipped, plugin_local]
+
+skills:
+  consumes: [workspace.builtin, workspace.custom, plugin_shipped, plugin_local]

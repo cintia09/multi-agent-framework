@@ -1,0 +1,50 @@
+# plugins/development/config-schema.yaml
+# Field-level schema consumed by skills/builtin/config-validate
+# (M5 DSL — see config-validate/SKILL.md "Schema DSL" section).
+#
+# IMPORTANT: this is the M5 YAML DSL, NOT JSON-Schema draft-07.
+# config-validate.py implements only the DSL (type / fields / min_length /
+# enum / min). A draft-07 fragment would be rejected at load time.
+# See M6 final report for the deviation note.
+
+fields:
+  models:
+    type: object
+    required: true
+    fields:
+      clarifier:   { type: string, min_length: 1 }
+      designer:    { type: string, min_length: 1 }
+      planner:     { type: string, min_length: 1 }
+      implementer: { type: string, min_length: 1 }
+      reviewer:    { type: string, min_length: 1 }
+      tester:      { type: string, min_length: 1 }
+      acceptor:    { type: string, min_length: 1 }
+      validator:   { type: string, min_length: 1 }
+      distiller:   { type: string, min_length: 1 }
+      default:     { type: string, min_length: 1 }
+
+  hitl:
+    type: object
+    fields:
+      mode:
+        type: string
+        enum: [auto, confirm, ask]
+      gates:
+        type: array
+
+  concurrency:
+    type: object
+    fields:
+      max_parallel:
+        type: integer
+        min: 1
+
+  knowledge:
+    type: object
+    fields:
+      consumes: { type: array }
+
+  skills:
+    type: object
+    fields:
+      consumes: { type: array }

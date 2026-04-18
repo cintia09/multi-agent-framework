@@ -1,0 +1,97 @@
+# plugins/development/plugin.yaml
+# Development plugin manifest (v6 M6).
+#
+# Two complementary contracts coexist here:
+#
+#   1. M2 install-pipeline contract (REQUIRED, gates G02..G07):
+#        id, version, type, entry_points, declared_subsystems,
+#        requires.core_version
+#
+#   2. v6 architecture/§9.2 packaging contract (forward-compatible
+#      surface — extra keys are tolerated by plugin-schema; the router
+#      and config-resolve consume them at runtime):
+#        name, applies_to, codenook_core_version, summary, keywords,
+#        examples, anti_examples, supports_*, data_layout, data_glob,
+#        data_excludes, entry_point, knowledge, skills, config
+
+# ── M2 install-pipeline contract ────────────────────────────────────────
+id: development
+version: 0.1.0
+type: domain
+entry_points:
+  install: phases.yaml
+declared_subsystems:
+  - domain/development
+requires:
+  # SemVer pre-release caveat: the workspace VERSION uses
+  # "0.5.0-m5.x" which is < "0.5.0" under canonical SemVer. The
+  # constraint below is written so M5/M6/M7 prereleases all satisfy
+  # it; "<1.0.0" prevents accidental install on a v1+ core.
+  core_version: ">=0.5.0-m5,<1.0.0"
+
+# ── v6 architecture surface (router + packaging) ────────────────────────
+name: development
+applies_to: [software-engineering, code]
+codenook_core_version: ">=0.5.0-m5 <1.0.0"
+summary: >
+  Software development pipeline:
+  clarify → design → plan → implement → test → accept → validate → ship.
+keywords:
+  - python
+  - javascript
+  - typescript
+  - go
+  - cli
+  - api
+  - implement
+  - refactor
+  - fix bug
+  - test
+  - pytest
+examples:
+  - "Add a --tag filter to the xueba CLI list command"
+  - "Refactor the auth middleware to use JWT"
+  - "Fix the off-by-one bug in pagination"
+anti_examples:
+  - "Write a blog post about RAG"
+  - "Summarize the Q1 reading list"
+
+supports_dual_mode: true
+supports_fanout: true
+supports_concurrency: true
+
+data_layout: external
+data_glob:
+  - "**/*.py"
+  - "**/*.js"
+  - "**/*.ts"
+  - "**/*.go"
+  - "**/*.md"
+data_excludes:
+  - ".codenook/**"
+  - ".git/**"
+  - "node_modules/**"
+  - "__pycache__/**"
+
+entry_point: phases.yaml
+
+knowledge:
+  produces:
+    default_target: plugin_local
+    promote_to_workspace_when:
+      - "topic in [environment, toolchain, conventions]"
+  consumes: [workspace, plugin_shipped, plugin_local]
+  retention:
+    by_role: keep_last 50
+    by_topic: keep_last 30
+
+skills:
+  produces:
+    default_target: plugin_local
+    promote_to_workspace_when:
+      - "tags include [generic, format, file_op]"
+  consumes: [workspace.builtin, workspace.custom, plugin_shipped, plugin_local]
+
+config:
+  schema: config-schema.yaml
+  defaults: config-defaults.yaml
