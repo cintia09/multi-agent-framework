@@ -1,0 +1,40 @@
+# plugins/writing/config-schema.yaml
+# M5 YAML DSL -- consumed by skills/builtin/config-validate.
+
+fields:
+  models:
+    type: object
+    required: true
+    fields:
+      outliner:  { type: string, min_length: 1 }
+      drafter:   { type: string, min_length: 1 }
+      reviewer:  { type: string, min_length: 1 }
+      reviser:   { type: string, min_length: 1 }
+      publisher: { type: string, min_length: 1 }
+      default:   { type: string, min_length: 1 }
+
+  hitl:
+    type: object
+    fields:
+      mode:
+        type: string
+        enum: [auto, confirm, ask]
+      gates:
+        type: array
+
+  concurrency:
+    type: object
+    fields:
+      max_parallel:
+        type: integer
+        min: 1
+
+  knowledge:
+    type: object
+    fields:
+      consumes: { type: array }
+
+  skills:
+    type: object
+    fields:
+      consumes: { type: array }

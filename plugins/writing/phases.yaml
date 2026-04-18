@@ -1,0 +1,39 @@
+# plugins/writing/phases.yaml
+# 5-phase long-form authoring pipeline.
+#
+# Pinned (per M7 task prompt): outline -> draft -> review -> revise -> publish
+# with roles outliner/drafter/reviewer/reviser/publisher.
+#
+# Divergence from impl-v6 §M7.2 (L869-875):
+#   * Spec lists `edit` as the third phase (we use `review` + `revise`
+#     as two separate phases for a tighter feedback loop).
+#   * Spec lists `publish` with `role: null` + a HITL gate. We add a
+#     `publisher` role so the orchestrator-tick has a real role to
+#     dispatch and the E2E mock can drive the task to `complete`. The
+#     `pre_publish` HITL gate from the spec is preserved.
+
+phases:
+  - id: outline
+    role: outliner
+    produces: outputs/phase-1-outliner.md
+
+  - id: draft
+    role: drafter
+    produces: outputs/phase-2-drafter.md
+    supports_iteration: true
+    dual_mode_compatible: true
+    post_validate: validators/post-draft.sh
+
+  - id: review
+    role: reviewer
+    produces: outputs/phase-3-reviewer.md
+
+  - id: revise
+    role: reviser
+    produces: outputs/phase-4-reviser.md
+    supports_iteration: true
+
+  - id: publish
+    role: publisher
+    produces: outputs/phase-5-publisher.md
+    gate: pre_publish

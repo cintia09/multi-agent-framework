@@ -1,0 +1,11 @@
+# plugins/writing/hitl-gates.yaml
+# HITL gate catalogue for the writing plugin.
+
+gates:
+  pre_publish:
+    trigger: publish
+    required_reviewers: [human]
+    description: >
+      Final human approval before the article is published. Editorial
+      judgement (tone, claims, brand voice) is not safely automatable,
+      so the publish phase always pauses here.

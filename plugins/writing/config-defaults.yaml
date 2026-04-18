@@ -1,0 +1,26 @@
+# plugins/writing/config-defaults.yaml
+# Layer-1 defaults for the writing plugin. Models use tier_* symbols
+# (architecture §3.2.4.2). Drafter and reviser get tier_strong because
+# they generate the bulk of the prose; outliner/reviewer/publisher are
+# lighter-weight.
+
+models:
+  outliner:  tier_balanced
+  drafter:   tier_strong
+  reviewer:  tier_balanced
+  reviser:   tier_strong
+  publisher: tier_cheap
+  default:   tier_balanced
+
+hitl:
+  mode: confirm
+  gates: [pre_publish]
+
+concurrency:
+  max_parallel: 2
+
+knowledge:
+  consumes: [workspace, plugin_shipped, plugin_local]
+
+skills:
+  consumes: [workspace.builtin, workspace.custom, plugin_shipped, plugin_local]

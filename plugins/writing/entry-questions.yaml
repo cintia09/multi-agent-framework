@@ -1,0 +1,20 @@
+# plugins/writing/entry-questions.yaml
+# Phase-keyed required state.json fields. The writing plugin requires
+# only the bare minimum -- a non-null `title` at outline so the
+# outliner has a topic to structure around.
+
+outline:
+  required:
+    - title
+
+draft:
+  required: []
+
+review:
+  required: []
+
+revise:
+  required: []
+
+publish:
+  required: []

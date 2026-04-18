@@ -1,0 +1,35 @@
+# plugins/writing/transitions.yaml
+# Verdict-driven transitions for the 5-phase writing pipeline.
+#
+# Verdict enum:
+#   ok              -> advance per table
+#   needs_revision  -> route reviewer back to revise (NOT self-loop) so
+#                      the reviser can act on reviewer feedback; other
+#                      phases self-loop with the iteration cap.
+#   blocked         -> caller pauses task
+
+transitions:
+  outline:
+    ok: draft
+    needs_revision: outline
+    blocked: outline
+
+  draft:
+    ok: review
+    needs_revision: draft
+    blocked: draft
+
+  review:
+    ok: revise
+    needs_revision: review
+    blocked: review
+
+  revise:
+    ok: publish
+    needs_revision: revise
+    blocked: revise
+
+  publish:
+    ok: complete
+    needs_revision: publish
+    blocked: publish

@@ -1,0 +1,89 @@
+# plugins/writing/plugin.yaml
+# Writing plugin manifest (v6 M7).
+#
+# Long-form authoring pipeline:
+#   outline -> draft -> review -> revise -> publish
+#
+# Two contracts coexist (same as development / generic):
+#   1. M2 install-pipeline contract (REQUIRED, gates G02..G07).
+#   2. v6 architecture/§9.2 packaging contract (router + runtime).
+
+# ── M2 install-pipeline contract ────────────────────────────────────────
+id: writing
+version: 0.1.0
+type: domain
+entry_points:
+  install: phases.yaml
+declared_subsystems:
+  - domain/writing
+requires:
+  core_version: ">=0.5.0-m5,<1.0.0"
+
+# ── v6 architecture surface (router + packaging) ────────────────────────
+name: writing
+applies_to: [content, writing]
+codenook_core_version: ">=0.5.0-m5 <1.0.0"
+summary: >
+  Long-form authoring pipeline:
+  outline -> draft -> review -> revise -> publish.
+keywords:
+  - article
+  - blog
+  - blog post
+  - post
+  - write
+  - writing
+  - draft
+  - essay
+  - newsletter
+  - 文章
+  - 博客
+  - 写作
+examples:
+  - "Write a blog post about RAG"
+  - "Draft a newsletter about Q1 reading"
+  - "Outline an essay on attention mechanisms"
+anti_examples:
+  - "Implement a Python CLI"
+  - "Fix bug in payment service"
+  - "Summarise this PDF"
+
+# Routing surface consumed by lib/router_select.py (M7 shim).
+# Same priority tier as 'development' (50) -- specialised plugins win
+# over the 'generic' fallback (10). Ties between specialised plugins
+# fall through to keyword-count and alphabetical ordering inside the
+# shim.
+routing:
+  priority: 50
+
+supports_dual_mode: true
+supports_fanout: false
+supports_concurrency: true
+
+data_layout: workspace
+data_glob:
+  - "articles/**/*.md"
+data_excludes:
+  - ".codenook/**"
+  - ".git/**"
+
+entry_point: phases.yaml
+
+knowledge:
+  produces:
+    default_target: plugin_local
+    promote_to_workspace_when:
+      - "topic in [voice, audience, conventions]"
+  consumes: [workspace, plugin_shipped, plugin_local]
+  retention:
+    by_role: keep_last 50
+    by_topic: keep_last 30
+
+skills:
+  produces:
+    default_target: plugin_local
+  consumes: [workspace.builtin, workspace.custom, plugin_shipped, plugin_local]
+
+config:
+  schema: config-schema.yaml
+  defaults: config-defaults.yaml
