@@ -143,3 +143,19 @@ EOF
   assert_contains "$STDERR" "literal model gpt-4"
   assert_contains "$STDERR" "not in catalog.available"
 }
+
+@test "m5-resolve: router invariant strip emits stderr warning per layer" {
+  ws="$(mk_ws_bare)"
+  cat >"$ws/.codenook/config.yaml" <<'YAML'
+plugins:
+  __router__:
+    overrides:
+      models:
+        router: tier_cheap
+YAML
+  run_with_stderr "\"$RESOLVE_SH\" --plugin __router__ --workspace \"$ws\" --catalog \"$FIXTURES_ROOT/catalog/full.json\""
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.models.router == "opus-4.7"' >/dev/null
+  assert_contains "$STDERR" "router invariant: dropped"
+  assert_contains "$STDERR" "layer 3"
+}

@@ -204,6 +204,7 @@ def main() -> None:
                 if "router" in layers[idx].get("models", {}):
                     router_attempts = True
                     del layers[idx]["models"]["router"]
+                    warn(f"router invariant: dropped models.router from layer {idx} (decision #44)")
             except (AttributeError, TypeError):
                 pass
 
