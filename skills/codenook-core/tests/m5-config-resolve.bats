@@ -95,7 +95,7 @@ EOF
   echo "$output" | jq -e '._provenance["models.router"].from_layer == 2' >/dev/null
 }
 
-@test "m5-resolve: missing catalog file leaves tier symbol unresolved with warn" {
+@test "m5-resolve: missing catalog file substitutes hardcoded literal with warn" {
   ws="$(mk_ws_bare)"
   mkdir -p "$ws/.codenook/plugins/development"
   cat >"$ws/.codenook/plugins/development/config-defaults.yaml" <<'EOF'
@@ -104,8 +104,22 @@ models:
 EOF
   run_with_stderr "\"$RESOLVE_SH\" --plugin development --workspace \"$ws\" --catalog \"$ws/.codenook/state.json\""
   [ "$status" -eq 0 ]
-  # When catalog file is missing entirely, leave symbol unresolved (deferred)
-  echo "$output" | jq -e '.models.reviewer == "tier_balanced"' >/dev/null
-  echo "$output" | jq -e '._provenance["models.reviewer"].resolved_via == "deferred:catalog_missing"' >/dev/null
-  assert_contains "$STDERR" "catalog"
+  # Catalog file missing → tier symbol replaced with HARDCODED_FALLBACK
+  echo "$output" | jq -e '.models.reviewer == "opus-4.7"' >/dev/null
+  echo "$output" | jq -e '._provenance["models.reviewer"].resolved_via == "fallback:catalog_missing"' >/dev/null
+  assert_contains "$STDERR" "catalog missing"
+}
+
+@test "m5-resolve: catalog missing + tier_strong substitutes literal not symbol" {
+  ws="$(mk_ws_bare)"
+  mkdir -p "$ws/.codenook/plugins/development"
+  cat >"$ws/.codenook/plugins/development/config-defaults.yaml" <<'EOF'
+models:
+  default: tier_strong
+EOF
+  run_with_stderr "\"$RESOLVE_SH\" --plugin development --workspace \"$ws\" --catalog \"$ws/.codenook/state.json\""
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.models.default == "opus-4.7"' >/dev/null
+  echo "$output" | jq -e '.models.default != "tier_strong"' >/dev/null
+  echo "$output" | jq -e '._provenance["models.default"].resolved_via == "fallback:catalog_missing"' >/dev/null
 }

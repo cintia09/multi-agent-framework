@@ -157,7 +157,8 @@ def resolve_tier(symbol: str, catalog: dict | None) -> tuple[str, str, str | Non
     if not symbol.startswith("tier_"):
         return symbol, "literal", None
     if catalog is None:
-        return symbol, "deferred:catalog_missing", symbol
+        warn(f"catalog missing; {symbol} → {HARDCODED_FALLBACK}")
+        return HARDCODED_FALLBACK, "fallback:catalog_missing", symbol
     tier_name = symbol[len("tier_"):]
     rt = catalog.get("resolved_tiers", {})
 
