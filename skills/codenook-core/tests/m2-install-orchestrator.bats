@@ -281,3 +281,30 @@ YAML
     [ "$n" -eq 0 ]
   fi
 }
+
+@test "atomic upgrade: replace failure leaves prior install intact" {
+  src1="$(mk_minimal_good)"
+  ws="$(mk_ws)"
+  run_with_stderr "\"$INSTALL_SH\" --src \"$src1\" --workspace \"$ws\""
+  [ "$status" -eq 0 ]
+  # Sanity: v0.2.0 is installed.
+  grep -q '0.2.0' "$ws/.codenook/plugins/foo-plugin/plugin.yaml"
+
+  src2="$(mk_minimal_good)"
+  mutate_yaml "$src2" "d['version'] = '0.3.0'"
+  CODENOOK_TEST_FAIL_REPLACE=1 \
+    run_with_stderr "\"$INSTALL_SH\" --src \"$src2\" --workspace \"$ws\" --upgrade"
+  [ "$status" -eq 1 ]
+
+  # Old plugin must still be present and still v0.2.0.
+  assert_file_exists "$ws/.codenook/plugins/foo-plugin/plugin.yaml"
+  grep -q '0.2.0' "$ws/.codenook/plugins/foo-plugin/plugin.yaml"
+
+  # state.json should still list v0.2.0 (not 0.3.0).
+  jq -e '.installed_plugins[] | select(.id=="foo-plugin" and .version=="0.2.0")' \
+    "$ws/.codenook/state.json" >/dev/null
+
+  # No leftover .bak-* directories from rollback.
+  n=$(find "$ws/.codenook/plugins" -maxdepth 1 -name 'foo-plugin.bak-*' | wc -l | tr -d ' ')
+  [ "$n" -eq 0 ]
+}

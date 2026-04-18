@@ -164,14 +164,45 @@ def commit(staged: Path, workspace: Path, plugin_id: str,
     plugins_root = workspace / ".codenook" / "plugins"
     plugins_root.mkdir(parents=True, exist_ok=True)
     dest = plugins_root / plugin_id
+
+    # Pre-flight: staged dir must live under workspace's .codenook so the
+    # upcoming os.replace stays on the same filesystem.
+    staged_resolved = Path(staged).resolve()
+    expected_stage_root = (workspace / ".codenook" / "staging").resolve()
+    if staged_resolved.parent != expected_stage_root:
+        raise RuntimeError(
+            f"refusing to commit: staged path {staged_resolved} not under "
+            f"expected staging root {expected_stage_root}"
+        )
+
+    if dest.exists() and not upgrade:
+        raise RuntimeError(
+            f"destination {dest} exists and --upgrade not set"
+        )
+
+    # Test hook: simulate a replace failure to exercise rollback.
+    fail_replace = os.environ.get("CODENOOK_TEST_FAIL_REPLACE") == "1"
+
+    backup: Path | None = None
     if dest.exists():
-        if not upgrade:
-            raise RuntimeError(
-                f"destination {dest} exists and --upgrade not set"
-            )
-        # Remove the old install before atomic move.
-        shutil.rmtree(dest)
-    os.replace(staged, dest)
+        backup = dest.with_name(dest.name + ".bak-" + secrets.token_hex(4))
+        os.rename(dest, backup)
+    try:
+        if fail_replace:
+            raise RuntimeError("simulated replace failure (test hook)")
+        os.replace(staged, dest)
+    except Exception:
+        # Roll back: restore the backup if dest is empty (replace failed
+        # before consuming the rename).
+        if backup is not None and not dest.exists():
+            try:
+                os.rename(backup, dest)
+            except OSError:
+                pass
+        raise
+    else:
+        if backup is not None:
+            shutil.rmtree(backup, ignore_errors=True)
 
 
 def update_state_json(workspace: Path, plugin_id: str, version: str) -> None:
