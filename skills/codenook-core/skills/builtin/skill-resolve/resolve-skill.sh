@@ -22,9 +22,11 @@ if [ -z "$NAME" ] || [ -z "$PLUGIN" ] || [ -z "$WORKSPACE" ]; then
 fi
 
 # Default core dir = parent of skills/builtin/ that contains this script.
+# Use `pwd -P` (physical path) so on macOS, where /var → /private/var via
+# a symlink, Path.resolve() in Python compares against the same path.
 if [ -z "${CODENOOK_CORE_DIR:-}" ]; then
-  here="$(cd "$(dirname "$0")" && pwd)"
-  CODENOOK_CORE_DIR="$(cd "$here/../../.." && pwd)"
+  here="$(cd "$(dirname "$0")" && pwd -P)"
+  CODENOOK_CORE_DIR="$(cd "$here/../../.." && pwd -P)"
 fi
 
 PYTHONIOENCODING=utf-8 \
