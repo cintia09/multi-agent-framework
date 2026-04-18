@@ -1,0 +1,39 @@
+# config-schema.yaml — minimal field-level schema for merged CodeNook configs.
+# Consumed by skills/builtin/config-validate/_validate.py.
+# M1 only covers the fields touched by tests; grow as impl expands.
+#
+# Field type DSL:
+#   type: string | integer | object
+#   required: true|false
+#   min_length: N      (string)
+#   min: N             (integer)
+#   enum: [...]        (string)
+#   fields: { ... }    (object — nested fields)
+#
+# Unknown top-level keys are allowed (config-resolve already whitelists
+# routing-level keys). Only keys listed under `deprecated` emit warnings.
+
+fields:
+  models:
+    type: object
+    required: true
+    fields:
+      default:
+        type: string
+        min_length: 1
+  hitl:
+    type: object
+    fields:
+      mode:
+        type: string
+        enum: [auto, confirm, ask]
+  concurrency:
+    type: object
+    fields:
+      max_parallel:
+        type: integer
+        min: 1
+
+deprecated:
+  - legacy_router
+  - legacy_hitl
