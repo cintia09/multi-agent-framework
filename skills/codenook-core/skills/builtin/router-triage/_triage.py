@@ -117,6 +117,11 @@ def main() -> int:
         target     = bi[0]
         confidence = 0.9
         reasons.append(f"builtin intent matched: {bi[1]!r}")
+        # Surface plugin matches that lost to the builtin priority so
+        # the operator can see why their plugin didn't fire.
+        shadowed = match_plugins(user_input, manifests, reasons)
+        for pid, _pat in shadowed:
+            reasons.append(f"shadowed plugin match: {pid} (intent: {target})")
         payload, err = build_dispatch(target, "builtin-skill",
                                       user_input, task, ws, build_sh)
         if err:

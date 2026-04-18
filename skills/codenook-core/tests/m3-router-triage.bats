@@ -180,3 +180,15 @@ EOF
     || { echo "triage took ${elapsed}s (>2s) — ReDoS not mitigated" >&2; exit 1; }
   echo "$output" | jq -e '.reasons | any(. | contains("regex rejected: ReDoS risk"))' >/dev/null
 }
+
+@test "fix#7: builtin wins over plugin → reasons[] records shadowed plugin match" {
+  # ambiguous-stub fixture has intent_pattern 'help' which collides
+  # with the builtin 'help' skill. Builtin should win, AND the loser
+  # should appear in reasons[] for operator visibility.
+  ws="$(stage_ws "$M3_FX/workspaces/full")"
+  run_with_stderr "\"$TRIAGE_SH\" --user-input 'help' --workspace \"$ws\" --json"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.decision == "skill"' >/dev/null
+  echo "$output" | jq -e '.target   == "help"'  >/dev/null
+  echo "$output" | jq -e '.reasons | any(. | contains("shadowed plugin match: ambiguous-stub"))' >/dev/null
+}
