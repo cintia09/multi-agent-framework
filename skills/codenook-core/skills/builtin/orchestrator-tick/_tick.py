@@ -72,17 +72,51 @@ def now_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _utf8_safe_truncate(s: str, max_bytes: int) -> str:
+    """Hard-truncate `s` to ≤max_bytes UTF-8 bytes WITHOUT splitting a
+    multi-byte char. Walks back from byte position max_bytes until a
+    valid UTF-8 boundary is found."""
+    b = s.encode("utf-8")
+    if len(b) <= max_bytes:
+        return s
+    cut = max_bytes
+    while cut > 0:
+        try:
+            return b[:cut].decode("utf-8")
+        except UnicodeDecodeError:
+            cut -= 1
+    return ""
+
+
+def _payload_bytes(p: dict) -> int:
+    return len(json.dumps(p, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
 def emit_summary(payload: dict) -> None:
-    """Write the ≤500-byte summary to stdout (json) for the caller."""
-    s = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-    if len(s.encode("utf-8")) > 500:
-        # Trim message_for_user/next_action progressively until fits.
+    """Write the ≤500-byte summary to stdout (json) for the caller.
+
+    Byte-correct UTF-8 truncation:
+      * Loop progressively trims `message_for_user`/`next_action` by 10%
+        chars from the right until the encoded payload fits.
+      * Final guard hard-truncates the JSON string at 500 bytes on a
+        valid UTF-8 char boundary (rare; only kicks in if every other
+        knob has been exhausted)."""
+    limit = 500
+    while _payload_bytes(payload) > limit:
+        trimmed = False
         for k in ("message_for_user", "next_action"):
-            if k in payload and isinstance(payload[k], str):
-                payload[k] = payload[k][:80]
-                s = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-                if len(s.encode("utf-8")) <= 500:
+            v = payload.get(k)
+            if isinstance(v, str) and v:
+                cut = max(1, len(v) - max(1, len(v) // 10))
+                payload[k] = v[:cut]
+                trimmed = True
+                if _payload_bytes(payload) <= limit:
                     break
+        if not trimmed:
+            break
+    s = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    if len(s.encode("utf-8")) > limit:
+        s = _utf8_safe_truncate(s, limit)
     print(s)
 
 

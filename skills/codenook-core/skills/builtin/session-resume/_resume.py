@@ -95,36 +95,64 @@ def build_active_entry(task_state: dict) -> dict:
     }
 
 
+def _payload_bytes(p: dict) -> int:
+    return len(json.dumps(p, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
+def _utf8_safe_truncate(s: str, max_bytes: int) -> str:
+    """Hard-truncate `s` to ≤max_bytes UTF-8 bytes WITHOUT splitting a
+    multi-byte char."""
+    b = s.encode("utf-8")
+    if len(b) <= max_bytes:
+        return s
+    cut = max_bytes
+    while cut > 0:
+        try:
+            return b[:cut].decode("utf-8")
+        except UnicodeDecodeError:
+            cut -= 1
+    return ""
+
+
 def truncate_to_bytes(payload: dict, limit: int) -> dict:
-    """Trim discretionary fields until UTF-8 serialisation fits."""
-    def size(p): return len(json.dumps(p, ensure_ascii=False,
-                                        separators=(",", ":")).encode("utf-8"))
-    if size(payload) <= limit:
+    """Trim discretionary fields in a real loop until UTF-8 fits.
+
+    Strategy (in order):
+      1) Drop `last_session_summary` entirely.
+      2) Trim each one_liner by 10% chars from the right.
+      3) Drop oldest active_tasks entries.
+      4) Shorten suggested_next.
+    """
+    if _payload_bytes(payload) <= limit:
         return payload
-    # 1) trim last_session_summary tail
-    if payload.get("last_session_summary"):
-        for n in (200, 120, 60, 0):
-            payload["last_session_summary"] = payload["last_session_summary"][:n]
-            if size(payload) <= limit:
-                return payload
-    # 2) trim one_liners
-    for entry in payload.get("active_tasks", []):
-        if entry.get("one_liner"):
-            entry["one_liner"] = entry["one_liner"][:20]
-        if size(payload) <= limit:
+
+    # 1) Drop last_session_summary
+    if "last_session_summary" in payload:
+        payload.pop("last_session_summary", None)
+        if _payload_bytes(payload) <= limit:
             return payload
-    # 3) drop one_liner entirely
-    for entry in payload.get("active_tasks", []):
-        entry.pop("one_liner", None)
-        if size(payload) <= limit:
-            return payload
-    # 4) progressively drop per-entry secondary fields
-    for drop in ("last_event_ts", "plugin", "status"):
+
+    # 2) Trim one_liners 10% per pass until empty.
+    while _payload_bytes(payload) > limit:
+        trimmed_any = False
         for entry in payload.get("active_tasks", []):
-            entry.pop(drop, None)
-        if size(payload) <= limit:
+            ol = entry.get("one_liner")
+            if isinstance(ol, str) and ol:
+                cut = max(0, len(ol) - max(1, len(ol) // 10))
+                entry["one_liner"] = ol[:cut]
+                trimmed_any = True
+                if _payload_bytes(payload) <= limit:
+                    return payload
+        if not trimmed_any:
+            break
+
+    # 3) Drop oldest active_tasks entries (last in list).
+    while _payload_bytes(payload) > limit and payload.get("active_tasks"):
+        payload["active_tasks"].pop()
+        if _payload_bytes(payload) <= limit:
             return payload
-    # 5) shorten suggested_next
+
+    # 4) Shorten suggested_next.
     if isinstance(payload.get("suggested_next"), str):
         payload["suggested_next"] = payload["suggested_next"][:60]
     return payload
@@ -248,9 +276,11 @@ def main() -> None:
         if isinstance(payload.get("summary"), str):
             payload["summary"] = payload["summary"][:60]
     if _size(payload) > MAX_BYTES:
-        # Drop the chattiest legacy fields entirely; M1 tests don't assert
-        # them when M4 multi-task pressure forces eviction.
-        for k in ("next_suggested_action", "summary", "last_action_ts"):
+        # Drop chatty legacy fields entirely; M1 tests don't assert these
+        # when M4 multi-task pressure forces eviction.
+        for k in ("next_suggested_action", "summary", "last_action_ts",
+                  "total_iterations", "current_focus", "hitl_pending",
+                  "iteration", "phase", "active_task"):
             payload.pop(k, None)
             if _size(payload) <= MAX_BYTES:
                 break
@@ -258,7 +288,10 @@ def main() -> None:
         payload = truncate_to_bytes(payload, MAX_BYTES)
 
     if json_out:
-        print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+        s = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        if len(s.encode("utf-8")) > MAX_BYTES:
+            s = _utf8_safe_truncate(s, MAX_BYTES)
+        print(s)
     else:
         print(payload.get("summary") or payload.get("suggested_next", ""))
 

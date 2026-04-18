@@ -125,3 +125,19 @@ PY
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.active_tasks[0] | .task_id and .plugin and .phase and .status and .last_event_ts' >/dev/null
 }
+
+# ── Fix #7: byte-correct UTF-8 truncation with 5 CJK active tasks ───────
+@test "resume: 50-CJK-char one_liners + 5 active tasks → ≤500 bytes valid JSON" {
+  ws="$(mk_ws_m4)"
+  cjk="一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十"
+  for i in 1 2 3 4 5; do
+    mk_task_m4 "$ws" "T-50$i" generic clarify in_progress "$cjk"
+  done
+  mk_ws_state "$ws" "active_tasks=T-501,T-502,T-503,T-504,T-505" "current_focus=T-501"
+  run bash -c "\"$RESUME_SH\" --workspace \"$ws\" --json"
+  [ "$status" -eq 0 ]
+  bytes=$(echo -n "$output" | wc -c | tr -d ' ')
+  [ "$bytes" -le 500 ]
+  # Result must be valid JSON (no broken UTF-8 boundary).
+  echo "$output" | python3 -c "import json,sys; json.loads(sys.stdin.read())"
+}

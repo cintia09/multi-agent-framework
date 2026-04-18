@@ -243,3 +243,20 @@ EOF
   # No fabricated children seeded:
   [ ! -d "$ws/.codenook/tasks/T-114-c1" ]
 }
+
+# ── Fix #7: emit_summary loop fits CJK message_for_user ─────────────────
+@test "emit_summary loop: large CJK message_for_user fits ≤500 bytes valid JSON" {
+  ws="$(mk_ws_with_plugin)"
+  python3 -c "
+import yaml
+spec={'clarify':{'required':['这是一个非常非常非常非常非常长的中文键名用于测试字节预算的执行算法','另一个长键名用于扩展输出大小','还有一个长键名增加预算压力','再来一个测试键名用于扩展输出','最后一个长键名彻底压垮预算限制']}}
+open('$ws/.codenook/plugins/generic/entry-questions.yaml','w').write(yaml.safe_dump(spec, allow_unicode=True))
+"
+  mk_state "$ws" "T-131"
+  run bash -c "\"$TICK_SH\" --task T-131 --workspace \"$ws\" --json"
+  [ "$status" -eq 1 ]
+  bytes=$(echo -n "$output" | wc -c | tr -d ' ')
+  [ "$bytes" -le 500 ]
+  # Result must be valid JSON (no broken UTF-8).
+  echo "$output" | python3 -c "import json,sys; json.loads(sys.stdin.read())"
+}
