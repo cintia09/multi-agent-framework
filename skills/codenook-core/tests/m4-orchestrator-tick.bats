@@ -228,3 +228,18 @@ EOF
   echo "$output" | jq . >/dev/null
   [ "$(echo -n "$output" | wc -c)" -le 500 ]
 }
+
+# ── Fix #6: fanout requires non-empty subtasks ──────────────────────────
+@test "fanout: decomposed=true + empty subtasks → blocked (no fabricated children)" {
+  ws="$(mk_ws_with_plugin)"
+  patch_phases "$ws" 'phases:
+- {id: clarify, role: clarifier, produces: outputs/phase-1-clarifier.md, allows_fanout: true}
+- {id: analyze, role: analyzer, produces: outputs/phase-2-analyzer.md}'
+  mk_state "$ws" "T-114" '{"decomposed":true,"subtasks":[]}'
+  run bash -c "\"$TICK_SH\" --task T-114 --workspace \"$ws\" --json"
+  [ "$status" -eq 1 ]
+  echo "$output" | jq -e '.status=="blocked"' >/dev/null
+  echo "$output" | jq -e '.next_action | test("subtasks")' >/dev/null
+  # No fabricated children seeded:
+  [ ! -d "$ws/.codenook/tasks/T-114-c1" ]
+}

@@ -288,7 +288,13 @@ def check_entry_questions(workspace: Path, plugin: str, phase_id: str,
 def seed_subtasks(workspace: Path, state: dict, phase: dict) -> dict:
     parent = state["task_id"]
     _check_task_id(parent)
-    units = state.get("subtasks") or [f"u{i+1}" for i in range(2)]
+    units = state.get("subtasks")
+    if not units:
+        return {
+            "status": "blocked",
+            "next_action": "decomposed=true requires subtasks",
+            "message_for_user": "decomposed=true requires subtasks",
+        }
     queue_dir = workspace / ".codenook" / "queue"
     queue_dir.mkdir(parents=True, exist_ok=True)
     created: list[str] = []
