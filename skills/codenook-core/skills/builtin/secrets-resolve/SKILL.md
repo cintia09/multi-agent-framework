@@ -44,3 +44,9 @@ resolve.sh --config <merged.json> [--allow-missing]
 On success (exit 0) the stderr stream MUST NOT contain any resolved
 value. Only placeholder *keys* appear in warnings/errors. Test
 `m1-secrets-resolve.bats::SECURITY:` enforces this.
+
+## ⚠️ SECURITY
+
+stdout contains plaintext resolved secrets. Callers MUST NOT pipe stdout
+into history/logs/dispatch-audit. Pipe directly to the consuming
+sub-agent or to a file with mode 600 in workspace-private storage only.
