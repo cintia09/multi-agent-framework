@@ -25,11 +25,14 @@ mk_ws() {
 run_resolve() {
   # $1=workspace, $2=plugin, $3=catalog (path), $4=optional task
   local ws="$1" plugin="$2" cat="$3" task="${4:-}"
+  STDERR_FILE="${BATS_TEST_TMPDIR:-/tmp}/cn-stderr.$$"
   if [ -n "$task" ]; then
-    run "$RESOLVE_SH" --plugin "$plugin" --task "$task" --workspace "$ws" --catalog "$cat"
+    run bash -c "\"$RESOLVE_SH\" --plugin \"$plugin\" --task \"$task\" --workspace \"$ws\" --catalog \"$cat\" 2>\"$STDERR_FILE\""
   else
-    run "$RESOLVE_SH" --plugin "$plugin" --workspace "$ws" --catalog "$cat"
+    run bash -c "\"$RESOLVE_SH\" --plugin \"$plugin\" --workspace \"$ws\" --catalog \"$cat\" 2>\"$STDERR_FILE\""
   fi
+  STDERR="$(cat "$STDERR_FILE" 2>/dev/null || echo)"
+  export STDERR
 }
 
 @test "resolve.sh exists and is executable" {
@@ -159,8 +162,8 @@ EOF
   mk_ws "$ws" "development" "$FIXTURES_ROOT/config/plugin-baseline.yaml" "" "$ws.cfg.yaml" "" ""
   run_resolve "$ws" "development" "$FIXTURES_ROOT/catalog/full.json"
   [ "$status" -eq 0 ]
-  assert_contains "$output" "weird_unknown_key"
-  assert_contains "$output" "warning"
+  assert_contains "$STDERR" "weird_unknown_key"
+  assert_contains "$STDERR" "warning"
 }
 
 @test "Tier symbol expansion via catalog (M-006)" {
@@ -202,7 +205,7 @@ EOF
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.models.reviewer == "opus-4.7"' >/dev/null
   echo "$output" | jq -e '._provenance["models.reviewer"].resolved_via | startswith("fallback")' >/dev/null
-  assert_contains "$output" "tier_xxx"
+  assert_contains "$STDERR" "tier_xxx"
 }
 
 @test "Catalog has no tier_strong candidates → ultimate hardcoded fallback (R-26)" {
@@ -219,7 +222,7 @@ EOF
   mk_ws "$ws" "development" "$FIXTURES_ROOT/config/plugin-baseline.yaml" "" "" "" ""
   run_resolve "$ws" "development" "$FIXTURES_ROOT/catalog/corrupt.json"
   [ "$status" -ne 0 ]
-  assert_contains "$output" "catalog corrupt"
+  assert_contains "$STDERR" "catalog corrupt"
 }
 
 @test "_provenance fields present and well-formed (M-024)" {
