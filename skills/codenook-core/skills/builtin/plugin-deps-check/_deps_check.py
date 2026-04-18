@@ -1,69 +1,18 @@
 #!/usr/bin/env python3
-"""Gate G06 — plugin-deps-check."""
+"""Gate G06 — plugin-deps-check.  Uses _lib.semver."""
 from __future__ import annotations
 
 import json
 import os
-import re
 import sys
 from pathlib import Path
 
 import yaml
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_lib"))
+from semver import parse, satisfies, split_constraint  # noqa: E402
+
 GATE = "plugin-deps-check"
-
-SEMVER_RE = re.compile(
-    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
-    r"(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)"
-    r"(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?"
-    r"(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
-)
-OPS = ("==", "!=", ">=", "<=", ">", "<", "=")
-
-
-def parse(v: str):
-    m = SEMVER_RE.match(v)
-    if not m:
-        return None
-    return (int(m[1]), int(m[2]), int(m[3]), m[4])
-
-
-def _pre_key(pre):
-    if pre is None:
-        return (1,)
-    parts = []
-    for p in pre.split("."):
-        parts.append((0, int(p)) if p.isdigit() else (1, p))
-    return (0, tuple(parts))
-
-
-def cmpkey(p):
-    return (p[0], p[1], p[2], _pre_key(p[3]))
-
-
-def satisfies(core, op, target) -> bool:
-    a, b = cmpkey(core), cmpkey(target)
-    if op in ("==", "="):
-        return a == b
-    if op == "!=":
-        return a != b
-    if op == ">=":
-        return a >= b
-    if op == "<=":
-        return a <= b
-    if op == ">":
-        return a > b
-    if op == "<":
-        return a < b
-    return False
-
-
-def split_constraint(c: str):
-    c = c.strip()
-    for op in OPS:
-        if c.startswith(op):
-            return op, c[len(op):].strip()
-    return None, None
 
 
 def main() -> int:

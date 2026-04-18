@@ -1,54 +1,18 @@
 #!/usr/bin/env python3
-"""Gate G04 — plugin-version-check.
-
-SemVer parser + comparator.  Avoids any third-party dep so the
-install pipeline stays runnable in a fresh, network-less workspace.
-"""
+"""Gate G04 — plugin-version-check.  Uses _lib.semver."""
 from __future__ import annotations
 
 import json
 import os
-import re
 import sys
 from pathlib import Path
 
 import yaml
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_lib"))
+from semver import parse, cmp_key  # noqa: E402
+
 GATE = "plugin-version-check"
-
-# Official SemVer 2.0.0 regex (semver.org §9, simplified).
-SEMVER_RE = re.compile(
-    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
-    r"(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)"
-    r"(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?"
-    r"(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
-)
-
-
-def parse(v: str):
-    m = SEMVER_RE.match(v)
-    if not m:
-        return None
-    major, minor, patch, pre, _build = m.groups()
-    return (int(major), int(minor), int(patch), pre)
-
-
-def _pre_key(pre):
-    # Per semver §11: a version with pre-release < the same without.
-    if pre is None:
-        return (1,)  # higher precedence than any pre-release
-    parts = []
-    for p in pre.split("."):
-        if p.isdigit():
-            parts.append((0, int(p)))
-        else:
-            parts.append((1, p))
-    return (0, tuple(parts))
-
-
-def cmp_key(parsed):
-    major, minor, patch, pre = parsed
-    return (major, minor, patch, _pre_key(pre))
 
 
 def main() -> int:
