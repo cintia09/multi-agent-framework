@@ -70,21 +70,33 @@ def main() -> int:
     # CN_CORE_ROOT must not break the kernel's own skill lookups.
     resolver = default_core / "skills" / "builtin" / "config-resolve" / "resolve.sh"
     model = None
-    if resolver.is_file():
-        try:
-            res = subprocess.run(
-                [str(resolver),
-                 "--plugin", "__router__",
-                 "--workspace", str(ws),
-                 "--catalog", str(state_path)],
-                capture_output=True, text=True, check=False,
-            )
-            if res.returncode == 0:
-                merged = json.loads(res.stdout)
-                model = (merged.get("models") or {}).get("router") \
-                     or (merged.get("models") or {}).get("default")
-        except (OSError, json.JSONDecodeError):
-            model = None
+    if not resolver.is_file():
+        return fail("router model unresolved (decision #44 violated)",
+                    [str(resolver)])
+    try:
+        res = subprocess.run(
+            [str(resolver),
+             "--plugin", "__router__",
+             "--workspace", str(ws),
+             "--catalog", str(state_path)],
+            capture_output=True, text=True, check=False,
+        )
+    except OSError as e:
+        return fail("router model unresolved (decision #44 violated)",
+                    [f"resolver exec failed: {e}"])
+    if res.returncode != 0:
+        return fail("router model unresolved (decision #44 violated)",
+                    [f"resolver rc={res.returncode}: {res.stderr.strip()}"])
+    try:
+        merged = json.loads(res.stdout)
+    except json.JSONDecodeError as e:
+        return fail("router model unresolved (decision #44 violated)",
+                    [f"resolver output not JSON: {e}"])
+    models_section = merged.get("models") or {}
+    model = models_section.get("router") or models_section.get("default")
+    if model is None:
+        return fail("router model unresolved (decision #44 violated)",
+                    ["models.router and models.default both missing"])
 
     active_tasks = state.get("active_tasks") or []
 
