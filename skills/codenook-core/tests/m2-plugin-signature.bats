@@ -84,3 +84,10 @@ sig_for() {
   [ "$status" -eq 1 ]
   echo "$output" | jq -e '.gate == "plugin-signature" and .ok == false' >/dev/null
 }
+
+@test "happy path: fixtures/plugins/good-with-sig verifies → exit 0" {
+  d="$FIXTURES_ROOT/plugins/good-with-sig"
+  assert_file_exists "$d/plugin.yaml.sig"
+  run_with_stderr "\"$GATE_SH\" --src \"$d\""
+  [ "$status" -eq 0 ]
+}
