@@ -3,6 +3,10 @@
 import json
 import os
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_lib"))
+from atomic import atomic_write_json  # noqa: E402
 
 ALLOWED_KEYS = [
     "models.default",
@@ -73,10 +77,8 @@ def main():
             node = existing
         node[parts[-1]] = value
 
-    # Write back
-    with open(state_file, 'w') as f:
-        json.dump(state, f, indent=2, ensure_ascii=False)
-        f.write('\n')
+    # Write back atomically (see _lib/atomic.py)
+    atomic_write_json(state_file, state)
     
     sys.exit(0)
 

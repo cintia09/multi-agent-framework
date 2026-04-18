@@ -6,6 +6,10 @@ import os
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_lib"))
+from atomic import atomic_write_json  # noqa: E402
 
 PREFLIGHT_SH = None
 DISPATCH_AUDIT_SH = None
@@ -173,10 +177,8 @@ def log_entry(state, action, result):
     state["tick_log"].append(entry)
 
 def save_state(state_file, state):
-    """Write state back to file"""
-    with open(state_file, 'w') as f:
-        json.dump(state, f, indent=2, ensure_ascii=False)
-        f.write('\n')
+    """Write state back to file atomically (crash-safe; see _lib/atomic.py)."""
+    atomic_write_json(state_file, state)
 
 if __name__ == "__main__":
     main()
