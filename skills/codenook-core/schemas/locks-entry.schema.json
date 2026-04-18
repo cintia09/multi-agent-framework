@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CodeNook locks/<key>.json (M4.5)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["key", "task_id", "agent_id", "acquired_at", "ttl_sec"],
+  "properties": {
+    "key": {"type": "string"},
+    "task_id": {"type": "string"},
+    "agent_id": {"type": "string"},
+    "acquired_at": {"type": "string"},
+    "ttl_sec": {"type": "integer", "minimum": 1}
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CodeNook hitl-queue/<task>-<gate>.json (M4.4)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "task_id", "plugin", "gate", "created_at",
+               "context_path", "decision", "decided_at", "reviewer", "comment"],
+  "properties": {
+    "id": {"type": "string"},
+    "task_id": {"type": "string"},
+    "plugin": {"type": "string"},
+    "gate": {"type": "string"},
+    "created_at": {"type": "string"},
+    "context_path": {"type": "string"},
+    "decision": {"type": ["string", "null"], "enum": [null, "approve", "reject", "needs_changes"]},
+    "decided_at": {"type": ["string", "null"]},
+    "reviewer": {"type": ["string", "null"]},
+    "comment": {"type": ["string", "null"]}
+  }
+}

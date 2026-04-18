@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CodeNook task state.json (M4)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_id", "plugin", "phase", "iteration",
+               "max_iterations", "status", "history"],
+  "properties": {
+    "schema_version": {"type": "integer", "minimum": 1},
+    "task_id": {"type": "string"},
+    "title": {"type": "string"},
+    "summary": {"type": "string"},
+    "plugin": {"type": "string"},
+    "plugin_version": {"type": "string"},
+    "target_dir": {"type": "string"},
+    "phase": {"type": ["string", "null"]},
+    "phase_started_at": {"type": ["string", "null"]},
+    "iteration": {"type": "integer", "minimum": 0},
+    "max_iterations": {"type": "integer", "minimum": 0},
+    "dual_mode": {"enum": ["serial", "parallel"]},
+    "status": {"enum": ["pending", "in_progress", "waiting", "blocked", "done",
+                         "cancelled", "error"]},
+    "subtasks": {"type": "array", "items": {"type": "string"}},
+    "depends_on": {"type": "array", "items": {"type": "string"}},
+    "decomposed": {"type": "boolean"},
+    "config_overrides": {"type": "object"},
+    "in_flight_agent": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["agent_id", "role", "dispatched_at", "expected_output"],
+      "properties": {
+        "agent_id": {
+          "type": ["string", "array"],
+          "items": {"type": "string"}
+        },
+        "role": {"type": "string"},
+        "dispatched_at": {"type": "string"},
+        "expected_output": {"type": "string"}
+      }
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ts", "phase"],
+        "properties": {
+          "ts": {"type": "string"},
+          "phase": {"type": "string"},
+          "verdict": {"type": "string"},
+          "_warning": {"type": "string"}
+        }
+      }
+    },
+    "created_at": {"type": "string"},
+    "updated_at": {"type": "string"},
+    "current_focus": {"type": "string"},
+    "last_tick_ts": {"type": "string"}
+  }
+}
