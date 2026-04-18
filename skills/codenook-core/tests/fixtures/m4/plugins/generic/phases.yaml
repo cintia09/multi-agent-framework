@@ -1,0 +1,7 @@
+phases:
+  - id: clarify
+    role: clarifier
+    produces: outputs/phase-1-clarifier.md
+  - id: analyze
+    role: analyzer
+    produces: outputs/phase-2-analyzer.md

@@ -1,0 +1,4 @@
+id: generic
+version: 1.0.0
+description: Minimal 2-phase plugin used by M4 e2e + tick fixtures
+intent_patterns: []

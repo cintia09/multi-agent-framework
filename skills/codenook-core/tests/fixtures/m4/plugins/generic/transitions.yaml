@@ -1,0 +1,7 @@
+transitions:
+  clarify:
+    ok: analyze
+    needs_revision: clarify
+  analyze:
+    ok: complete
+    needs_revision: analyze
