@@ -799,7 +799,16 @@ hitl-queue/writing--T-012--accept--20260418T093200Z.json
 
 **归档 retention（v6 决议 #I-8）**：`memory/.archived/<p>-<ts>/` 与 `history/plugin-versions/<name>/<old>/` 的保留期由 `config.yaml.archive.retention_days` 控制，**默认 90 天**；超期由 builtin skill `archive-gc`（init.sh / tick 启动时机会触发）按 mtime 删除。设为 `0` = 永不删除；设为 `-1` = 卸载/升级时立即删除。
 
-
+> **M8 update (2026-05)**: The Router section below describes the **M3 / M7
+> one-shot router** (`router-triage` + `_lib/router_select.py`). Starting in
+> milestone M8, that one-shot router is replaced by a **conversational
+> router-agent** that drafts a task config across multiple turns, consults
+> knowledge, and hands off to `orchestrator-tick` itself. The full spec is
+> in [`docs/v6/router-agent-v6.md`](./router-agent-v6.md). The catalog-scan
+> protocol described in §4.1 still applies, but is now performed by the
+> router-agent (not by `router-triage`); `_lib/router_select.py` survives
+> as an **internal scoring helper** of the router-agent and is no longer a
+> public skill. M3 `router-triage` is removed in **M8.7**.
 
 **角色**：把任务分类到对应 plugin。
 
@@ -891,6 +900,26 @@ router:
 ```
 
 **比较语义（v6 决议 #T-12）**：判定为 `confidence < threshold` 时触发 `ask_user`——**严格小于**；`confidence == threshold` 视为通过，直接 mount。理由：阈值是"够好就放行"的下界，等号语义偏向减少打扰。
+
+### 4.3 Domain layering（M8 introduces; binding from M8 onward）
+
+CodeNook v6 has four layers, each with a tightly scoped domain awareness budget. The full rationale and lint rules live in [`docs/v6/router-agent-v6.md`](./router-agent-v6.md) §2. Summary:
+
+| Layer | Component | Domain awareness | Reads |
+|-------|-----------|------------------|-------|
+| **Conductor** | Main session (`shell.md` / `CLAUDE.md`) | **NONE** — protocol + UX only | Spawn responses, HITL prompt strings, `router-reply.md` (opaque) |
+| **Specialist** | Router agent (M8) | **FULL** — picks plugin, builds config, consults knowledge | `plugins/*/plugin.yaml`, plugin + workspace `knowledge/`, `applies_to / keywords / examples / anti_examples` |
+| **Metronome** | `orchestrator-tick`, `session-resume`, `hitl-adapter` | **NONE** — driven by plugin yaml | `phases.yaml`, `transitions.yaml`, `hitl-gates.yaml`, `state.json` |
+| **Performers** | Phase agents (implementer, designer, …) | **FULL** per role | Role profile + manifest template + criteria |
+
+**Hard rules** (enforced by an M8.6 lint test that scans `templates/CLAUDE.md` / `core/shell.md`):
+
+1. Main session must NEVER read `plugins/*/plugin.yaml`, `knowledge/`, `applies_to`, `keywords`, `examples`, `anti_examples`, or any plugin id by name.
+2. Router-agent is the **sole** domain interpreter on the task-creation side.
+3. `orchestrator-tick` / `hitl-adapter` / `session-resume` are protocol surfaces; main session may invoke them but treats their output opaquely.
+4. Plugin / skill discovery from main session is forbidden — main session only knows that the `router-agent` skill exists and how to spawn it.
+
+This subsection supersedes any earlier prose that suggested main session may read plugin manifests for routing or HITL decisions.
 
 ## 5. Plugin 契约
 
@@ -1504,3 +1533,13 @@ Run `./init.sh --upgrade-core` (recommended) or install a compatible plugin vers
 43. ✅ **#43**（§3.2.4.2）未知 tier 符号（如 `tier_super_strong`）→ stderr warning + 回退 `tier_strong`，**不抛错**；`_provenance.resolved_via="fallback:tier_strong"`，与字面值不在 catalog 时的 fallback 口径一致，避免 plugin 用前瞻型 tier 名 hard-block 工作区
 44. ✅ **#44**（§3.2.4.1 / §3.2.4.2）Layer 0 同时发布 `models.default = tier_strong` **和** `models.router = tier_strong`；router 例外只读 Layer 0/2，使"plugin 写的 router 值被忽略"成为可机械化测试的不变量
 45. ✅ **#45**（§3.2.4）`config.yaml` 顶层 key 白名单固化为 10 项：`models / hitl / knowledge / concurrency / skills / memory / router / plugins / defaults / secrets`；其它 key 由 `config-validate` 报 `unknown_top_key` 错误
+
+**M8 ratified decisions** (router-agent spec, 2026-05; full detail in [`docs/v6/router-agent-v6.md`](./router-agent-v6.md)):
+
+46. ✅ **#46** (router-agent §3, §5) Router-agent is a **stateless real subagent + file-backed memory**. Each user turn re-spawns a fresh subagent that reads `tasks/<tid>/router-context.md` to reconstitute the conversation; no in-process state survives across turns.
+47. ✅ **#47** (router-agent §4.1) `router-context.md` is **YAML frontmatter + markdown chat body**. Frontmatter is the source of truth for router state (`state`, `turn_count`, `draft_config_path`, `selected_plugin`, `decisions[]`); body is the alternating `### user` / `### router` chat log.
+48. ✅ **#48** (router-agent §8) On user confirmation, the **router-agent itself** invokes `init-task` (writing `state.json`) and the first `orchestrator-tick`, then exits with `{action:"handoff", task_id, tick_status, next_phase}`. Main session does not call `init-task` directly.
+49. ✅ **#49** (router-agent §7) Router-agent reads **workspace knowledge** (`.codenook/knowledge/**/*.md`) **+ plugin-shipped knowledge** (`plugins/<installed>/knowledge/**/*.md`). `memory/<plugin>/` is excluded in M8. Per-turn cap: **20 documents**.
+50. ✅ **#50** (router-agent §6) **Per-task `fcntl` exclusive lock** on `tasks/<tid>/router.lock`, acquired by main session before each spawn. Stale lock recovery threshold pinned at **300 seconds** (5 min); lock file carries `{pid, hostname, started_at, task_id}` JSON for stale detection.
+51. ✅ **#51** (router-agent §2; architecture §4.3) **Domain layering** — main session is **domain-agnostic** (Conductor); router-agent is the **sole domain interpreter** on the task-creation side (Specialist); `orchestrator-tick` / `hitl-adapter` / `session-resume` are protocol surfaces (Metronome); phase agents are domain-aware per role (Performers). Enforced by an M8.6 lint test scanning `templates/CLAUDE.md` for forbidden domain tokens.
+52. ✅ **#52** (router-agent §10) M3 `router-triage` skill and its bats are **removed in M8.7**. M7 `_lib/router_select.py` is **repurposed** as an internal scoring helper of router-agent (Python API only; no CLI entry). `history/router-decisions.jsonl` continues to be written, now by the router-agent, with added `turn` field and `kind: handoff|cancel` records.

@@ -203,6 +203,180 @@
 
 ---
 
+### M8 — Conversational Router Agent
+
+> Replaces M3 `router-triage` + M7 `_lib/router_select.py` shim with a stateless
+> subagent + file-backed memory that holds a multi-turn dialog, consults
+> knowledge, drafts a task config for explicit user confirmation, and hands
+> off to `orchestrator-tick` itself. Canonical spec:
+> [`docs/v6/router-agent-v6.md`](../v6/router-agent-v6.md). Ratified decisions
+> #46–#52 (architecture §12) are non-negotiable across all M8.x.
+
+**依赖**：M4（tick contract stable）、M5（config-resolve / config-validate ready）、M7（`_lib/router_select.py` available for reuse）
+
+#### M8.0 — Spec doc
+
+**Scope**: Author the canonical router-agent spec; align architecture §4 / §12 and this implementation doc.
+
+**Deliverables**:
+- `docs/v6/router-agent-v6.md` — full spec (motivation, domain layering, lifecycle, schemas, prompt contract, concurrency, knowledge, handoff, termination, removal, open items).
+- `docs/v6/architecture-v6.md` §4 — banner pointing at the new doc; new §4.3 "Domain layering"; decisions #46–#52 appended to §12.
+- `docs/v6/implementation-v6.md` — this M8 section (M8.0–M8.8).
+
+**DoD**:
+1. New spec doc exists and is referenced from architecture §4 and §12.
+2. Architecture §4.3 lists the four-layer table and the four hard rules.
+3. Decisions #46–#52 present in architecture §12 with cross-references.
+4. No code under `skills/` or `plugins/` is modified.
+
+→ 设计依据：`docs/v6/router-agent-v6.md` §1–§11
+
+#### M8.1 — Schemas + filesystem layout
+
+**Scope**: Lock down the four task-local files (`router-context.md`, `draft-config.yaml`, `router-reply.md`, `router.lock`) and ship the read/write helpers.
+
+**Deliverables**:
+- JSON-Schema-lite definitions for `router-context.md` frontmatter and `draft-config.yaml` (validated via `_lib/jsonschema_lite.py`).
+- `_lib/router_context.py`: read frontmatter + body; append a turn (atomic via temp-file + rename); mutate frontmatter (`turn_count++`, `decisions[].append`, `state` transitions); write/rewrite `draft-config.yaml` with `_draft_revision` bump.
+- `_lib/router_reply.py`: write `router-reply.md` with optional `awaiting:` frontmatter.
+- bats: schema validation (positive + negative); atomic-append survives concurrent readers; frontmatter integrity after `decisions[]` append; `_draft_revision` monotonicity.
+
+**DoD**:
+1. All four schemas in `docs/v6/router-agent-v6.md` §4 round-trip through the helpers without loss.
+2. A malformed `state` value or unknown frontmatter key is rejected with a `path`-tagged error.
+3. Concurrent append from two processes never produces a partial write (verified by a bats stress loop).
+
+→ 设计依据：`docs/v6/router-agent-v6.md` §4
+
+#### M8.2 — `router-agent` skill (subagent prompt + spawn entry)
+
+**Scope**: The skill the main session invokes. Defines the subagent's system prompt and the dispatch entry point.
+
+**Deliverables**:
+- `skills/codenook-core/skills/builtin/router-agent/SKILL.md` — skill descriptor + invocation contract.
+- `skills/codenook-core/skills/builtin/router-agent/spawn.sh` — main-session-callable CLI: `spawn.sh --task <tid>`. Acquires lock (delegated to `_lib/task_lock.py`, M8.4), dispatches the subagent, reads its JSON exit, releases lock, prints JSON to stdout.
+- `skills/codenook-core/skills/builtin/router-agent/prompt.md` — long-form system prompt enforcing the §5 contract (read context → enumerate plugins → enumerate knowledge → decide → write reply → optionally handoff → exit JSON).
+- `dispatch_subagent.sh` adapter abstraction (with at least a Claude-Task-tool adapter; Copilot CLI adapter stubbed; plain-shell adapter as fallback). Open item from §11.
+- Pin per-turn caps in prompt: knowledge ≤20 docs/turn (§7.3), no extra `orchestrator-tick` invocations.
+- bats: `spawn.sh` CLI contract (exit codes, JSON shape); prompt template renders without unbound vars; missing task dir → clear error.
+
+**DoD**:
+1. `spawn.sh --task T-XXX` returns within budget and prints exactly one JSON line on stdout matching `{action: reply|handoff|cancelled, …}`.
+2. Prompt template covers all 9 items in §5 verbatim or by structural equivalent.
+3. With a stub subagent that only echoes a fixed reply, end-to-end spawn → reply → release lock works.
+
+→ 设计依据：`docs/v6/router-agent-v6.md` §3, §5, §11
+
+#### M8.3 — Knowledge + plugin discovery within router agent
+
+**Scope**: The two index helpers the router-agent calls during a turn. These helpers are router-private — main session must not import them (enforced by §M8.6 lint).
+
+**Deliverables**:
+- `_lib/plugin_manifest_index.py`: enumerate `<workspace>/.codenook/plugins/*/plugin.yaml`; expose `{id, summary, applies_to, keywords, examples, anti_examples, routing.priority, data_layout, data_root, config_schema_path}`. Skip plugins listed in `config.yaml.plugins.disabled`. Always include builtin `generic` last.
+- `_lib/knowledge_index.py`: enumerate workspace + plugin-shipped knowledge (read-only ToC); on-demand body fetch via `read(path)`; raises `KnowledgeBudgetExceeded` after the 20th body fetch in a single helper-instance lifetime.
+- `_lib/router_select.py`: M7 helper repurposed; CLI entry removed; Python API `score(input, catalog) → [{plugin, score, rationale}]` retained.
+- bats: index correctness with 3 plugins installed (generic + 2 fixtures); disabled plugin omitted; per-turn knowledge cap raises after 20 reads; ToC fetch does not count against the cap.
+
+**DoD**:
+1. With `development` + `writing` + `generic` installed, the catalog returns three entries in priority+generic-last order.
+2. ToC for a fixture workspace returns the expected paths and titles.
+3. The 20-doc cap is enforced and surfaces a structured error to the router prompt.
+
+→ 设计依据：`docs/v6/router-agent-v6.md` §5, §7
+
+#### M8.4 — Concurrency + lock
+
+**Scope**: Per-task fcntl lock with stale recovery; no cross-task blocking.
+
+**Deliverables**:
+- `_lib/task_lock.py`: `acquire(task_id, *, blocking=True, timeout=60, stale_after=300)` and `release(task_id)`. Lock target is `tasks/<tid>/router.lock`; payload is the JSON described in §4.4. Stale recovery: if `started_at` older than `stale_after` AND `pid` not alive on local `hostname`, force-release and retry once.
+- Main-session-side wait budget: 60s default (configurable via `config.yaml.router.lock_wait_seconds`).
+- bats: two parallel `spawn.sh` invocations on the **same** task → second blocks until first exits; two parallel invocations on **different** tasks → both run concurrently; killed-holder simulation → stale recovery succeeds after the 5-min threshold (test uses a low override).
+
+**DoD**:
+1. Concurrent same-task contention always serialises with no lost turns.
+2. Cross-task contention never blocks.
+3. Stale lock with dead pid is recovered automatically; stale lock with live pid is respected.
+
+→ 设计依据：`docs/v6/router-agent-v6.md` §6
+
+#### M8.5 — Handoff to orchestrator
+
+**Scope**: The single turn on which the router-agent crosses from drafting to materialising state.
+
+**Deliverables**:
+- Handoff branch in `prompt.md` enforcing the §8.1 sequence (validate draft → strip `_draft*` → call `init-task` → update frontmatter → call `orchestrator-tick` once → capture status → write final `router-reply.md` → exit JSON with `action: handoff, tick_status, next_phase`).
+- `init-task` invocation contract: `init-task --task <tid> --plugin <p> --config <path>` writes `state.json` with `phase: null, plugin: <p>, config: …, status: ready`.
+- bats: full draft → confirm → handoff path. Asserts `state.json` materialised with the expected `config` block, `draft-config.yaml._draft` is no longer present in `state.json.config`, first tick status is captured in the exit JSON, and `router-context.md.state == confirmed`.
+
+**DoD**:
+1. After handoff, `tasks/<tid>/state.json` exists and validates against the M4 task schema.
+2. Exactly one `orchestrator-tick` invocation occurs in the handoff turn.
+3. The router-agent does not modify `state.json` after handoff (verified by mtime check across a no-op subsequent attempt).
+
+→ 设计依据：`docs/v6/router-agent-v6.md` §8
+
+#### M8.6 — Main session protocol (CLAUDE.md) + domain-layering linter
+
+**Scope**: Update the main session's behavioural contract to be **domain-agnostic**, and add a lint test that mechanically enforces it.
+
+**Deliverables**:
+- `templates/CLAUDE.md` updates:
+  - "New task" intent → MUST spawn `router-agent` (no plugin / knowledge inspection by main session).
+  - User-turn relay protocol: write user turn to `router-context.md`, spawn, read `router-reply.md`, relay verbatim.
+  - HITL relay: read `hitl-queue/*.json`, show prompt verbatim, capture user answer, call `hitl-adapter terminal.sh decide`. No interpretation of gate semantics.
+  - Tick driver loop: after `action: handoff`, poll `orchestrator-tick`; treat `status` (`advanced` / `waiting` / `done` / `blocked`) opaquely; never read `state.json` or phase artifacts.
+  - Termination: confirm / cancel / cap reached / lock timeout.
+- `tests/m8-domain-lint.bats`: scans `templates/CLAUDE.md` (and any shipped `core/shell.md`) for forbidden domain tokens (`plugins/`, `applies_to`, `keywords:`, `examples:`, `anti_examples`, `knowledge/`, `phases.yaml`, `transitions.yaml`, `hitl-gates.yaml`, plugin ids by name: `development`, `writing`, `generic`, helper module names: `router_select`, `plugin_manifest_index`). Fails the suite on any match outside fenced quote blocks.
+- bats: happy-path simulation script (no real LLM) — drives 3-turn dialog via a stub subagent, asserts main-session-side state transitions.
+
+**DoD**:
+1. `tests/m8-domain-lint.bats` passes against the updated template.
+2. The lint test fails as expected when a forbidden token is intentionally introduced (negative test).
+3. Happy-path simulation (3 turns, confirm on turn 3) ends with `state.json` materialised and exit JSON `action: handoff`.
+
+→ 设计依据：`docs/v6/router-agent-v6.md` §2, §3, §9
+
+#### M8.7 — Remove router-triage
+
+**Scope**: Decommission the M3 one-shot router and the public M7 router-select CLI.
+
+**Deliverables**:
+- Delete `skills/codenook-core/skills/builtin/router-triage/` (skill dir + any helper).
+- Delete `tests/m3-router-triage.bats` and any other tests that import `router-triage`.
+- Drop `_lib/router_select.py`'s CLI entry (if any); retain Python API for router-agent's internal use.
+- Search-and-update any docs / examples / scaffolding references to `router-triage` → `router-agent`.
+- `history/router-decisions.jsonl` writer relocated into router-agent; entry schema gains `turn: int` and `kind: handoff|cancel`.
+
+**DoD**:
+1. `rg -n 'router-triage' skills/ plugins/ tests/` returns no hits.
+2. Full bats suite passes (588 → adjusted count) with `router-triage` deleted.
+3. `_lib/router_select.py` is no longer importable as a CLI entry.
+
+→ 设计依据：`docs/v6/router-agent-v6.md` §10
+
+#### M8.8 — Multi-turn E2E acceptance
+
+**Scope**: Real CLI test in a clean workspace exercising the full conversational lifecycle alongside parallel tasks for isolation proof.
+
+**Deliverables**:
+- `tests/e2e/m8-router-agent.sh`:
+  - Init a workspace; install `development` + `writing` plugins.
+  - Simulate main session driving a 3-turn dialog for task A (development): clarification → draft review → "go".
+  - In parallel, drive a 2-turn dialog for task B (writing) on a different task id.
+  - Assert: both `state.json`s materialised; both `draft-config.yaml`s frozen (no leftover `_draft: true` in state.json); first tick of each task advances; per-task lock files created and released; no cross-task blocking observed (timing assertion).
+- Latency / token budget logging for §11 open item #2 (knowledge ToC caching).
+
+**DoD**:
+1. E2E script exits 0.
+2. `tasks/T-A/state.json.config.plugin == "development"` and `tasks/T-B/state.json.config.plugin == "writing"`.
+3. `tasks/T-A/router-context.md.state == confirmed` and `turn_count == 3`; same shape for T-B.
+4. Combined wall-clock for parallel run ≤ 1.2× the slower task's serial run (loose isolation check).
+
+→ 设计依据：`docs/v6/router-agent-v6.md` §3, §6, §8, §9
+
+---
+
 ## 第二部分：逐 Milestone 实现细节
 
 ### M1 — 内核骨架
