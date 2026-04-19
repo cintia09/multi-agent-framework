@@ -145,6 +145,48 @@ render_prompt_path() {
   echo "$1/.codenook/tasks/$2/.router-prompt.md"
 }
 
+# seed_mock_llm <mock_dir> <call_name> <text>
+# Drops a deterministic mock fixture for _lib/llm_call.py to consume via
+# CN_LLM_MOCK_DIR. Used by M10.4 chain_summarize bats.
+seed_mock_llm() {
+  local mock_dir="$1" call_name="$2" text="$3"
+  mkdir -p "$mock_dir"
+  printf '%s' "$text" >"$mock_dir/${call_name}.txt"
+}
+
+# make_ancestor_with_briefs <ws> <tid> <title> [phase] [status] [brief]
+# Like make_task_with_brief but fills the richer surface chain_summarize
+# reads: state.json (title/phase/status), draft-config.yaml (input=brief).
+# Caller adds design.md/decisions.md/etc. and outputs/ files separately.
+make_ancestor_with_briefs() {
+  local ws="$1" tid="$2" title="$3" phase="${4:-implement}" status="${5:-done}" brief="${6:-}"
+  local dir="$ws/.codenook/tasks/$tid"
+  mkdir -p "$dir/outputs"
+  WS_DIR="$dir" TID="$tid" TITLE="$title" PHASE="$phase" STATUS="$status" python3 - <<'PY'
+import json, os
+state = {
+    "schema_version": 1,
+    "task_id": os.environ["TID"],
+    "title": os.environ["TITLE"],
+    "plugin": "development",
+    "phase": os.environ["PHASE"],
+    "iteration": 0,
+    "max_iterations": 5,
+    "status": os.environ["STATUS"],
+    "history": [],
+}
+with open(os.path.join(os.environ["WS_DIR"], "state.json"), "w") as f:
+    json.dump(state, f, indent=2)
+PY
+  if [ -n "$brief" ]; then
+    cat >"$dir/draft-config.yaml" <<YAML
+_draft: true
+plugin: "development"
+input: "$brief"
+YAML
+  fi
+}
+
 # m10_router_render <task_id> <ws> [extra args...]
 # Invoke render_prompt.py with PYTHONPATH=$M10_LIB_DIR.
 m10_router_render() {
