@@ -1,0 +1,54 @@
+# draft-config.yaml schema — M5 YAML DSL
+# (per docs/v6/router-agent-v6.md §4.2)
+#
+# Mirrors the eventual state.json.config block plus a `_draft: true`
+# sentinel that prevents orchestrator-tick from ever loading the file
+# as if it were final state.
+
+fields:
+  _draft:
+    type: boolean
+    required: true
+  _draft_revision:
+    type: integer
+    min: 0
+  _draft_updated_at:
+    type: string
+    min_length: 1
+
+  plugin:
+    type: string
+    required: true
+    min_length: 1
+  input:
+    type: string
+    required: true
+    min_length: 1
+  target_dir:
+    type: string
+  dual_mode:
+    type: boolean
+  max_iterations:
+    type: integer
+    min: 1
+
+  models:
+    type: object
+    fields:
+      implementer: { type: string, enum: [tier_strong, tier_balanced, tier_cheap] }
+      reviewer:    { type: string, enum: [tier_strong, tier_balanced, tier_cheap] }
+      planner:     { type: string, enum: [tier_strong, tier_balanced, tier_cheap] }
+      designer:    { type: string, enum: [tier_strong, tier_balanced, tier_cheap] }
+      tester:      { type: string, enum: [tier_strong, tier_balanced, tier_cheap] }
+      acceptor:    { type: string, enum: [tier_strong, tier_balanced, tier_cheap] }
+      validator:   { type: string, enum: [tier_strong, tier_balanced, tier_cheap] }
+      distiller:   { type: string, enum: [tier_strong, tier_balanced, tier_cheap] }
+      clarifier:   { type: string, enum: [tier_strong, tier_balanced, tier_cheap] }
+
+  hitl_overrides:
+    type: object
+    fields:
+      accept: { type: string, enum: [required, optional, skip] }
+
+  custom:
+    type: object

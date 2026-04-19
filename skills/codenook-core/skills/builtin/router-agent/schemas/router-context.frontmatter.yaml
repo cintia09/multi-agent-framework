@@ -1,0 +1,47 @@
+# router-context.md frontmatter schema — M5 YAML DSL
+# (per docs/v6/router-agent-v6.md §4.1; consumed by _lib/router_context.py)
+#
+# This is NOT JSON-Schema draft-07. It uses the same DSL shape as
+# plugins/development/config-schema.yaml: top-level `fields:` mapping,
+# each entry has type/required/enum/min/min_length and (for objects)
+# nested `fields:`. See skills/builtin/config-validate/_validate.py for
+# the full grammar.
+
+fields:
+  task_id:
+    type: string
+    required: true
+    min_length: 3
+  created_at:
+    type: string
+    required: true
+    min_length: 1
+  started_at:
+    type: string
+    required: true
+    min_length: 1
+  state:
+    type: string
+    required: true
+    enum: [drafting, confirmed, cancelled]
+  turn_count:
+    type: integer
+    required: true
+    min: 0
+  draft_config_path:
+    # M5 DSL has no native nullable type; null is accepted at runtime
+    # by router_context.py (the helper relaxes the string check when the
+    # value is None — see the helper for details).
+    type: string
+    required: true
+  selected_plugin:
+    type: string
+    required: true
+  decisions:
+    # Each entry is {ts, turn, kind, detail}; element shape is enforced
+    # by router_context.py rather than the DSL (the DSL has no `items`).
+    type: array
+    required: true
+  last_router_action:
+    type: string
+    enum: [reply, handoff, cancelled]

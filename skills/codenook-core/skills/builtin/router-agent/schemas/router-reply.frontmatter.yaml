@@ -1,0 +1,11 @@
+# router-reply.md frontmatter schema — M5 YAML DSL
+# (per docs/v6/router-agent-v6.md §4.3)
+#
+# All fields optional. The frontmatter is a HINT to the main session
+# about what input the router is awaiting next. Authoritative state
+# lives in router-context.md.
+
+fields:
+  awaiting:
+    type: string
+    enum: [confirmation, clarification, target_dir, cancel_ack, none]

@@ -1,0 +1,27 @@
+# router.lock JSON-payload schema — M5 YAML DSL
+# (per docs/v6/router-agent-v6.md §4.4 / §6)
+#
+# While locked, router.lock contains a JSON object identifying the
+# holder. This schema describes that JSON payload (it is not the
+# fcntl semantics — those are enforced by _lib/task_lock.py in M8.4).
+
+fields:
+  pid:
+    type: integer
+    required: true
+    min: 1
+  hostname:
+    type: string
+    required: true
+    min_length: 1
+  started_at:
+    type: string
+    required: true
+    min_length: 1
+  task_id:
+    type: string
+    required: true
+    min_length: 3
+  purpose:
+    type: string
+    enum: [router-agent-spawn]
