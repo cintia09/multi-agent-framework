@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  🧪 <strong>v5.0 POC available</strong> — clean-slate workspace-OS redesign in <a href="skills/codenook-v5-poc/README.md"><code>skills/codenook-v5-poc/</code></a> (router-only main session, Mode B sub-agents, OS-keyring credentials, mandatory startup security audit). Not part of the v4.9.5 stable installer.
+  🚀 <strong>v0.11.0 · v6 plugin architecture</strong> — two-layer codebase: <a href="skills/codenook-core/README.md"><code>skills/codenook-core/</code></a> (kernel + builtin skills + <code>init.sh</code>) plus <a href="plugins/"><code>plugins/</code></a> (development / writing / generic) installed per-workspace. Design, milestones, and test plan in <a href="docs/v6/README.md"><code>docs/v6/</code></a>.
 </p>
 
 <p align="center">
@@ -31,6 +31,7 @@
   <a href="#architecture">Architecture</a> ·
   <a href="#hitl-multi-adapter-system">HITL</a> ·
   <a href="#agent-profiles">Agent Profiles</a> ·
+  <a href="docs/v6/README.md">v6 Docs</a> ·
   <a href="blog/vibe-coding-and-multi-agent.md">Blog</a> ·
   <a href="https://github.com/cintia09/CodeNook/releases">Changelog</a>
 </p>
@@ -295,7 +296,7 @@ You approve or provide feedback at each of the 10 HITL gates. That's it.
 
 ```json
 {
-  "version": "4.9.5",
+  "version": "0.11.0",
   "active_task": null,
   "tasks": [{
     "id": "T-001",
@@ -480,7 +481,7 @@ After initialization, `codenook/config.json` lives under `.claude/codenook/`:
 
 ```json
 {
-  "version": "4.9.5",
+  "version": "0.11.0",
   "platform": "<claude-code|copilot-cli>",
   "models": {
     "acceptor":    "claude-opus-4.6",
@@ -594,9 +595,11 @@ You can change configuration at any time through natural language:
 
 The orchestrator backs up `codenook/task-board.json` to `codenook/task-board.json.bak` before every write. On restart, it reads the task board and resumes from the current status — no in-memory state needed.
 
-## Migrating from v3.x / v4.x
+## Historical Evolution (v3.x → v4.x → v6)
 
-v4.9.5 adds build verification, 3-stage code review, module/system device testing, and preflight checks on top of v4.9's dual-agent cross-examination, Phase Constitution, and knowledge accumulation. Key changes:
+CodeNook's current architecture (v0.10/v0.11) is the v6 plugin-architecture redesign — a two-layer codebase where `skills/codenook-core/` provides the kernel + builtin skills + workspace `init.sh`, and `plugins/` (development, writing, generic) ship per-workspace pipelines. See [`docs/v6/`](docs/v6/README.md) for the full design, milestones, and test plan.
+
+The legacy v4.9.5 stable agent system (still installed by the root `install.sh` for backwards compatibility) added build verification, 3-stage code review, module/system device testing, and preflight checks on top of v4.9's dual-agent cross-examination, Phase Constitution, and knowledge accumulation. Key changes across the lineage:
 
 | v3.x | v4.0–4.2 | v4.9+ |
 |------|----------|------|
@@ -623,7 +626,7 @@ v4.9.5 adds build verification, 3-stage code review, module/system device testin
 
 **From v3.x:**
 1. Remove old global skills, hooks, and rules from `~/.claude/` or `~/.copilot/`
-2. Install v4.9.5 (`curl` one-liner or manual copy)
+2. Install v0.11.0 (`curl` one-liner or manual copy)
 3. In your project, run "initialize agent system" to generate new files
 4. Migrate existing tasks manually if needed
 

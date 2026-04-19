@@ -1,4 +1,4 @@
-# CodeNook Pipeline — Full Workflow (v4.9.5+)
+# CodeNook Pipeline — Full Workflow (v0.11.0+)
 
 ## Overview
 
@@ -208,4 +208,4 @@ Each phase asks configuration questions before starting. Key ones:
 
 ---
 
-*Generated for CodeNook v4.9.5+*
+*Generated for CodeNook v0.11.0+*

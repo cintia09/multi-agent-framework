@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# CodeNook v4.9.5 (stable) + v5.0 POC Installer
+# CodeNook v0.11.0 Installer
 # Usage: curl -sL https://raw.githubusercontent.com/cintia09/CodeNook/main/install.sh | bash
 #
-# Note: v5.0 POC is shipped under skills/codenook-v5-poc/ but is not
-# auto-initialized. To try it in a project, see skills/codenook-v5-poc/README.md.
+# This installer ships the codenook-init skill (legacy v4.9.5 stable
+# agent system). The v6 plugin-architecture kernel lives under
+# skills/codenook-core/ and is exercised via its own init.sh; see
+# docs/v6/ for design and milestone references.
 
-VERSION="latest"
+VERSION="0.11.0"
 REPO="https://github.com/cintia09/CodeNook.git"
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/CodeNook.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT
