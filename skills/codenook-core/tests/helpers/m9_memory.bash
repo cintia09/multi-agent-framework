@@ -49,6 +49,30 @@ ml.write_knowledge(
 PY
 }
 
+# m9_write_skill <ws> <name> <summary> <tags-csv> <body>
+m9_write_skill() {
+  local ws="$1" name="$2" summary="$3" tags_csv="$4" body="$5"
+  PYTHONPATH="$M9_LIB_DIR" WS="$ws" NAME="$name" SUMMARY="$summary" \
+    TAGS="$tags_csv" BODY="$body" python3 - <<'PY'
+import os
+import memory_layer as ml
+ws = os.environ["WS"]
+name = os.environ["NAME"]
+tags = [t for t in os.environ["TAGS"].split(",") if t]
+ml.write_skill(
+    ws,
+    name=name,
+    frontmatter={
+        "name": name,
+        "title": name.replace("-", " ").title(),
+        "summary": os.environ["SUMMARY"],
+        "tags": tags,
+    },
+    body=os.environ["BODY"],
+)
+PY
+}
+
 # m9_seed_n_knowledge <ws> <n> — generate N minimal frontmatter knowledge files.
 m9_seed_n_knowledge() {
   local ws="$1" n="$2"

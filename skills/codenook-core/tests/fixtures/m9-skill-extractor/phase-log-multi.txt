@@ -1,0 +1,16 @@
+# Phase log: 3 distinct repeat-3+ scripts
+
+# Group A (build): 3 invocations
+$ bash scripts/build.sh --release
+$ bash scripts/build.sh --release
+$ bash scripts/build.sh --debug
+
+# Group B (deploy): 3 invocations
+$ python3 deploy.py --env prod
+$ python3 deploy.py --env stage
+$ python3 deploy.py --env dev
+
+# Group C (lint): 3 invocations
+$ npm run lint
+$ npm run lint
+$ npm run lint

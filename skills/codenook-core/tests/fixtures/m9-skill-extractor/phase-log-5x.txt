@@ -1,0 +1,21 @@
+# Phase log: build-runner repeats
+
+Iteration 1:
+  $ bash scripts/build.sh --release
+  build ok
+
+Iteration 2:
+  $ bash scripts/build.sh --release
+  build ok
+
+Iteration 3:
+  $ bash scripts/build.sh --debug
+  build ok
+
+Iteration 4:
+  $ bash scripts/build.sh --release
+  build ok
+
+Iteration 5:
+  $ bash scripts/build.sh --release
+  build ok
