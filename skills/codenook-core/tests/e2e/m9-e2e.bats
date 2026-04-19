@@ -296,10 +296,10 @@ wait_for_path() {
   # field (would indicate a duplicated write that the dedup step
   # missed). Each parallel task feeds a different body so collisions
   # would be a real bug.
-  dups=$(grep -h '^hash:' "$ws/.codenook/memory/knowledge"/*.md | sort \
+  dups=$(grep -h '^dedup_hash:' "$ws/.codenook/memory/knowledge"/*.md | sort \
            | uniq -c | awk '$1 > 1' | wc -l | tr -d ' ')
   [ "$dups" -eq 0 ] || { echo "duplicate hashes detected"; \
-    grep -H '^hash:' "$ws/.codenook/memory/knowledge"/*.md; return 1; }
+    grep -H '^dedup_hash:' "$ws/.codenook/memory/knowledge"/*.md; return 1; }
 
   # Audit log captures all three dispatches.
   log="$ws/.codenook/memory/history/extraction-log.jsonl"

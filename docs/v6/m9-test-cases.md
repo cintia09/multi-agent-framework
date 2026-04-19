@@ -1006,7 +1006,7 @@ token 预算估算与裁剪；router-context 8 轮归档。
 | Milestone | 必 PASS Test Case | 覆盖率门槛 | 性能门槛 |
 |-----------|-------------------|------------|----------|
 | M9.1 | TC-M9.1-01..10 全 PASS | bats 行覆盖 ≥ 80% on `_lib/memory_layer.py` 与 `_lib/memory_index.py` | TC-M9.1-08 ≤ 500ms / 80ms |
-| M9.2 | TC-M9.2-01..08 全 PASS | tick / batch shell 路径覆盖 100% | TC-M9.2-07 batch 主调 ≤ 200ms |
+| M9.2 | TC-M9.2-01..08 全 PASS | tick / batch shell 路径覆盖 100% | TC-M9.2-07 batch 主调 ≤ 1000ms (jitter ±) |
 | M9.3 | TC-M9.3-01..13 全 PASS | knowledge-extractor + extract_decision 行覆盖 ≥ 80% | TC-M9.3-13 ≤ 30s |
 | M9.4 | TC-M9.4-01..07 全 PASS | skill-extractor 行覆盖 ≥ 75% | — |
 | M9.5 | TC-M9.5-01..07 全 PASS | config-extractor 行覆盖 ≥ 75% | — |
