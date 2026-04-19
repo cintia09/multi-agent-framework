@@ -90,3 +90,30 @@ tc_state_field() {
   local ws="$1" tid="$2" key="$3"
   jq -r ".${key}" "$ws/.codenook/tasks/$tid/state.json"
 }
+
+# make_task_with_brief <ws> <task_id> <title> <summary> [status]
+# Like make_task but sets title + summary (the "brief" surface used by
+# parent_suggester to build candidate token sets).
+make_task_with_brief() {
+  local ws="$1" tid="$2" title="$3" summary="$4" status="${5:-in_progress}"
+  local dir="$ws/.codenook/tasks/$tid"
+  mkdir -p "$dir/outputs"
+  WS_DIR="$dir" TID="$tid" TITLE="$title" SUMMARY="$summary" STATUS="$status" \
+    python3 - <<'PY'
+import json, os
+state = {
+    "schema_version": 1,
+    "task_id": os.environ["TID"],
+    "title": os.environ["TITLE"],
+    "summary": os.environ["SUMMARY"],
+    "plugin": "development",
+    "phase": "design",
+    "iteration": 0,
+    "max_iterations": 5,
+    "status": os.environ["STATUS"],
+    "history": [],
+}
+with open(os.path.join(os.environ["WS_DIR"], "state.json"), "w") as f:
+    json.dump(state, f, indent=2)
+PY
+}
