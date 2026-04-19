@@ -42,6 +42,7 @@ sys.path.insert(0, str(_LIB))
 
 import draft_config as dc          # noqa: E402
 import knowledge_index as ki       # noqa: E402  (kept for prompt-side reference)
+import memory_layer as ml          # noqa: E402  (M9.6 — match_entries_for_task)
 import plugin_manifest_index as pmi  # noqa: E402
 import role_index as ri            # noqa: E402
 import router_context as rc        # noqa: E402
@@ -126,6 +127,47 @@ def _render_overlay(overlay: dict) -> str:
     )
 
 
+def _build_task_brief(ctx: dict, user_turn: str) -> str:
+    """Concatenate every user-authored snippet so far so the matcher
+    has the broadest possible token set (M9.6)."""
+    parts: list[str] = []
+    if user_turn:
+        parts.append(user_turn)
+    for t in ctx.get("turns", []):
+        if t.get("role") == "user":
+            parts.append(str(t.get("content") or ""))
+    return " ".join(p for p in parts if p)
+
+
+def _render_memory_index(matches: list[dict]) -> str:
+    """Render the M9.6 MEMORY_INDEX block (one line per matched entry).
+
+    Empty match set yields an explicit ``empty`` marker so the LLM
+    knows we *checked* and found nothing (vs the section being omitted
+    by accident)."""
+    if not matches:
+        return (
+            "## MEMORY_INDEX (M9.6): empty\n"
+            "_(no memory entries matched this task brief)_"
+        )
+    header = (
+        "## MEMORY_INDEX (M9.6)\n"
+        "The following memory entries match this task brief "
+        "(applies_when ∩ brief tokens). Cite by `path` when applying.\n"
+    )
+    lines: list[str] = []
+    for m in matches:
+        aw = m.get("applies_when") or "always"
+        title = m.get("title") or m.get("key") or m.get("path", "?")
+        summary = (m.get("summary") or "").strip()
+        suffix = f" — {summary}" if summary else ""
+        lines.append(
+            f"- [{m['asset_type']}] {title} "
+            f"(applies_when: {aw}){suffix}"
+        )
+    return header + "\n".join(lines)
+
+
 def _render_turns(turns: list[dict]) -> str:
     if not turns:
         return "_(no turns recorded yet)_"
@@ -147,6 +189,15 @@ def render_prompt(*, task_id: str, workspace: Path,
     roles_by_plugin = ri.aggregate_roles(codenook_root)
     overlay = wo.overlay_bundle(workspace)
 
+    # M9.6 — deterministic applies_when matcher (no LLM inline).
+    task_brief = _build_task_brief(ctx, user_turn)
+    try:
+        memory_matches = ml.match_entries_for_task(
+            workspace, task_brief, source_task=task_id,
+        )
+    except Exception:
+        memory_matches = []
+
     fm_yaml = yaml.safe_dump(
         ctx["frontmatter"], sort_keys=False, allow_unicode=True
     ).rstrip()
@@ -162,6 +213,7 @@ def render_prompt(*, task_id: str, workspace: Path,
         ),
         "{{ROLES}}": _render_roles_index(roles_by_plugin),
         "{{OVERLAY}}": _render_overlay(overlay),
+        "{{MEMORY_INDEX}}": _render_memory_index(memory_matches),
         "{{CONTEXT_FRONTMATTER}}": fm_yaml,
         "{{CONTEXT}}": _render_turns(ctx["turns"]),
         "{{USER_TURN}}": user_block,

@@ -585,15 +585,215 @@ def promote_config_entry(workspace_root: Path | str, key: str) -> None:
     )
 
 
+# --------------------------------------------------- M9.6 matcher constants
+
+_DEFAULT_ASSET_TYPES = ("knowledge", "skill", "config")
+_MATCH_RESULT_CAP = 20
+
+# applies_when tokens are split on commas, pipes, slashes and whitespace
+# (see plan.md decision #4 / docs §4.3).
+_AW_SPLIT_RE = re.compile(r"[,|/\s]+")
+# task brief tokens are non-word splits (lowercased) — mirrors the
+# "lowercase, split on non-word" rule from the M9.6 task spec.
+_BRIEF_SPLIT_RE = re.compile(r"\W+", re.UNICODE)
+
+
+def _tokenize_applies_when(value: Any) -> set[str]:
+    if value is None:
+        return set()
+    if isinstance(value, list):
+        raw = " ".join(str(v) for v in value)
+    else:
+        raw = str(value)
+    return {t for t in (s.lower() for s in _AW_SPLIT_RE.split(raw)) if t}
+
+
+def _tokenize_brief(brief: str) -> set[str]:
+    return {t for t in (s.lower() for s in _BRIEF_SPLIT_RE.split(brief or "")) if t}
+
+
+def _config_title(entry: dict[str, Any]) -> str:
+    val = entry.get("value")
+    if val is None:
+        return str(entry.get("key", ""))
+    return f"{entry.get('key')}={val}"
+
+
 def match_entries_for_task(
     workspace_root: Path | str,
-    task_brief: str,  # noqa: ARG001 — real impl in M9.6
+    task_brief: str,
+    asset_types: list[str] | None = None,
+    *,
+    cap: int = _MATCH_RESULT_CAP,
+    source_task: str = "",
 ) -> list[dict[str, Any]]:
-    """Stub: returns all entries. Real LLM-driven matching lands in M9.6."""
+    """Deterministic ``applies_when`` matcher used by the router-agent.
+
+    Algorithm (M9.6, plan.md decision #4):
+      * brief is lowercased and split on non-word boundaries;
+      * each entry's ``applies_when`` is split on ``[,|/\\s]+``;
+      * ``score = |applies_when_tokens ∩ brief_tokens|``;
+      * entries with no ``applies_when`` field are treated as ``score=1``
+        when the brief is non-empty (always-applicable, minor relevance);
+      * results with ``score == 0`` are dropped;
+      * sorted by score desc (stable for equal scores);
+      * truncated to *cap* (default 20).
+
+    A single audit record is emitted per call via
+    ``extract_audit.audit`` so callers (router-agent) get observability
+    without doing extra plumbing.
+    """
+    types = list(asset_types) if asset_types else list(_DEFAULT_ASSET_TYPES)
+    brief_tokens = _tokenize_brief(task_brief)
+
+    out: list[dict[str, Any]] = []
+
+    if not brief_tokens:
+        _emit_router_audit(
+            workspace_root,
+            source_task=source_task,
+            matched=0,
+            reason="empty brief — no matching attempted",
+        )
+        return out
+
+    if "knowledge" in types:
+        try:
+            for meta in scan_knowledge(workspace_root):
+                out.append(_score_meta(
+                    meta, brief_tokens, asset_type="knowledge",
+                    title_from=lambda m: m.get("title") or m.get("topic")
+                    or _basename_no_ext(m.get("path", "")),
+                    key_from=lambda m: m.get("topic") or _basename_no_ext(
+                        m.get("path", "")
+                    ),
+                ))
+        except MemoryLayoutError:
+            pass
+
+    if "skill" in types:
+        try:
+            for meta in scan_skills(workspace_root):
+                out.append(_score_meta(
+                    meta, brief_tokens, asset_type="skill",
+                    title_from=lambda m: m.get("title") or m.get("name")
+                    or _basename_no_ext(m.get("path", "")),
+                    key_from=lambda m: m.get("name") or _basename_no_ext(
+                        m.get("path", "")
+                    ),
+                ))
+        except MemoryLayoutError:
+            pass
+
+    if "config" in types:
+        try:
+            cfg_entries = read_config_entries(workspace_root)
+        except (MemoryLayoutError, ConfigSchemaError):
+            cfg_entries = []
+        for entry in cfg_entries:
+            tokens = _tokenize_applies_when(entry.get("applies_when"))
+            if "applies_when" not in entry or entry.get("applies_when") in (
+                None, "",
+            ):
+                score = 1
+            elif tokens == {"always"}:
+                score = 1
+            else:
+                score = len(tokens & brief_tokens)
+            if score <= 0:
+                continue
+            out.append({
+                "asset_type": "config",
+                "path": "memory/config.yaml",
+                "key": entry.get("key"),
+                "title": _config_title(entry),
+                "summary": entry.get("summary", ""),
+                "applies_when": entry.get("applies_when", ""),
+                "score": score,
+            })
+
+    out = [r for r in out if r is not None and r["score"] > 0]
+    # Stable sort by score desc.
+    out.sort(key=lambda r: r["score"], reverse=True)
+    if len(out) > cap:
+        out = out[:cap]
+
+    _emit_router_audit(
+        workspace_root,
+        source_task=source_task,
+        matched=len(out),
+        reason=f"{len(out)} entries matched",
+    )
+    return out
+
+
+def _basename_no_ext(p: str) -> str:
+    base = os.path.basename(p)
+    if base.endswith(".md"):
+        base = base[:-3]
+    return base
+
+
+def _score_meta(
+    meta: dict[str, Any],
+    brief_tokens: set[str],
+    *,
+    asset_type: str,
+    title_from: Callable[[dict[str, Any]], str],
+    key_from: Callable[[dict[str, Any]], str],
+) -> dict[str, Any] | None:
+    aw_raw = meta.get("applies_when")
+    if aw_raw is None or aw_raw == "":
+        score = 1
+        aw_text = ""
+    else:
+        tokens = _tokenize_applies_when(aw_raw)
+        if tokens == {"always"}:
+            score = 1
+        else:
+            score = len(tokens & brief_tokens)
+        aw_text = aw_raw if isinstance(aw_raw, str) else ",".join(
+            str(v) for v in (aw_raw or [])
+        )
+    if score <= 0:
+        return None
+    return {
+        "asset_type": asset_type,
+        "path": meta.get("path", ""),
+        "key": key_from(meta),
+        "title": title_from(meta),
+        "summary": meta.get("summary", ""),
+        "applies_when": aw_text,
+        "score": score,
+    }
+
+
+def _emit_router_audit(
+    workspace_root: Path | str,
+    *,
+    source_task: str,
+    matched: int,
+    reason: str,
+) -> None:
+    """Single audit line per match call. Lazy-imports extract_audit to
+    avoid a circular import (extract_audit imports memory_layer)."""
     try:
-        return read_config_entries(workspace_root)
-    except (MemoryLayoutError, ConfigSchemaError):
-        return []
+        import extract_audit  # noqa: WPS433 — local lazy import
+    except ImportError:
+        return
+    try:
+        extract_audit.audit(
+            workspace_root,
+            asset_type="router",
+            outcome="matched",
+            verdict="noop",
+            reason=reason,
+            source_task=source_task,
+            extra={"matched_count": matched},
+        )
+    except (MemoryLayoutError, OSError):
+        # Audit failure must never break the matcher.
+        pass
 
 
 # ---------------------------------------------------------------- generic

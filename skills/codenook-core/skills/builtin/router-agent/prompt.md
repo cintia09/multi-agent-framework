@@ -39,6 +39,8 @@ propose a confident pick and ask the user to confirm or override.
 
 {{OVERLAY}}
 
+{{MEMORY_INDEX}}
+
 ---
 
 ## Current router-context (frontmatter)
