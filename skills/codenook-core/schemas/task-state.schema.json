@@ -89,6 +89,14 @@
     "created_at": {"type": "string"},
     "updated_at": {"type": "string"},
     "current_focus": {"type": "string"},
-    "last_tick_ts": {"type": "string"}
+    "last_tick_ts": {"type": "string"},
+    "parent_id": {
+      "type": ["string", "null"],
+      "description": "M10 task-chain link: user-confirmed parent task in the same workspace; null = independent."
+    },
+    "chain_root": {
+      "type": ["string", "null"],
+      "description": "M10 cached terminal ancestor of the chain (O(1) root lookup); MUST equal walk_ancestors(...).last when parent_id != null, else null."
+    }
   }
 }
