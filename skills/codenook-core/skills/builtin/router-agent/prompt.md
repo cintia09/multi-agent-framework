@@ -39,6 +39,8 @@ propose a confident pick and ask the user to confirm or override.
 
 {{OVERLAY}}
 
+{{TASK_CHAIN}}
+
 {{MEMORY_INDEX}}
 
 {{PARENT_SUGGESTIONS}}

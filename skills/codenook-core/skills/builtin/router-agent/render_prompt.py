@@ -40,6 +40,7 @@ _HERE = Path(__file__).resolve().parent
 _LIB = _HERE.parent / "_lib"
 sys.path.insert(0, str(_LIB))
 
+import chain_summarize as cs    # noqa: E402  (M10.5 - {{TASK_CHAIN}} slot)
 import draft_config as dc          # noqa: E402
 import knowledge_index as ki       # noqa: E402  (kept for prompt-side reference)
 import memory_layer as ml          # noqa: E402  (M9.6 — match_entries_for_task)
@@ -208,10 +209,27 @@ def _render_turns(turns: list[dict]) -> str:
     return "\n\n".join(blocks)
 
 
+def _render_task_chain(workspace: Path, task_id: str, state: dict) -> str:
+    """M10.5 - render the {{TASK_CHAIN}} slot.
+
+    Spec: docs/v6/task-chains-v6.md section 7.2. Returns "" when the task is
+    a chain root (no parent_id) or when state is missing/empty (first
+    spawn before state.json exists). Any unhandled cs.summarize error
+    is swallowed (cs.summarize itself audits internal failures).
+    """
+    if not state or state.get("parent_id") is None:
+        return ""
+    try:
+        return cs.summarize(workspace, task_id)
+    except Exception:
+        return ""
+
+
 def render_prompt(*, task_id: str, workspace: Path,
                   codenook_root: Path, ctx: dict,
                   user_turn: str,
-                  parent_suggestions: list | None = None) -> str:
+                  parent_suggestions: list | None = None,
+                  state: dict | None = None) -> str:
     template = PROMPT_PATH.read_text(encoding="utf-8")
     plugins = pmi.discover_plugins(codenook_root)
     plugins_summary = pmi.summary_for_router(plugins)
@@ -242,6 +260,7 @@ def render_prompt(*, task_id: str, workspace: Path,
         ),
         "{{ROLES}}": _render_roles_index(roles_by_plugin),
         "{{OVERLAY}}": _render_overlay(overlay),
+        "{{TASK_CHAIN}}": _render_task_chain(workspace, task_id, state or {}),
         "{{MEMORY_INDEX}}": _render_memory_index(memory_matches),
         "{{PARENT_SUGGESTIONS}}": _render_parent_suggestions(
             parent_suggestions or []
@@ -295,6 +314,19 @@ def cmd_prepare(args: argparse.Namespace) -> int:
 
     ctx = rc.read_context(task_dir)
 
+    # M10.5 - load state.json if present so {{TASK_CHAIN}} can decide
+    # whether to invoke chain_summarize. First-spawn case: file does
+    # not yet exist -> state={} -> slot renders empty.
+    state_path = task_dir / "state.json"
+    state: dict = {}
+    if state_path.is_file():
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            if not isinstance(state, dict):
+                state = {}
+        except Exception:
+            state = {}
+
     # M10.3 — surface top-3 parent candidates. Failures here MUST not
     # break prepare; suggester already audits its own errors.
     child_brief = _build_task_brief(ctx, user_turn)
@@ -318,6 +350,7 @@ def cmd_prepare(args: argparse.Namespace) -> int:
         ctx=ctx,
         user_turn=user_turn,
         parent_suggestions=parent_suggestions,
+        state=state,
     )
     prompt_path.write_text(rendered, encoding="utf-8")
 
