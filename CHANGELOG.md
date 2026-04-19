@@ -2,6 +2,86 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0-m9.0] - 2026-04-19
+
+### 🧠 v6.0 Milestone M9 — Memory Layer + LLM-Driven Extraction
+
+Greenfield memory subsystem: every task execution now sediments
+`knowledge / skills / config` into a workspace-local writable layer at
+`.codenook/memory/`, while the `plugins/` tree becomes strictly
+read-only at runtime. The router-agent learns a `MEMORY_INDEX` of all
+candidate + promoted entries and auto-injects matching ones into spawn
+prompts. Anti-bloat is enforced by per-task caps, hash dedup, and the
+new GC CLI.
+
+#### Added — Per-milestone summary
+
+- **M9.0** Spec doc `docs/v6/memory-and-extraction-v6.md` (Hermes-inspired
+  patch-first pattern, 5 FR groups, 6 NFR, 8 milestones); architecture
+  §13 ratifies M9; implementation-v6.md M9 sections.
+- **M9.1** Memory layout primitives — `_lib/memory_layer.py`
+  (knowledge / skill / config + atomic IO + fcntl read-modify-write +
+  21-function public API surface) and `_lib/memory_index.py`
+  (mtime-cached snapshot at `.codenook/memory/.index-snapshot.json`,
+  ≤500 ms over 1000 files). `init` skill creates the empty skeleton.
+- **M9.2** Extraction triggers — `orchestrator-tick` `after_phase`
+  hook, `extractor-batch.sh` async dispatcher (≤200 ms wall),
+  CLAUDE.md 80% context water-mark protocol.
+- **M9.3** Knowledge extractor — `knowledge-extractor` skill with
+  patch-or-create flow, frontmatter strict validation (summary ≤200,
+  tags ≤8), `find_similar()` + LLM merge / replace / create judge
+  (default merge), per-task cap ≤3, hash dedup, secret scanner.
+- **M9.4** Skill extractor — `skill-extractor` skill detecting ≥3
+  repeated CLI / script invocations; per-task cap ≤1; reuses M9.3
+  decision flow. `_read_task_context()` now ingests `notes/*.{md,txt,log}`.
+- **M9.5** Config extractor — `config-extractor` skill normalising
+  `task-config-set` calls into `config.yaml entries[]` with
+  `applies_when`; same key merges to latest value; per-task ≤5.
+- **M9.6** Router-agent memory awareness — `router-agent/prompt.md`
+  now renders MEMORY_INDEX (name + description per entry); spawn.sh
+  materialises plugins + memory two layers into the task prompt;
+  `_lib/token_estimate.py` budget pruning; `router-context` 8-turn
+  archiver.
+- **M9.7** Plugin read-only enforcement — `_lib/plugin_readonly.py`
+  (runtime guard inside `_atomic_write_text` + static checker CLI);
+  CLAUDE.md linter expanded to forbid main-session direct memory greps.
+- **M9.8** Release polish — see below.
+
+#### Added — M9.8 (this release)
+
+- **GC CLI** `_lib/memory_gc.py` (`python -m memory_gc --workspace
+  <ws> [--dry-run] [--json]`) enforces per-task caps from spec
+  §6 / §7 (knowledge=3, skill=1, config=5). Drops oldest by
+  `created_at` (with path tie-break) within over-cap groups; promoted
+  entries are never pruned. Real run audits each removal via
+  `extract_audit.audit(outcome='gc_pruned', verdict='accepted')` and
+  refreshes the memory-index snapshot. Exit codes: 0 nothing pruned /
+  0 pruned OK / 1 error / 2 invalid args.
+- **pre-commit hook template** `templates/pre-commit-hook.sh`
+  (chmod 0755) — three gates: (1) staged write under `plugins/`
+  rejected unconditionally, plus full `plugin_readonly.py --target .`
+  static checker; (2) `claude_md_linter.py --check-claude-md` on root
+  CLAUDE.md; (3) the shared SECRET_PATTERNS regex set across every
+  staged blob. Install with `cp skills/codenook-core/templates/pre-commit-hook.sh
+  .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit`.
+- **E2E bats** `tests/e2e/m9-e2e.bats` covering TC-M9.8-01..04:
+  full extractor round-trip, GC dry-run + real run, pre-commit hook
+  blocks plugins/, router→extractor→memory-index loop survives across
+  two ticks (snapshot stable, no duplicates, no `.tmp.*` leaks).
+- **Backlog folds** — TC-M9.1-06 surface check now requires
+  `promote_skill` and `promote_config_entry`; `_read_task_context()`
+  also consumes `.txt` / `.log`; TC-M9.2-07 documents ±20% timing
+  tolerance + `BATS_TEST_RETRIES=2`; design doc §10.1 explicit
+  docstring for `promote_config_entry`.
+
+#### Quality gates
+
+- 791+ bats tests green across the full M1..M9.8 suite (M9.8 adds 4 e2e).
+- `_lib/plugin_readonly.py --target . --json` exits 0.
+- `_lib/claude_md_linter.py --check-claude-md CLAUDE.md` 0 errors.
+- 0 `description.md` references; no greenfield-forbidden tokens.
+- 0 secret-scanner hits on the M9.8 diff.
+
 ## [0.8.0-m8.0] - 2026-04-18
 
 ### 🚀 v6.0 Milestone M8 — Conversational Router Agent
