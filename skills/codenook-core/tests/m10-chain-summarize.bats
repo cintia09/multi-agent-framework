@@ -14,7 +14,8 @@ load helpers/m10_chain
   mock="$ws/_mock"
   make_ancestor_with_briefs "$ws" T-007 "feature/auth" "implement" "done" "build JWT auth"
   make_task "$ws" T-012
-  make_chain "$ws" T-007 T-012  # T-012.parent=T-007
+  PYTHONPATH="$M10_LIB_DIR" WS="$ws" python3 -c \
+    'import os, task_chain as tc; tc.set_parent(os.environ["WS"], "T-012", "T-007")'
   seed_mock_llm "$mock" chain_summarize $'目标：JWT 登录\n关键决策：bcrypt cost=12\n'
 
   out=$(PYTHONPATH="$M10_LIB_DIR" CN_LLM_MOCK_DIR="$mock" WS="$ws" python3 -c '
