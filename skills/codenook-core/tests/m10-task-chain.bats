@@ -247,3 +247,42 @@ PY
   # Attachment still applied (best-effort).
   [ "$(tc_state_field "$ws" T-NEW parent_id)" = "T-003" ]
 }
+
+# ------------------------------------------------------------------ TC-M10.7-04 (MINOR-08 lock-in)
+
+@test "[m10.7] TC-M10.7-04 set_parent refuses corrupt parent ancestry (CorruptChainError)" {
+  ws=$(m10_seed_workspace)
+  # Build T-001 ← T-002 then hand-corrupt T-002 to point at a phantom
+  # task that has no state.json on disk.
+  make_chain "$ws" T-001 T-002
+  PYTHONPATH="$M10_LIB_DIR" WS="$ws" python3 - <<'PY'
+import json, os
+p = os.path.join(os.environ["WS"], ".codenook/tasks/T-002/state.json")
+s = json.load(open(p))
+s["parent_id"] = "T-PHANTOM"
+json.dump(s, open(p, "w"))
+PY
+  make_task "$ws" T-NEW
+
+  # Library API: must raise CorruptChainError.
+  run_with_stderr "PYTHONPATH=\"$M10_LIB_DIR\" WS=\"$ws\" python3 -c '
+import os, task_chain as tc
+try:
+    tc.set_parent(os.environ[\"WS\"], \"T-NEW\", \"T-002\")
+except tc.CorruptChainError as e:
+    print(\"CORRUPT:\" + str(e))
+'"
+  [ "$status" -eq 0 ] || { echo "exit=$status stderr=$STDERR out=$output"; return 1; }
+  echo "$output" | grep -q '^CORRUPT:' \
+    || { echo "expected CorruptChainError, out=$output stderr=$STDERR"; return 1; }
+
+  # State NOT mutated.
+  pid=$(tc_state_field "$ws" T-NEW parent_id)
+  [ "$pid" = "null" ] || { echo "parent_id leaked: $pid"; return 1; }
+  # Audit recorded as chain_attach_failed.
+  assert_audit "$ws" chain_attach_failed
+
+  # CLI surface: must exit 2 (cycle/corrupt class).
+  run env PYTHONPATH="$M10_LIB_DIR" python3 -m task_chain attach T-NEW T-002 --workspace "$ws"
+  [ "$status" -eq 2 ] || { echo "CLI exit=$status out=$output"; return 1; }
+}

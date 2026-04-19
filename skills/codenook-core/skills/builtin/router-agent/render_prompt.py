@@ -451,6 +451,7 @@ def cmd_confirm(args: argparse.Namespace) -> int:
         except (
             tc.AlreadyAttachedError,
             tc.CycleError,
+            tc.CorruptChainError,
             tc.TaskNotFoundError,
             ValueError,
         ) as e:

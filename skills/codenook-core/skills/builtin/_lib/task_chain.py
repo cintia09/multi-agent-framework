@@ -64,6 +64,13 @@ class CycleError(ValueError):
     """Raised when set_parent would form a cycle."""
 
 
+class CorruptChainError(ValueError):
+    """Raised by set_parent when the parent's ancestry is corrupt
+    (e.g. mid-chain state.json missing or malformed) so we cannot
+    safely compute chain_root. The attachment is refused (M10.6
+    R1-MINOR-08)."""
+
+
 class TaskNotFoundError(FileNotFoundError):
     """Raised when a referenced task's state.json does not exist."""
 
@@ -546,6 +553,15 @@ def set_parent(workspace: Path | str, child_id: str, parent_id: str,
             raise CycleError(
                 f"cycle: {child_id} appears in ancestors of {parent_id}"
             )
+        # M10.6 R1-MINOR-08: refuse attachment when the parent's
+        # ancestry walk truncated due to corrupt mid-chain state
+        # (unreadable / missing state.json). chain_root computed from a
+        # truncated walk would be bogus, and silently attaching would
+        # propagate the corruption to the new child.
+        if trunc_kind == "unreadable":
+            raise CorruptChainError(
+                f"corrupt ancestry of {parent_id}: {trunc_reason}"
+            )
         # chain_root = last element of parent_chain (parent's own root).
         new_root = parent_chain[-1] if parent_chain else parent_id
         child_state["parent_id"] = parent_id
@@ -574,7 +590,8 @@ def set_parent(workspace: Path | str, child_id: str, parent_id: str,
             _audit(workspace, outcome="chain_attached", verdict="ok",
                    source_task=child_id,
                    reason=f"parent={parent_id},root={new_root}")
-    except (CycleError, TaskNotFoundError, AlreadyAttachedError, ValueError) as e:
+    except (CycleError, CorruptChainError, TaskNotFoundError,
+            AlreadyAttachedError, ValueError) as e:
         _audit(workspace, outcome="chain_attach_failed", verdict="error",
                source_task=child_id,
                reason=f"{type(e).__name__}: {e}")
@@ -703,6 +720,9 @@ def cli_main(argv: list[str]) -> int:
         return 3
     except CycleError as e:
         print(f"CycleError: {e}", file=sys.stderr)
+        return 2
+    except CorruptChainError as e:
+        print(f"CorruptChainError: {e}", file=sys.stderr)
         return 2
     except (TaskNotFoundError, ValueError, OSError) as e:
         print(f"{type(e).__name__}: {e}", file=sys.stderr)
