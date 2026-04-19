@@ -2,14 +2,59 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.8.0-m8.0] - 2026-04-18
 
-### Removed
-- `router-triage` skill (deprecated in v0.7.x; superseded by `router-agent`
-  in M8.2). All routing now flows through the conversational router-agent.
-  Deletes `skills/codenook-core/skills/builtin/router-triage/` and
-  `tests/m3-router-triage.bats`. Helper `_lib/router_select.py` is retained
-  as a Python-only scoring helper (no CLI entry).
+### 🚀 v6.0 Milestone M8 — Conversational Router Agent
+
+Replaces the legacy stateless `router-triage` (M3) with a real
+multi-turn, file-backed **router-agent** that drafts a task config in
+conversation with the user and hands off to `orchestrator-tick` on
+confirmation. **692/692 bats tests green.**
+
+#### Added — Core (`skills/codenook-core/`)
+- **M8.0** Spec doc `docs/v6/router-agent-v6.md` (640 lines) + decisions
+  #46–#52 ratified in architecture-v6.md §12 (router-agent as stateless
+  subagent, YAML+md context, router calls init-task + first tick,
+  300s stale-lock threshold, domain layering, M3 router-triage removed).
+- **M8.1** Schemas + helpers — `_lib/router_context.py`,
+  `_lib/draft_config.py`, plus M5-DSL schemas for router-context,
+  draft-config, router-reply, router-lock.
+- **M8.2** `router-agent` skill — `SKILL.md`, `spawn.sh`, `prompt.md`,
+  `render_prompt.py`. Per-turn entry-point that prepares context,
+  acquires fcntl lock, renders prompt, and on `--confirm` invokes the
+  full handoff chain.
+- **M8.3** Discovery indexes — `_lib/plugin_manifest_index.py`,
+  `_lib/knowledge_index.py` (rank candidates, aggregate knowledge).
+- **M8.4** Per-task fcntl lock — `_lib/task_lock.py` with positive-
+  evidence stale recovery (closes unlink-recreate race).
+- **M8.6** Domain-agnostic main session protocol — root `CLAUDE.md`
+  (8-section v6 task lifecycle protocol) + `_lib/claude_md_linter.py`
+  enforcing forbidden domain tokens going forward.
+- **M8.9** Workspace user-overlay layer — `_lib/workspace_overlay.py`
+  for project-scoped writable description/skills/knowledge/config that
+  overlays the read-only plugin layer.
+- **M8.10** Role enumeration + role-skip — `_lib/role_index.py`,
+  `one_line_job` frontmatter on all 17 roles, draft-config gains
+  `selected_plugins` + `role_constraints`, `orchestrator-tick`
+  honours `role_constraints.excluded` by skipping phase.
+
+#### Added — Tests
+- 8 new bats files under `tests/m8-*.bats` (~85 tests covering every
+  M8.x milestone, including a 5-test E2E acceptance suite).
+
+#### Removed
+- `router-triage` skill (M3) — superseded by router-agent. See entry
+  above. Helper `_lib/router_select.py` retained as Python-only scoring
+  API.
+
+#### Domain-layering principle (codified)
+- Main session is domain-agnostic (Conductor): only spawns
+  router-agent, relays prompts, drives ticks, relays HITL.
+- Router-agent owns all domain decisions on the creation side
+  (Specialist).
+- Linter enforces this on `CLAUDE.md` going forward.
+
+## [Unreleased]
 
 ## [0.7.0-m7.2] - 2026-04-18
 
