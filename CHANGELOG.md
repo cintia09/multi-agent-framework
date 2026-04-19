@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.1] - 2026-04-19 · Surface Cleanup (v5-poc removal)
+
+Surface-only cleanup release. **No functional changes** to
+codenook-core, plugins, or installer behaviour. All 851 bats
+assertions continue to pass.
+
+### Removed
+
+- `skills/codenook-v5-poc/` deleted in full (79 files, 668 KB,
+  11,856 LOC). The v5 monolithic PoC has been the historical
+  predecessor of the v6 plugin architecture (codenook-core +
+  plugins/) shipping since v0.10. Per `docs/v6/architecture-v6.md`
+  §9, v5 is now retired. No source under `skills/codenook-core/`,
+  `skills/codenook-init/`, or `plugins/` referenced v5-poc — verified
+  by repo-wide grep before removal.
+
+### Updated
+
+- `README.md`: replaced v5.0 POC banner with v0.11.0 / v6 plugin
+  architecture banner; added `docs/v6/` navigation; bumped task-board
+  and config schema examples from version `4.9.5` → `0.11.0`;
+  reframed the v3.x / v4.x migration section as a "Historical
+  Evolution" section pointing at v6.
+- `install.sh`: rebranded banner to `# CodeNook v0.11.0 Installer`,
+  removed v5-poc opt-in note, set pre-download `VERSION` fallback to
+  `0.11.0`.
+- `PIPELINE.md`: bumped header / footer markers to `v0.11.0+`.
+- `plugins/development/{README,CHANGELOG}.md`: rephrased "ported from
+  v5" → "built on v6 plugin framework".
+- `plugins/development/prompts/criteria-{test,accept}.md`: dropped
+  `(v5.0 POC)` header annotations.
+- `skills/codenook-core/README.md`: removed "v5 remains the working
+  end-to-end reference" note.
+- `docs/v6/{README,architecture-v6,implementation-v6,test-plan-v6}.md`:
+  flipped status from "design draft / shipping v5" to "implemented in
+  v0.10 / v0.11"; marked v5 → v6 migration chapters as historical /
+  completed archive.
+
+### Preserved as history
+
+- The v5.0 POC release entry below (5.0.0-poc.1, 2026-04-18) is kept
+  verbatim as repository history.
+
 ## [0.11.0] - 2026-04-19 · Spec Consolidation & Cleanup
 
 ### 🧹 v6.0 Maintenance — M11 Spec Patches + Dead-Code Cleanup
