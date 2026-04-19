@@ -125,6 +125,23 @@ def _audit(workspace: Path | str, *, outcome: str, verdict: str,
         pass
 
 
+def _diag(workspace: Path | str, *, kind: str, source_task: str = "",
+          reason: str = "") -> None:
+    """Spec §9.1 diagnostic side-record (extra={"kind": ...})."""
+    try:
+        extract_audit.audit(
+            workspace,
+            asset_type="chain",
+            outcome="diagnostic",
+            verdict="noop",
+            source_task=source_task,
+            reason=reason,
+            extra={"kind": kind},
+        )
+    except Exception:
+        pass
+
+
 # ───────────────────────────────────────────────────────── pool listing
 
 # Statuses that REMOVE a task from the suggestion pool (spec §5.3).
@@ -252,6 +269,9 @@ def suggest_parents(
     try:
         ids = _list_open_tasks(workspace)
     except Exception as e:  # noqa: BLE001 — defensive per spec §5.7
+        # Diagnostic side-record + canonical record (spec §9.1).
+        _diag(workspace, kind="parent_suggest_failed",
+              reason=f"{type(e).__name__}: {e}")
         _audit(workspace, outcome="parent_suggest_failed", verdict="error",
                reason=f"{type(e).__name__}: {e}")
         return []
@@ -263,10 +283,14 @@ def suggest_parents(
         try:
             cand = _load_candidate(workspace, tid)
         except Exception as e:  # noqa: BLE001
+            _diag(workspace, kind="parent_suggest_skip",
+                  source_task=tid, reason=f"{type(e).__name__}: {e}")
             _audit(workspace, outcome="parent_suggest_skip", verdict="warn",
                    source_task=tid, reason=f"{type(e).__name__}: {e}")
             continue
         if cand is None:
+            _diag(workspace, kind="parent_suggest_skip",
+                  source_task=tid, reason="unreadable or invalid state.json")
             _audit(workspace, outcome="parent_suggest_skip", verdict="warn",
                    source_task=tid, reason="unreadable or invalid state.json")
             continue

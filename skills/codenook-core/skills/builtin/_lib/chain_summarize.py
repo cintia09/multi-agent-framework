@@ -304,7 +304,9 @@ def summarize(workspace: Path | str,
         rendered = _wrap(body, len(metas))
 
         # Pass-2 if over budget.
+        pass2_used = False
         if token_estimate.estimate(rendered) > max_tokens:
+            pass2_used = True
             per_ancestor_sections = [
                 f"## {meta['task_id']}\n{txt}".strip()
                 for meta, txt in zip(metas, pass1)
@@ -326,6 +328,22 @@ def summarize(workspace: Path | str,
                 source_task=task_id,
                 reason=f"secret_match:{rule_id or 'unknown'}",
             )
+
+        # Spec §9.1: terminal success outcome. Co-occurs with
+        # chain_summarize_redacted when redaction was applied (the
+        # redacted record is a sub-event; chain_summarized signals the
+        # call returned a non-empty rendering).
+        try:
+            tok = token_estimate.estimate(rendered)
+        except Exception:  # noqa: BLE001
+            tok = len(rendered) // 4
+        _audit_safe(
+            ws,
+            outcome="chain_summarized",
+            verdict="ok",
+            source_task=task_id,
+            reason=f"depth={len(metas)},tokens~{tok},pass2={pass2_used}",
+        )
 
         return rendered
 

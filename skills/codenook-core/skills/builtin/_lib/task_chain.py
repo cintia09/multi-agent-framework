@@ -4,9 +4,9 @@ Implements ``docs/v6/task-chains-v6.md`` §3 lifecycle and §4 interface for
 parent/child task linking. Persistence target is each task's
 ``state.json`` (validated against ``schemas/task-state.schema.json``);
 chain_root is cached per task and a workspace-wide
-``.codenook/tasks/.chain-snapshot.json`` carries a monotonically
-increasing ``generation`` counter so callers can detect chain
-mutations cheaply.
+``.codenook/tasks/.chain-snapshot.json`` (schema v2 per spec §8.2)
+carries a monotonically increasing ``generation`` counter so callers
+can detect chain mutations cheaply.
 
 Public API:
 
@@ -25,15 +25,18 @@ Errors:
 Audit (via extract_audit.audit, asset_type="chain"):
 
     chain_attached, chain_attach_failed, chain_detached,
-    chain_walk_truncated
+    chain_walk_truncated  + diagnostics chain_root_stale,
+    chain_snapshot_slow_rebuild
 """
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
 import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -50,6 +53,8 @@ _SCHEMAS_DIR = Path(__file__).resolve().parents[3] / "schemas"
 _TASK_STATE_SCHEMA = str(_SCHEMAS_DIR / "task-state.schema.json")
 
 _SNAPSHOT_REL = Path(".codenook") / "tasks" / ".chain-snapshot.json"
+_SNAPSHOT_SCHEMA_VERSION = 1
+_SLOW_REBUILD_MS = 500.0
 
 
 # ───────────────────────────────────────────────────────────── exceptions
@@ -113,51 +118,224 @@ def _write_state_json(workspace: Path | str, task_id: str, state: dict) -> None:
 
 
 # ─────────────────────────────────────────────────────────── snapshot ops
+#
+# Schema v2 (docs/v6/task-chains-v6.md §8.2)::
+#
+#   {
+#     "schema_version": 1,
+#     "generation": <int>,
+#     "built_at": "<iso8601>",
+#     "entries": {
+#       "<task_id>": {
+#         "parent_id": "<tid>" | null,
+#         "chain_root": "<tid>" | null,
+#         "state_mtime": "<iso8601>"
+#       },
+#       ...
+#     }
+#   }
+#
+# Backward-compat read: any snapshot file lacking "entries" (e.g. the
+# v1 ``{version, generation, chains}`` shape produced before M10.6) is
+# treated as a cold start — full ``_build_snapshot`` rebuild.
+
+
+def _iso_now() -> str:
+    return _dt.datetime.now(tz=_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _iso_mtime(p: Path) -> str:
+    try:
+        ts = p.stat().st_mtime
+    except OSError:
+        return ""
+    return _dt.datetime.fromtimestamp(ts, tz=_dt.timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+
+
+def _empty_snapshot(generation: int = 0) -> dict:
+    return {
+        "schema_version": _SNAPSHOT_SCHEMA_VERSION,
+        "generation": generation,
+        "built_at": _iso_now(),
+        "entries": {},
+    }
+
 
 def _read_snapshot(workspace: Path | str) -> dict:
+    """Return parsed snapshot or an empty v2 shell.
+
+    A snapshot lacking the v2 ``entries`` field is treated as a cold
+    start (returned as empty); callers that need the old generation
+    counter still see ``generation=0``. ``_bump_snapshot`` and
+    ``_build_snapshot`` are responsible for re-populating the file.
+    """
     p = _snapshot_path(workspace)
     if not p.exists():
-        return {"version": 1, "generation": 0, "chains": {}}
+        return _empty_snapshot()
     try:
         with open(p, "r", encoding="utf-8") as f:
             data = json.load(f)
         if not isinstance(data, dict):
             raise ValueError("snapshot must be object")
-        data.setdefault("version", 1)
-        data.setdefault("generation", 0)
-        data.setdefault("chains", {})
-        return data
     except (OSError, json.JSONDecodeError, ValueError):
-        return {"version": 1, "generation": 0, "chains": {}}
+        return _empty_snapshot()
+    # v1 → cold start; preserve old generation only as a hint, never
+    # trust its entries.
+    if "entries" not in data or not isinstance(data.get("entries"), dict):
+        return _empty_snapshot(generation=int(data.get("generation", 0) or 0))
+    data.setdefault("schema_version", _SNAPSHOT_SCHEMA_VERSION)
+    data.setdefault("generation", 0)
+    data.setdefault("built_at", _iso_now())
+    return data
 
 
-def _bump_snapshot(workspace: Path | str, *, clear: bool = True) -> int:
-    snap = _read_snapshot(workspace)
-    snap["generation"] = int(snap.get("generation", 0)) + 1
-    if clear:
-        snap["chains"] = {}
+def _write_snapshot(workspace: Path | str, snap: dict) -> None:
     p = _snapshot_path(workspace)
     p.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_json(str(p), snap)
-    return snap["generation"]
 
+
+def _build_snapshot(workspace: Path | str) -> dict:
+    """Full O(N) scan of ``.codenook/tasks/*/state.json`` and rebuild.
+
+    Resolves ``chain_root`` for every task with a single topo pass: we
+    first record (task_id, parent_id, mtime) for every task, then walk
+    parent links once with cycle/missing-parent guards, memoising
+    chain_root so each task is computed exactly once.
+
+    Bumps the snapshot generation; preserves the previous counter when
+    the on-disk file is readable. Emits ``chain_snapshot_slow_rebuild``
+    diagnostic when wall time exceeds 500 ms (spec §8.5).
+    """
+    t0 = time.perf_counter()
+    ws = _ws(workspace)
+    tasks_dir = ws / ".codenook" / "tasks"
+    raw: dict[str, dict] = {}
+    if tasks_dir.is_dir():
+        for entry in os.listdir(tasks_dir):
+            if entry.startswith("."):
+                continue
+            sp = tasks_dir / entry / "state.json"
+            if not sp.is_file():
+                continue
+            try:
+                with open(sp, "r", encoding="utf-8") as f:
+                    state = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(state, dict):
+                continue
+            pid = state.get("parent_id")
+            raw[entry] = {
+                "parent_id": pid if isinstance(pid, str) else None,
+                "state_mtime": _iso_mtime(sp),
+            }
+
+    # Memoised chain_root resolver. ``in_progress`` blocks cycles.
+    roots: dict[str, Optional[str]] = {}
+
+    def resolve(tid: str, in_progress: set[str]) -> Optional[str]:
+        if tid in roots:
+            return roots[tid]
+        if tid in in_progress:
+            roots[tid] = None  # cycle
+            return None
+        node = raw.get(tid)
+        if node is None:
+            roots[tid] = None
+            return None
+        pid = node["parent_id"]
+        if pid is None:
+            roots[tid] = None
+            return None
+        if pid not in raw:
+            roots[tid] = None
+            return None
+        in_progress.add(tid)
+        parent_root = resolve(pid, in_progress)
+        in_progress.discard(tid)
+        # tid's chain_root = parent's chain_root if parent has one,
+        # else parent itself (parent is a root with at least one child).
+        roots[tid] = parent_root if parent_root is not None else pid
+        return roots[tid]
+
+    entries: dict[str, dict] = {}
+    for tid, node in raw.items():
+        cr = resolve(tid, set())
+        entries[tid] = {
+            "parent_id": node["parent_id"],
+            "chain_root": cr,
+            "state_mtime": node["state_mtime"],
+        }
+
+    prev = _read_snapshot(workspace)
+    snap = {
+        "schema_version": _SNAPSHOT_SCHEMA_VERSION,
+        "generation": int(prev.get("generation", 0) or 0) + 1,
+        "built_at": _iso_now(),
+        "entries": entries,
+    }
+    _write_snapshot(workspace, snap)
+
+    elapsed_ms = (time.perf_counter() - t0) * 1000.0
+    if elapsed_ms > _SLOW_REBUILD_MS:
+        _diag(workspace, kind="chain_snapshot_slow_rebuild",
+              source_task="",
+              reason=f"elapsed_ms={elapsed_ms:.1f} N={len(entries)}")
+    return snap
+
+
+def _bump_snapshot(workspace: Path | str, *, clear: bool = True) -> int:
+    """Bump generation. If snapshot is missing v2 entries → full rebuild.
+
+    ``clear`` is preserved as a no-op kwarg for source compatibility
+    with M10.1 callers; v2 always rebuilds entries to keep them in
+    lockstep with state.json mutations.
+    """
+    del clear  # v2: entries are always derived from state.json
+    snap = _build_snapshot(workspace)
+    return int(snap["generation"])
+
+
+def _invalidate_snapshot(workspace: Path | str, task_id: str) -> None:
+    """Mtime-aware invalidation: rebuild the single entry if its
+    state.json mtime drifted; otherwise no-op.
+    """
+    snap = _read_snapshot(workspace)
+    sp = _state_path(workspace, task_id)
+    if not sp.exists():
+        return
+    mt = _iso_mtime(sp)
+    entry = snap.get("entries", {}).get(task_id)
+    if entry is not None and entry.get("state_mtime") == mt:
+        return
+    _build_snapshot(workspace)
+
+
+# Backward-compat shims (kept so external callers / older tests still
+# import without breaking; both no-op on the v2 path because entries
+# are derived from state.json on every bump/build).
 
 def _snapshot_lookup(workspace: Path | str, task_id: str) -> Optional[dict]:
     snap = _read_snapshot(workspace)
-    entry = snap.get("chains", {}).get(task_id)
-    return entry if isinstance(entry, dict) else None
+    entry = snap.get("entries", {}).get(task_id)
+    if not isinstance(entry, dict):
+        return None
+    # Re-shape into the legacy {root, ancestors} surface used by the CLI.
+    return {
+        "root": entry.get("chain_root"),
+        "ancestors": [],  # ancestors no longer cached eagerly in v2
+    }
 
 
 def _snapshot_remember(workspace: Path | str, task_id: str, root: str,
                        ancestors: list[str]) -> None:
-    snap = _read_snapshot(workspace)
-    snap.setdefault("chains", {})[task_id] = {
-        "root": root,
-        "ancestors": list(ancestors),
-    }
-    p = _snapshot_path(workspace)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_json(str(p), snap)
+    # v2 derives entries from state.json on bump/build; explicit
+    # remember calls become a request to refresh that single entry.
+    del root, ancestors  # superseded by mtime-driven derivation
+    _invalidate_snapshot(workspace, task_id)
 
 
 # ───────────────────────────────────────────────────────────────── audit
@@ -175,6 +353,23 @@ def _audit(workspace: Path | str, *, outcome: str, verdict: str,
         )
     except Exception:
         # Never let audit failures mask the primary operation.
+        pass
+
+
+def _diag(workspace: Path | str, *, kind: str, source_task: str = "",
+          reason: str = "") -> None:
+    """Emit a diagnostic side-record (extra={"kind": ...}). Spec §9.1."""
+    try:
+        extract_audit.audit(
+            workspace,
+            asset_type="chain",
+            outcome="diagnostic",
+            verdict="noop",
+            source_task=source_task,
+            reason=reason,
+            extra={"kind": kind},
+        )
+    except Exception:
         pass
 
 
@@ -196,12 +391,16 @@ def walk_ancestors(workspace: Path | str, task_id: str, *,
     Truncates (best-effort) on missing/malformed mid-chain state.json
     or when max_depth is hit; emits ``chain_walk_truncated`` audit in
     those cases. Returns ``[]`` if the starting task itself does not
-    exist.
+    exist. Cross-checks the snapshot for stale ``state_mtime`` entries
+    and emits a ``chain_root_stale`` diagnostic when one is observed
+    (best-effort observability; never raises).
     """
     chain: list[str] = []
     seen: set[str] = set()
     cur: Optional[str] = task_id
     first = True
+    snap_entries = (_read_snapshot(workspace).get("entries") or {})
+    stale_seen = False
     while cur is not None:
         state = _read_state_json(workspace, cur)
         if state is None:
@@ -215,6 +414,15 @@ def walk_ancestors(workspace: Path | str, task_id: str, *,
             raise CycleError(f"cycle detected at {cur}")
         seen.add(cur)
         chain.append(cur)
+        # Snapshot freshness check: stale entry → diag (one per walk).
+        if not stale_seen:
+            entry = snap_entries.get(cur) if isinstance(snap_entries, dict) else None
+            if isinstance(entry, dict):
+                disk_mtime = _iso_mtime(_state_path(workspace, cur))
+                if entry.get("state_mtime") and entry["state_mtime"] != disk_mtime:
+                    _diag(workspace, kind="chain_root_stale", source_task=cur,
+                          reason=f"snap={entry.get('state_mtime')} disk={disk_mtime}")
+                    stale_seen = True
         if max_depth is not None and len(chain) >= max_depth:
             _audit(workspace, outcome="chain_walk_truncated", verdict="warn",
                    source_task=task_id,
@@ -231,7 +439,11 @@ def chain_root(workspace: Path | str, task_id: str) -> Optional[str]:
 
     Single-state-read fast path: when state.json already carries a
     valid chain_root, this function performs exactly one
-    ``_read_state_json`` call (TC-M10.1-08 contract).
+    ``_read_state_json`` call (TC-M10.1-08 contract). The v2 chain
+    snapshot is updated as a side-effect of every ``set_parent`` /
+    ``detach`` (via ``_bump_snapshot`` → ``_build_snapshot``), so
+    callers needing an out-of-band chain_root view can read
+    ``entries[tid].chain_root`` from the snapshot directly.
     """
     state = _read_state_json(workspace, task_id)
     if state is None:

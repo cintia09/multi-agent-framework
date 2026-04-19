@@ -30,3 +30,13 @@ if [ ! -f "$gi" ]; then
 elif ! grep -qx '.index-snapshot.json' "$gi"; then
   printf '.index-snapshot.json\n' >> "$gi"
 fi
+
+# M10.6: workspace-local .gitignore for the task-chain snapshot
+# (mirrors the M9.1 memory snapshot pattern; same one-file-per-area rule).
+mkdir -p "$WS/.codenook/tasks"
+gi="$WS/.codenook/tasks/.gitignore"
+if [ ! -f "$gi" ]; then
+  printf '.chain-snapshot.json\n' > "$gi"
+elif ! grep -qx '.chain-snapshot.json' "$gi"; then
+  printf '.chain-snapshot.json\n' >> "$gi"
+fi
