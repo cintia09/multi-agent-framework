@@ -144,3 +144,69 @@ except pr.PluginReadOnlyViolation:
   [ "$status" -ne 0 ] || { echo "stdout: $output"; echo "stderr: $STDERR"; return 1; }
   assert_contains "$STDERR" "secret scanner unavailable; refusing to write"
 }
+
+@test "[m9.7] TC-M9.7-21 memory_layer write to plugins/ with workspace_root emits audit" {
+  ws="$(make_scratch)"
+  m9_init_memory "$ws" >/dev/null
+  mkdir -p "$ws/plugins"
+  run_with_stderr "PYTHONPATH='$LIB_DIR' WS='$ws' python3 -c '
+import os, sys
+from pathlib import Path
+import memory_layer as ml
+import plugin_readonly as pr
+ws = os.environ[\"WS\"]
+target = Path(ws) / \"plugins\" / \"evil.md\"
+try:
+    ml._atomic_write_text(target, \"nope\", workspace_root=ws)
+except pr.PluginReadOnlyViolation:
+    print(\"BLOCKED\"); sys.exit(0)
+sys.exit(2)
+'"
+  [ "$status" -eq 0 ] || { echo "stdout: $output"; echo "stderr: $STDERR"; return 1; }
+  assert_contains "$output" "BLOCKED"
+  log="$ws/.codenook/memory/history/extraction-log.jsonl"
+  [ -f "$log" ] || { echo "audit log missing"; return 1; }
+  assert_contains "$(cat "$log")" "plugin_readonly_violation"
+  assert_contains "$(cat "$log")" "rejected"
+}
+
+@test "[m9.7] TC-M9.7-22 router_context write_context targeting plugins/ rejected" {
+  ws="$(make_scratch)"
+  mkdir -p "$ws/plugins"
+  run_with_stderr "PYTHONPATH='$LIB_DIR' WS='$ws' python3 -c '
+import os, sys
+from pathlib import Path
+import router_context as rc
+import plugin_readonly as pr
+task_dir = Path(os.environ[\"WS\"]) / \"plugins\" / \"T-001\"
+fm, turns = rc.initial_context(\"T-FAKE\", \"hi\")
+fm[\"task_id\"] = \"T-FAKE\"
+try:
+    rc.write_context(task_dir, fm, turns)
+except pr.PluginReadOnlyViolation:
+    print(\"BLOCKED\"); sys.exit(0)
+sys.exit(2)
+'"
+  [ "$status" -eq 0 ] || { echo "stdout: $output"; echo "stderr: $STDERR"; return 1; }
+  assert_contains "$output" "BLOCKED"
+}
+
+@test "[m9.7] TC-M9.7-23 draft_config write_draft targeting plugins/ rejected" {
+  ws="$(make_scratch)"
+  mkdir -p "$ws/plugins"
+  run_with_stderr "PYTHONPATH='$LIB_DIR' WS='$ws' python3 -c '
+import os, sys
+from pathlib import Path
+import draft_config as dc
+import plugin_readonly as pr
+target = Path(os.environ[\"WS\"]) / \"plugins\" / \"draft-config.yaml\"
+cfg = {\"_draft\": True, \"plugin\": \"py-script\", \"input\": \"do thing\"}
+try:
+    dc.write_draft(target, cfg)
+except pr.PluginReadOnlyViolation:
+    print(\"BLOCKED\"); sys.exit(0)
+sys.exit(2)
+'"
+  [ "$status" -eq 0 ] || { echo "stdout: $output"; echo "stderr: $STDERR"; return 1; }
+  assert_contains "$output" "BLOCKED"
+}

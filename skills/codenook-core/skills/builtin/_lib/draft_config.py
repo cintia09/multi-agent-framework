@@ -123,6 +123,22 @@ def _validate(cfg: dict) -> None:
 
 
 def _atomic_write_text(path: Path, text: str) -> None:
+    """Atomic write helper for draft-config.yaml.
+
+    Also enforces the M9.7 plugin read-only invariant: refuses any
+    target whose resolved path contains a ``plugins/`` segment. The
+    workspace_root is not threaded through ``write_draft`` to keep the
+    public API stable; the resolved-path heuristic in
+    :func:`plugin_readonly.assert_writable_path` (with
+    ``workspace_root=None``) still catches every realistic write under
+    a ``plugins/`` directory.
+    """
+    # Lazy import — _lib has no __init__.py; plugin_readonly is on the
+    # same sys.path entry that already imported draft_config.
+    from plugin_readonly import assert_writable_path  # noqa: WPS433
+
+    assert_writable_path(path, workspace_root=None)
+
     d = path.parent
     d.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=str(d), prefix=".draft-", suffix=".tmp")

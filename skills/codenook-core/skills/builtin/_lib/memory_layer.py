@@ -128,17 +128,26 @@ def init_memory_skeleton(workspace_root: Path | str) -> None:
 # ---------------------------------------------------------------- atomic IO
 
 
-def _atomic_write_text(path: Path, content: str) -> None:
+def _atomic_write_text(
+    path: Path,
+    content: str,
+    workspace_root: Path | str | None = None,
+) -> None:
     """tempfile + os.replace in the same directory → atomic on POSIX.
 
     Also enforces the M9.7 plugin read-only invariant: any target that
     resolves under a ``plugins/`` directory raises
     :class:`plugin_readonly.PluginReadOnlyViolation` *before* the
     tempfile is created.
+
+    Pass ``workspace_root`` so the guard scopes its check to within the
+    workspace (avoids false-positives when the host checkout itself
+    happens to be named ``plugins/``) and so the audit-log record is
+    emitted to ``<ws>/.codenook/memory/history/extraction-log.jsonl``.
     """
     from plugin_readonly import assert_writable_path  # local: avoid import cycles
 
-    assert_writable_path(path)
+    assert_writable_path(path, workspace_root=workspace_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     # suffix=".tmp" (not the real extension) so concurrent scanners that
     # filter by extension cannot race-pick the in-flight file.
@@ -300,7 +309,7 @@ def write_knowledge(
 
     target = _knowledge_path(workspace_root, topic)
     rendered = _render_frontmatter_doc(fm, body)
-    _atomic_write_text(target, rendered)
+    _atomic_write_text(target, rendered, workspace_root=workspace_root)
     memory_index.invalidate(workspace_root, target)
     return target
 
@@ -333,7 +342,7 @@ def patch_knowledge(
         fm["dedup_hash"] = memory_index.get_hash(body)
         _validate_frontmatter(fm)
         rendered = _render_frontmatter_doc(fm, body)
-        _atomic_write_text(target, rendered)
+        _atomic_write_text(target, rendered, workspace_root=workspace_root)
     finally:
         _flock_release(fd)
         try:
@@ -370,7 +379,7 @@ def replace_knowledge(
     fm["dedup_hash"] = memory_index.get_hash(body)
     _validate_frontmatter(fm)
     target = _knowledge_path(workspace_root, topic)
-    _atomic_write_text(target, _render_frontmatter_doc(fm, body))
+    _atomic_write_text(target, _render_frontmatter_doc(fm, body), workspace_root=workspace_root)
     memory_index.invalidate(workspace_root, target)
     append_audit(
         workspace_root,
@@ -391,7 +400,7 @@ def _set_status(workspace_root: Path | str, path: Path | str, status: str) -> No
     doc = read_knowledge(p)
     doc["frontmatter"]["status"] = status
     rendered = _render_frontmatter_doc(doc["frontmatter"], doc["body"])
-    _atomic_write_text(p, rendered)
+    _atomic_write_text(p, rendered, workspace_root=workspace_root)
     memory_index.invalidate(workspace_root, p)
 
 
@@ -440,7 +449,7 @@ def write_skill(
     fm["dedup_hash"] = memory_index.get_hash(body)
     target = _skill_md(workspace_root, name)
     target.parent.mkdir(parents=True, exist_ok=True)
-    _atomic_write_text(target, _render_frontmatter_doc(fm, body))
+    _atomic_write_text(target, _render_frontmatter_doc(fm, body), workspace_root=workspace_root)
     memory_index.invalidate(workspace_root, target)
     return target
 
@@ -463,7 +472,7 @@ def patch_skill(
         fm = new.get("frontmatter", {})
         body = new.get("body", "")
         fm["dedup_hash"] = memory_index.get_hash(body)
-        _atomic_write_text(target, _render_frontmatter_doc(fm, body))
+        _atomic_write_text(target, _render_frontmatter_doc(fm, body), workspace_root=workspace_root)
     finally:
         _flock_release(fd)
         try:
@@ -489,7 +498,7 @@ def promote_skill(workspace_root: Path | str, name: str) -> None:
     p = _skill_md(workspace_root, name)
     doc = read_skill(workspace_root, name)
     doc["frontmatter"]["status"] = "promoted"
-    _atomic_write_text(p, _render_frontmatter_doc(doc["frontmatter"], doc["body"]))
+    _atomic_write_text(p, _render_frontmatter_doc(doc["frontmatter"], doc["body"]), workspace_root=workspace_root)
     memory_index.invalidate(workspace_root, p)
 
 
@@ -566,7 +575,7 @@ def upsert_config_entry(
             out_entries.append(new_entry)
         data["entries"] = out_entries
         rendered = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
-        _atomic_write_text(cfg_path, rendered)
+        _atomic_write_text(cfg_path, rendered, workspace_root=workspace_root)
     finally:
         _flock_release(fd)
         try:
