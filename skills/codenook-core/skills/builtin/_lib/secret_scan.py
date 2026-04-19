@@ -9,9 +9,6 @@ Public API::
     SECRET_PATTERNS                   # list[(rule_id, compiled_regex)]
     scan_secrets(text) -> (bool, rule_id|None)
     redact(text)      -> str
-
-The legacy module-level alias ``_SECRET_PATTERNS`` is exported for
-back-compat with any caller that imported the underscore name.
 """
 
 from __future__ import annotations
@@ -35,9 +32,6 @@ SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         ),
     ),
 ]
-
-# Backwards-compatible alias (knowledge-extractor used the underscored name).
-_SECRET_PATTERNS = SECRET_PATTERNS
 
 
 def scan_secrets(text: str) -> tuple[bool, str | None]:

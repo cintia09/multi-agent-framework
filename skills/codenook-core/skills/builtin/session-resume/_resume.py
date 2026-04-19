@@ -35,10 +35,6 @@ MAX_BYTES = 500
 MAX_TAIL_CHARS = 300
 
 
-def now_safe_iso(default: str = "") -> str:
-    return default
-
-
 def read_json_safe(path: Path) -> dict | None:
     try:
         with path.open("r", encoding="utf-8") as f:
