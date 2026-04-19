@@ -1,0 +1,10 @@
+# Phase log: explicit task-config-set + repeated env settings
+
+Operator ran:
+  $ task-config-set log.level=debug
+  ok
+
+Later in the same phase:
+  export MODEL=gpt-4o
+  export MAX_TOKENS=2048
+  TIMEOUT=30

@@ -1,0 +1,6 @@
+# Phase log: only one config signal — below threshold
+
+Just one knob set during this phase:
+  export ONLY_KEY=only_value
+
+(No other configuration tokens follow.)

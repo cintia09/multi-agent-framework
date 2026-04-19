@@ -1,0 +1,9 @@
+# Phase log: 7 distinct config signals (cap test)
+
+  MODEL=gpt-4o
+  MAX_TOKENS=2048
+  TIMEOUT=30
+  RETRIES=3
+  PORT=8080
+  LOG_LEVEL=debug
+  REGION=us-west-2

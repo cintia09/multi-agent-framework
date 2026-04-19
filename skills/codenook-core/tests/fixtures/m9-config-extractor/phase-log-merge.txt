@@ -1,0 +1,5 @@
+# Phase log: same key being re-tuned (latest-wins merge target)
+
+  log.level=info     # initial
+  log.level=debug    # bumped during repro
+  retries=2
