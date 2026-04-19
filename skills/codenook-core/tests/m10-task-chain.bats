@@ -195,3 +195,20 @@ PY
   gen_after=$(jq -r '.generation' "$ws/.codenook/tasks/.chain-snapshot.json")
   [ "$gen_after" -gt "$gen_before" ] || { echo "gen $gen_before -> $gen_after"; return 1; }
 }
+
+# ------------------------------------------------------------------ TC-M10.7-01 (MINOR-01 lock-in)
+
+@test "[m10.7] TC-M10.7-01 CLI usage error exits 64 (spec §4.3)" {
+  ws=$(m10_seed_workspace)
+  # Unknown subcommand → argparse error → must exit 64.
+  run env PYTHONPATH="$M10_LIB_DIR" python3 -m task_chain bogus --workspace "$ws"
+  [ "$status" -eq 64 ] || { echo "unknown-subcmd exit=$status out=$output"; return 1; }
+
+  # Missing required positional → argparse error → must exit 64.
+  run env PYTHONPATH="$M10_LIB_DIR" python3 -m task_chain attach --workspace "$ws"
+  [ "$status" -eq 64 ] || { echo "missing-arg exit=$status out=$output"; return 1; }
+
+  # Unknown flag → argparse error → must exit 64.
+  run env PYTHONPATH="$M10_LIB_DIR" python3 -m task_chain show --no-such-flag --workspace "$ws"
+  [ "$status" -eq 64 ] || { echo "bad-flag exit=$status out=$output"; return 1; }
+}

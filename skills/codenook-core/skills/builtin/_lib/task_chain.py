@@ -585,8 +585,23 @@ def _cli_show(args) -> int:
     return 0
 
 
+class _UsageExit64Parser(argparse.ArgumentParser):
+    """ArgumentParser whose ``error()`` exits with status 64 (spec §4.3).
+
+    Argparse's default ``error()`` prints usage and exits with status 2;
+    the M10 CLI contract requires usage errors to exit 64 so callers
+    can distinguish them from operational failures (1/2/3).
+    """
+
+    def error(self, message: str) -> "None":  # type: ignore[override]
+        self.print_usage(sys.stderr)
+        prog = self.prog or "task_chain"
+        sys.stderr.write(f"{prog}: error: {message}\n")
+        sys.exit(64)
+
+
 def cli_main(argv: list[str]) -> int:
-    ap = argparse.ArgumentParser(
+    ap = _UsageExit64Parser(
         prog="task_chain",
         description="CodeNook M10 task-chain primitives (attach/detach/show/root).",
     )
