@@ -258,6 +258,46 @@ print('OK')
   assert_contains "$output" "OK"
 }
 
+@test "[m9.6] match_entries_for_task: paths are workspace-relative (memory/...)" {
+  ws=$(mk_router_ws)
+  seed_knowledge_aw "$ws" "use-bats" "bats helps testing" "testing" "body"
+  seed_skill_aw "$ws" "run-tests" "runs tests" "testing" "body"
+  seed_config_entry "$ws" "llm.model" "gpt-4o" "testing" "default model"
+
+  run m9_py "
+import json, memory_layer as ml
+res = ml.match_entries_for_task('$ws', 'testing thing')
+print(json.dumps(res))
+"
+  [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+
+  # Every returned path must start with 'memory/' (workspace-relative).
+  python3 - "$output" "$HOME" <<'PY'
+import json, sys
+payload, home = sys.argv[1], sys.argv[2]
+# bats joins stdout into one blob; the JSON is the last printable line.
+line = [ln for ln in payload.splitlines() if ln.strip().startswith("[")][-1]
+data = json.loads(line)
+assert data, "expected at least one match"
+for r in data:
+    p = r.get("path", "")
+    assert p.startswith("memory/"), f"path not workspace-relative: {p!r}"
+    assert "/var/" not in p, f"absolute /var/ leaked: {p!r}"
+    assert "/private/" not in p, f"absolute /private/ leaked: {p!r}"
+    assert home not in p, f"$HOME leaked into path: {p!r}"
+# Cover all three asset types we seeded.
+ats = sorted({r["asset_type"] for r in data})
+assert ats == ["config", "knowledge", "skill"], ats
+# Spot-check expected shapes.
+shapes = sorted(r["path"] for r in data)
+assert "memory/config.yaml" in shapes, shapes
+assert "memory/knowledge/use-bats.md" in shapes, shapes
+assert "memory/skills/run-tests/SKILL.md" in shapes, shapes
+print("OK")
+PY
+  [ "$?" -eq 0 ] || { echo "post-check failed"; return 1; }
+}
+
 # ---- audit emission --------------------------------------------------------
 
 @test "[m9.6] TC-M9.6-13 router match emits audit record" {

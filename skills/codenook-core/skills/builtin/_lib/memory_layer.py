@@ -662,6 +662,7 @@ def match_entries_for_task(
             for meta in scan_knowledge(workspace_root):
                 out.append(_score_meta(
                     meta, brief_tokens, asset_type="knowledge",
+                    workspace_root=workspace_root,
                     title_from=lambda m: m.get("title") or m.get("topic")
                     or _basename_no_ext(m.get("path", "")),
                     key_from=lambda m: m.get("topic") or _basename_no_ext(
@@ -676,6 +677,7 @@ def match_entries_for_task(
             for meta in scan_skills(workspace_root):
                 out.append(_score_meta(
                     meta, brief_tokens, asset_type="skill",
+                    workspace_root=workspace_root,
                     title_from=lambda m: m.get("title") or m.get("name")
                     or _basename_no_ext(m.get("path", "")),
                     key_from=lambda m: m.get("name") or _basename_no_ext(
@@ -691,9 +693,12 @@ def match_entries_for_task(
         except (MemoryLayoutError, ConfigSchemaError):
             cfg_entries = []
         for entry in cfg_entries:
-            tokens = _tokenize_applies_when(entry.get("applies_when"))
-            if "applies_when" not in entry or entry.get("applies_when") in (
-                None, "",
+            aw_raw = entry.get("applies_when")
+            tokens = _tokenize_applies_when(aw_raw)
+            if (
+                "applies_when" not in entry
+                or aw_raw in (None, "")
+                or (isinstance(aw_raw, list) and not aw_raw)
             ):
                 score = 1
             elif tokens == {"always"}:
@@ -739,11 +744,14 @@ def _score_meta(
     brief_tokens: set[str],
     *,
     asset_type: str,
+    workspace_root: Path | str,
     title_from: Callable[[dict[str, Any]], str],
     key_from: Callable[[dict[str, Any]], str],
 ) -> dict[str, Any] | None:
     aw_raw = meta.get("applies_when")
-    if aw_raw is None or aw_raw == "":
+    if aw_raw is None or aw_raw == "" or (
+        isinstance(aw_raw, list) and not aw_raw
+    ):
         score = 1
         aw_text = ""
     else:
@@ -759,13 +767,42 @@ def _score_meta(
         return None
     return {
         "asset_type": asset_type,
-        "path": meta.get("path", ""),
+        "path": _normalize_meta_path(meta.get("path", ""), workspace_root),
         "key": key_from(meta),
         "title": title_from(meta),
         "summary": meta.get("summary", ""),
         "applies_when": aw_text,
         "score": score,
     }
+
+
+def _normalize_meta_path(
+    raw_path: str, workspace_root: Path | str
+) -> str:
+    """Convert an absolute on-disk asset path to its workspace-relative
+    form (``memory/...``). Falls back to the basename and audits a
+    warning if the path falls outside the expected ``.codenook`` root
+    (defensive — should not happen in normal flow)."""
+    if not raw_path:
+        return ""
+    p = Path(raw_path)
+    base = Path(workspace_root) / ".codenook"
+    try:
+        return str(p.relative_to(base))
+    except ValueError:
+        try:
+            _emit_router_audit(
+                workspace_root,
+                source_task="-",
+                matched=0,
+                reason=(
+                    f"meta path outside workspace .codenook root: "
+                    f"{raw_path}"
+                ),
+            )
+        except Exception:
+            pass
+        return p.name
 
 
 def _emit_router_audit(

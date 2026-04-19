@@ -158,12 +158,13 @@ def _render_memory_index(matches: list[dict]) -> str:
     lines: list[str] = []
     for m in matches:
         aw = m.get("applies_when") or "always"
-        title = m.get("title") or m.get("key") or m.get("path", "?")
+        path = m.get("path", "?")
+        title = m.get("title") or m.get("key") or path
         summary = (m.get("summary") or "").strip()
         suffix = f" — {summary}" if summary else ""
         lines.append(
-            f"- [{m['asset_type']}] {title} "
-            f"(applies_when: {aw}){suffix}"
+            f"- [{m['asset_type']}] {path} "
+            f"(title: {title}, applies_when: {aw}){suffix}"
         )
     return header + "\n".join(lines)
 
