@@ -187,7 +187,11 @@ print(len(fm['tags']))
 
 @test "[m9.3] TC-M9.3-12 secret blocks write" {
   ws=$(m9_seed_workspace); m9_init_memory "$ws"
-  body='Here is the leaked AWS key AKIAABCDEFGHIJKLMNOP and stuff.'
+  # M9.8 fix-r2: split AKIA token so this fixture file does not itself
+  # trip the pre-commit secret scanner. Concatenated at runtime so the
+  # rendered body still matches the AWS access-key regex.
+  aws_key="AKIA""ABCDEFGHIJKLMNOP"
+  body="Here is the leaked AWS key ${aws_key} and stuff."
   mock_dir=$(mock_extract_json "$ws" "$(jq -cn --arg b "$body" '{candidates:[{title:"S",summary:"s",tags:["x"],body:$b}]}')")
 
   run env CN_LLM_MOCK_DIR="$mock_dir" bash "$EXTRACT_SH" \
@@ -203,7 +207,7 @@ print(len(fm['tags']))
     || { echo "missing outcome=blocked_secret"; cat "$log"; return 1; }
 
   # The audit log MUST NOT contain the raw key.
-  if grep -q "AKIAABCDEFGHIJKLMNOP" "$log"; then
+  if grep -q "$aws_key" "$log"; then
     echo "raw key leaked into audit log!"; cat "$log"; return 1
   fi
 }
@@ -212,7 +216,9 @@ print(len(fm['tags']))
 
 @test "[m9.3] TC-M9.3-12b ipv6 ula blocks write" {
   ws=$(m9_seed_workspace); m9_init_memory "$ws"
-  body='Hosted at fd00::1234.'
+  # M9.8 fix-r2: split fd00 ULA token to avoid pre-commit secret-scan.
+  ipv6_ula="fd""00::1234"
+  body="Hosted at ${ipv6_ula}."
   mock_dir=$(mock_extract_json "$ws" "$(jq -cn --arg b "$body" '{candidates:[{title:"U","summary":"s","tags":["x"],body:$b}]}')")
 
   run env CN_LLM_MOCK_DIR="$mock_dir" bash "$EXTRACT_SH" \
@@ -227,7 +233,7 @@ print(len(fm['tags']))
   grep -q '"outcome":[[:space:]]*"blocked_secret"' "$log" \
     || { echo "missing outcome=blocked_secret"; cat "$log"; return 1; }
 
-  if grep -q "fd00::1234" "$log"; then
+  if grep -q "$ipv6_ula" "$log"; then
     echo "raw ipv6 ula leaked into audit log!"; cat "$log"; return 1
   fi
 }

@@ -33,6 +33,62 @@ import sys
 from pathlib import Path
 from typing import Any, Iterable
 
+# Default exclude globs (M9.8 fix-r2): test fixtures intentionally
+# embed plugins/ write patterns to verify the static checker. Match
+# both repo-relative (``tests/fixtures/...``) and nested
+# (``**/tests/fixtures/...``) layouts.
+DEFAULT_EXCLUDES: tuple[str, ...] = (
+    "tests/fixtures/**",
+    "**/tests/fixtures/**",
+    "tests/**/fixtures/**",
+    "**/tests/**/fixtures/**",
+)
+
+
+def _glob_to_regex(pattern: str) -> re.Pattern[str]:
+    """Translate a glob pattern (with ``**`` recursive support) to a regex.
+
+    Semantics:
+      - ``**/`` at the start (or after ``/``) matches zero or more path
+        segments — so ``**/legacy/**`` matches both ``legacy/x`` and
+        ``a/b/legacy/x``.
+      - A bare ``**`` matches anything including ``/``.
+      - ``*`` matches any character except ``/``.
+      - ``?`` matches a single character except ``/``.
+      - All other characters are matched literally.
+    """
+    i = 0
+    out = ["^"]
+    n = len(pattern)
+    while i < n:
+        c = pattern[i]
+        # Handle '**/' (optionally absorbing the slash).
+        if c == "*" and i + 1 < n and pattern[i + 1] == "*":
+            if i + 2 < n and pattern[i + 2] == "/":
+                out.append("(?:.*/)?")
+                i += 3
+                continue
+            out.append(".*")
+            i += 2
+            continue
+        if c == "*":
+            out.append("[^/]*")
+            i += 1
+            continue
+        if c == "?":
+            out.append("[^/]")
+            i += 1
+            continue
+        out.append(re.escape(c))
+        i += 1
+    out.append("$")
+    return re.compile("".join(out))
+
+
+def _is_excluded(rel_path: str, compiled: list[re.Pattern[str]]) -> bool:
+    rel_norm = rel_path.replace(os.sep, "/")
+    return any(rx.match(rel_norm) for rx in compiled)
+
 
 class PluginReadOnlyViolation(PermissionError):
     """Raised when a write would land under a ``plugins/`` directory."""
@@ -123,23 +179,40 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
-def _iter_python_files(target: Path) -> Iterable[Path]:
+def _iter_python_files(
+    target: Path,
+    exclude_patterns: list[re.Pattern[str]] | None = None,
+) -> Iterable[Path]:
+    exclude_patterns = exclude_patterns or []
     if target.is_file():
         if target.suffix == ".py":
-            yield target
+            # Single-file targets are matched by their bare name.
+            if not _is_excluded(target.name, exclude_patterns):
+                yield target
         return
     for p in target.rglob("*.py"):
         # Skip caches & vendored deps.
         parts = p.parts
         if "__pycache__" in parts or ".venv" in parts or "site-packages" in parts:
             continue
+        try:
+            rel = p.relative_to(target).as_posix()
+        except ValueError:
+            rel = p.as_posix()
+        if _is_excluded(rel, exclude_patterns):
+            continue
         yield p
 
 
-def scan_target(target: Path) -> dict[str, Any]:
+def scan_target(
+    target: Path,
+    excludes: Iterable[str] | None = None,
+) -> dict[str, Any]:
+    patterns = list(excludes) if excludes is not None else list(DEFAULT_EXCLUDES)
+    compiled = [_glob_to_regex(p) for p in patterns]
     scanned = 0
     hits: list[dict[str, Any]] = []
-    for py in _iter_python_files(target):
+    for py in _iter_python_files(target, compiled):
         scanned += 1
         try:
             text = py.read_text(encoding="utf-8")
@@ -198,6 +271,23 @@ def cli_main(argv: list[str]) -> int:
         help="File or directory to scan (default: cwd).",
     )
     ap.add_argument("--json", action="store_true", help="Emit JSON envelope.")
+    ap.add_argument(
+        "--exclude",
+        action="append",
+        default=None,
+        metavar="GLOB",
+        help=(
+            "Glob to exclude (relative to --target). Repeatable. When "
+            "given, ADDS to the built-in defaults (test-fixture trees) "
+            "rather than replacing them. Use --no-default-excludes to "
+            "scan everything."
+        ),
+    )
+    ap.add_argument(
+        "--no-default-excludes",
+        action="store_true",
+        help="Disable the built-in test-fixture exclude defaults.",
+    )
     args = ap.parse_args(argv)
 
     target = Path(args.target).resolve()
@@ -205,7 +295,13 @@ def cli_main(argv: list[str]) -> int:
         print(f"target not found: {target}", file=sys.stderr)
         return 2
 
-    result = scan_target(target)
+    excludes: list[str] = []
+    if not args.no_default_excludes:
+        excludes.extend(DEFAULT_EXCLUDES)
+    if args.exclude:
+        excludes.extend(args.exclude)
+
+    result = scan_target(target, excludes=excludes)
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:

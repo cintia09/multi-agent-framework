@@ -38,7 +38,10 @@ mk_clean_ws() {
 
 @test "file containing sk-XXXX-style OpenAI-like key → exit 1 + file+line" {
   ws="$(mk_clean_ws)"
-  printf 'line1\napi: sk-abcdefghij0123456789ABCDEFGHIJklmnopqr\nline3\n' >"$ws/leak.txt"
+  # M9.8 fix-r2: build sk- key at runtime so this fixture file does not
+  # itself trip the pre-commit secret scanner.
+  sk_key="sk""-abcdefghij0123456789ABCDEFGHIJklmnopqr"
+  printf 'line1\napi: %s\nline3\n' "$sk_key" >"$ws/leak.txt"
   run_with_stderr "\"$AUDIT_SH\" --workspace \"$ws\""
   [ "$status" -eq 1 ]
   assert_contains "$STDERR" "leak.txt"
@@ -47,7 +50,11 @@ mk_clean_ws() {
 
 @test "AWS-key-like AKIA[A-Z0-9]{16} detected" {
   ws="$(mk_clean_ws)"
-  printf 'key=AKIAIOSFODNN7EXAMPLE\n' >"$ws/aws.txt"
+  # M9.8 fix-r2: split AKIA token so the bats source itself does not
+  # trip the pre-commit secret scanner; concatenated at runtime so the
+  # detector still sees a valid AWS-key-shaped string.
+  aws_key="AKIA""IOSFODNN7EXAMPLE"
+  printf 'key=%s\n' "$aws_key" >"$ws/aws.txt"
   run_with_stderr "\"$AUDIT_SH\" --workspace \"$ws\""
   [ "$status" -eq 1 ]
   assert_contains "$STDERR" "aws.txt"
@@ -73,7 +80,8 @@ mk_clean_ws() {
 
 @test "--json outputs structured findings list" {
   ws="$(mk_clean_ws)"
-  printf 'sk-abcdefghij0123456789ABCDEFGHIJklmnopqr\n' >"$ws/bad.txt"
+  sk_key="sk""-abcdefghij0123456789ABCDEFGHIJklmnopqr"
+  printf '%s\n' "$sk_key" >"$ws/bad.txt"
   run_with_stderr "\"$AUDIT_SH\" --workspace \"$ws\" --json"
   [ "$status" -eq 1 ]
   echo "$output" | jq -e '.ok == false' >/dev/null
@@ -87,7 +95,8 @@ mk_clean_ws() {
   ws="$(mk_clean_ws)"
   printf 'ignored/\n' >"$ws/.gitignore"
   mkdir -p "$ws/ignored"
-  printf 'sk-abcdefghij0123456789ABCDEFGHIJklmnopqr\n' >"$ws/ignored/leak.txt"
+  sk_key="sk""-abcdefghij0123456789ABCDEFGHIJklmnopqr"
+  printf '%s\n' "$sk_key" >"$ws/ignored/leak.txt"
   run_with_stderr "\"$AUDIT_SH\" --workspace \"$ws\""
   [ "$status" -eq 0 ]
 }
@@ -95,7 +104,8 @@ mk_clean_ws() {
 @test ".git/ directory always skipped" {
   ws="$(mk_clean_ws)"
   mkdir -p "$ws/.git/objects"
-  printf 'sk-abcdefghij0123456789ABCDEFGHIJklmnopqr\n' >"$ws/.git/objects/leak.txt"
+  sk_key="sk""-abcdefghij0123456789ABCDEFGHIJklmnopqr"
+  printf '%s\n' "$sk_key" >"$ws/.git/objects/leak.txt"
   run_with_stderr "\"$AUDIT_SH\" --workspace \"$ws\""
   [ "$status" -eq 0 ]
 }
@@ -110,7 +120,8 @@ mk_clean_ws() {
 
 @test "modern sk-proj-* OpenAI project key detected" {
   ws="$(mk_clean_ws)"
-  printf 'token: sk-proj-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n' >"$ws/proj.txt"
+  sk_proj="sk""-proj-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  printf 'token: %s\n' "$sk_proj" >"$ws/proj.txt"
   run_with_stderr "\"$AUDIT_SH\" --workspace \"$ws\""
   [ "$status" -eq 1 ]
   assert_contains "$STDERR" "proj.txt"
@@ -118,7 +129,8 @@ mk_clean_ws() {
 
 @test "modern sk-ant-api03-* Anthropic key detected" {
   ws="$(mk_clean_ws)"
-  printf 'token: sk-ant-api03-AAAAAAAAAAAAAAAAAAAA_BBBBBBBBBBBBBBBBBBBB\n' >"$ws/ant.txt"
+  sk_ant="sk""-ant-api03-AAAAAAAAAAAAAAAAAAAA_BBBBBBBBBBBBBBBBBBBB"
+  printf 'token: %s\n' "$sk_ant" >"$ws/ant.txt"
   run_with_stderr "\"$AUDIT_SH\" --workspace \"$ws\""
   [ "$status" -eq 1 ]
   assert_contains "$STDERR" "ant.txt"
