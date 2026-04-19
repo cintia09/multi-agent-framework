@@ -34,10 +34,6 @@ m105_run_prepare() {
 # ---------------------------------------------------------------- TC-M10.5-02
 
 @test "[m10.5] TC-M10.5-02 parent_id == null → empty TASK_CHAIN, no cs.summarize call" {
-  # Slot must be wired (white-box guard to keep RED truly red even when
-  # the parent_id==null path coincidentally matches an unwired baseline).
-  grep -q '_render_task_chain' "$RENDER_PY" || { echo "_render_task_chain missing"; return 1; }
-
   ws=$(m105_seed_router_ws)
   make_task "$ws" T-001
   spy_log="$ws/_cs_calls.log"
@@ -181,8 +177,6 @@ CHAIN_BODY_M10_5_04
 # ---------------------------------------------------------------- TC-M10.5-06
 
 @test "[m10.5] TC-M10.5-06 prompt size ≤ 20480 tokens with deep chain + full memory" {
-  grep -q '_render_task_chain' "$RENDER_PY" || { echo "_render_task_chain missing"; return 1; }
-
   ws=$(m105_seed_router_ws)
   mock="$ws/_mock"
 

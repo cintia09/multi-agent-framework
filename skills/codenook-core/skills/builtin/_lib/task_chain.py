@@ -18,7 +18,12 @@ Public API:
 
 Errors:
 
-    CycleError              — self-loop or ancestor cycle
+    CycleError              — raised by set_parent on self-loop or
+                              ancestor cycle (only set_parent raises;
+                              walk_ancestors silently truncates and
+                              emits chain_walk_truncated).
+    CorruptChainError       — raised by set_parent when parent ancestry
+                              is corrupt (mid-chain state missing).
     TaskNotFoundError       — referenced state.json missing
     AlreadyAttachedError    — child already has a parent (no --force)
 
@@ -143,9 +148,9 @@ def _write_state_json(workspace: Path | str, task_id: str, state: dict) -> None:
 #     }
 #   }
 #
-# Backward-compat read: any snapshot file lacking "entries" (e.g. the
-# v1 ``{version, generation, chains}`` shape produced before M10.6) is
-# treated as a cold start — full ``_build_snapshot`` rebuild.
+# Cold-start fallback read: any snapshot file lacking "entries" (e.g.
+# the v1 ``{version, generation, chains}`` shape produced before
+# M10.6) is treated as a cold start — full ``_build_snapshot`` rebuild.
 
 
 def _iso_now() -> str:
@@ -331,7 +336,7 @@ def _invalidate_snapshot(workspace: Path | str, task_id: str) -> None:
     _build_snapshot(workspace)
 
 
-# Backward-compat shims (kept so external callers / older tests still
+# Internal shims (kept so external callers / older tests still
 # import without breaking; both no-op on the v2 path because entries
 # are derived from state.json on every bump/build).
 
@@ -440,7 +445,7 @@ def _walk_with_status(workspace: Path | str, task_id: str, *,
     walk truncation (M10.6 MINOR-08 raises on ``unreadable``; M10.1
     MINOR-02 downgrades audit verdict on the residual cases).
     """
-    del max_tokens  # accepted for backward-compat; unused
+    del max_tokens  # legacy import alias kwarg; unused
     chain: list[str] = []
     seen: set[str] = set()
     cur: Optional[str] = task_id
