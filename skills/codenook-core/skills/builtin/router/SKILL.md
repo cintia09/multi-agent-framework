@@ -5,7 +5,9 @@
 The **first sub-agent dispatched by the main session** on every user
 turn that isn't pure chit-chat. It self-bootstraps from a fresh context
 by reading its own profile + the main-session contract + the workspace
-state, then hands off to `router-triage` for the actual decision.
+state. (Historically it then handed off to `router-triage`, which has
+been removed in M8.7; the conversational `router-agent` skill is the
+current decision engine.)
 
 ## CLI
 

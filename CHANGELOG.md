@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Removed
+- `router-triage` skill (deprecated in v0.7.x; superseded by `router-agent`
+  in M8.2). All routing now flows through the conversational router-agent.
+  Deletes `skills/codenook-core/skills/builtin/router-triage/` and
+  `tests/m3-router-triage.bats`. Helper `_lib/router_select.py` is retained
+  as a Python-only scoring helper (no CLI entry).
+
 ## [0.7.0-m7.2] - 2026-04-18
 
 ### 🚀 v6.0 Milestones M3–M7 + E2E Acceptance

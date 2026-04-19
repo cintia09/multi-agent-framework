@@ -6,7 +6,9 @@ M3 router-* bats suites.
 ## Plugin stubs (`plugins/`)
 
 Each fixture contains a single `plugin.yaml` (M2 schema) plus an
-`intent_patterns:` field consumed by router-triage.
+`intent_patterns:` field that was consumed by the historical
+`router-triage` skill (removed in M8.7). The fixtures are kept for the
+remaining M3 router-bootstrap / context-scan / dispatch-build bats.
 
 | stub             | intent regexes                           | notes                              |
 |------------------|------------------------------------------|------------------------------------|

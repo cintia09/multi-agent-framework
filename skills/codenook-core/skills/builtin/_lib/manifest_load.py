@@ -1,8 +1,9 @@
 """Shared loader for installed-plugin manifests (M3).
 
-Used by router-bootstrap, router-context-scan, router-triage and
-router-dispatch-build to enumerate `<ws>/.codenook/plugins/<id>/plugin.yaml`
-without each skill re-implementing the same I/O + light validation.
+Used by router-bootstrap, router-context-scan and router-dispatch-build
+(and historically by router-triage, removed in M8.7) to enumerate
+`<ws>/.codenook/plugins/<id>/plugin.yaml` without each skill
+re-implementing the same I/O + light validation.
 
 Design notes
 ------------

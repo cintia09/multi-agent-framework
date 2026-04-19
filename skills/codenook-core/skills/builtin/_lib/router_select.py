@@ -2,19 +2,19 @@
 
 Background
 ----------
-The M3 router (`router-triage`) routes via per-plugin `intent_patterns`
-(regex). The M7 packaging spec adds a new, simpler routing surface to
-plugin.yaml — `applies_to`, `keywords`, `routing.priority` — that the
-M7 task prompt requires the M7 routing test to consume.
+The M3 router (`router-triage`, removed in M8.7) routed via per-plugin
+`intent_patterns` (regex). The M7 packaging spec adds a new, simpler
+routing surface to plugin.yaml — `applies_to`, `keywords`,
+`routing.priority` — that the M7 routing tests consume.
 
 This shim is intentionally narrow:
 
-* It is consumed by the M7 routing tests (`m7-routing.bats`) and any
-  downstream caller that wants a quick "given this user input, which
+* It is consumed by the M7 routing tests (`m7-routing.bats`) and may be
+  reused as a Python-only scoring helper inside `router-agent` (M8.2)
+  for any caller that wants a quick "given this user input, which
   installed plugin wins?" decision without committing to the regex DSL.
-* It does NOT replace the M3 router; both can coexist. The M3 router
-  fires on `intent_patterns`; this shim fires on `keywords` /
-  `applies_to`.
+* It is a Python API only (no CLI entry); the M3 `router-triage` skill
+  that previously consumed it has been removed in M8.7.
 
 Decision algorithm
 ------------------

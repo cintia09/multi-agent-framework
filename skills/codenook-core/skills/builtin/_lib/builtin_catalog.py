@@ -3,7 +3,8 @@ plus the regex intent table that maps user phrases to those skills.
 
 Importers:
   * router-dispatch-build/_build.py  — uses BUILTIN_SKILLS for role tagging
-  * router-triage/_triage.py         — uses BUILTIN_INTENTS for matching
+  * (historic) router-triage/_triage.py — removed in M8.7; superseded by
+    router-agent (M8.2). Kept here as a reusable intent table.
 
 Centralising here prevents drift: any new builtin must be added in one
 place to be both routable AND addressable as a dispatch target.

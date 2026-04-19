@@ -43,8 +43,9 @@ skills/builtin/
   # M3 router subsystem:
   router/                   self-bootstrap loader (bootstrap.sh)
   router-context-scan/      ≤2KB workspace inventory consumed every triage
-  router-triage/            chat / skill / plugin / hitl decision (priority order)
   router-dispatch-build/    500-char dispatch payload assembler + auto-audit
+  router-agent/             conversational task-creation router (M8.2 — supersedes
+                            M3 router-triage, removed in M8.7)
 tests/                      bats-core test suites (run: `bats tests/`)
 tests/fixtures/plugins/     static plugin fixtures (one per gate failure mode)
 ```
@@ -62,7 +63,7 @@ tests/fixtures/plugins/     static plugin fixtures (one per gate failure mode)
     bounded walks short-circuit at 10K files / 100MB
   - `router-triage/triage.sh` — decision: chat / skill / plugin / hitl,
     with priority builtin > plugin > chat > hitl; tied plugin matches
-    escalate to hitl
+    escalate to hitl  *(removed in M8.7; see router-agent skill / M8.2)*
   - `router-dispatch-build/build.sh` — assembles the ≤500-char dispatch
     payload (decision #T-3), truncates user_input to 200 chars + ellipsis,
     auto-invokes dispatch-audit

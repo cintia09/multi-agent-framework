@@ -28,7 +28,7 @@ Main session 在每个非闲聊输入上 dispatch 的第一个 sub-agent。
 3. **chat** — 无匹配，confidence ≤ 0.5，main session 直答
 4. **hitl** — 同时 ≥2 plugin 命中 → 必须 ask_user
 
-实现：`skills/builtin/router-triage/triage.sh`。
+实现：`skills/builtin/router-agent/spawn.sh` (M8.2)。
 
 ## Dispatch contract
 
@@ -53,5 +53,5 @@ Main session 在每个非闲聊输入上 dispatch 的第一个 sub-agent。
 
 ## 输出
 
-`router-triage` 产出：
-`{decision, target, confidence, reasons, dispatch_payload}`
+`router-agent` 产出 (M8.2)：`{action, task_id, reply_path, ...}`。
+详见 `docs/v6/router-agent-v6.md`。
