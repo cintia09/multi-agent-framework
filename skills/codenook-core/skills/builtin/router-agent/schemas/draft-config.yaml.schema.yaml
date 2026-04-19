@@ -32,6 +32,15 @@ fields:
     type: integer
     min: 1
 
+  # M10.3 — task-chains parent link. The router-agent surfaces top-3
+  # parent suggestions (via parent_suggester) in its prompt and writes
+  # the user's pick back here; cmd_confirm calls task_chain.set_parent
+  # after freezing state.json. Accepts null (independent task) — the
+  # M5 DSL has no union type, so nullability is enforced by
+  # `_lib/draft_config._validate` (regex ^T-[A-Za-z0-9_-]+$ or null).
+  parent_id:
+    type: string
+
   models:
     type: object
     fields:

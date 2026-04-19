@@ -43,9 +43,11 @@ sys.path.insert(0, str(_LIB))
 import draft_config as dc          # noqa: E402
 import knowledge_index as ki       # noqa: E402  (kept for prompt-side reference)
 import memory_layer as ml          # noqa: E402  (M9.6 — match_entries_for_task)
+import parent_suggester as ps      # noqa: E402  (M10.3 — top-3 candidates)
 import plugin_manifest_index as pmi  # noqa: E402
 import role_index as ri            # noqa: E402
 import router_context as rc        # noqa: E402
+import task_chain as tc            # noqa: E402  (M10.3 — set_parent on confirm)
 import task_lock as tl             # noqa: E402
 import workspace_overlay as wo     # noqa: E402
 from atomic import atomic_write_json  # noqa: E402
@@ -169,6 +171,31 @@ def _render_memory_index(matches: list[dict]) -> str:
     return header + "\n".join(lines)
 
 
+def _render_parent_suggestions(suggestions: list) -> str:
+    """Render the M10.3 parent-suggestion menu.
+
+    ``suggestions`` is the list returned by ``parent_suggester.suggest_parents``
+    (NamedTuples with task_id/title/score/reason). Always includes the
+    ``0. independent (no parent)`` sentinel as the last menu line.
+    """
+    header = "## Suggested parents"
+    if not suggestions:
+        return (
+            f"{header}\n\n_(none above threshold)_\n\n"
+            "0. independent (no parent)"
+        )
+    lines = [header, ""]
+    for idx, s in enumerate(suggestions[:3], start=1):
+        score = getattr(s, "score", 0.0)
+        reason = getattr(s, "reason", "") or ""
+        lines.append(
+            f"{idx}. {s.task_id} (score={score:.2f}) — {reason}"
+        )
+    lines.append("")
+    lines.append("0. independent (no parent)")
+    return "\n".join(lines)
+
+
 def _render_turns(turns: list[dict]) -> str:
     if not turns:
         return "_(no turns recorded yet)_"
@@ -183,7 +210,8 @@ def _render_turns(turns: list[dict]) -> str:
 
 def render_prompt(*, task_id: str, workspace: Path,
                   codenook_root: Path, ctx: dict,
-                  user_turn: str) -> str:
+                  user_turn: str,
+                  parent_suggestions: list | None = None) -> str:
     template = PROMPT_PATH.read_text(encoding="utf-8")
     plugins = pmi.discover_plugins(codenook_root)
     plugins_summary = pmi.summary_for_router(plugins)
@@ -215,6 +243,9 @@ def render_prompt(*, task_id: str, workspace: Path,
         "{{ROLES}}": _render_roles_index(roles_by_plugin),
         "{{OVERLAY}}": _render_overlay(overlay),
         "{{MEMORY_INDEX}}": _render_memory_index(memory_matches),
+        "{{PARENT_SUGGESTIONS}}": _render_parent_suggestions(
+            parent_suggestions or []
+        ),
         "{{CONTEXT_FRONTMATTER}}": fm_yaml,
         "{{CONTEXT}}": _render_turns(ctx["turns"]),
         "{{USER_TURN}}": user_block,
@@ -263,12 +294,30 @@ def cmd_prepare(args: argparse.Namespace) -> int:
             rc.append_turn(task_dir, "user", user_turn)
 
     ctx = rc.read_context(task_dir)
+
+    # M10.3 — surface top-3 parent candidates. Failures here MUST not
+    # break prepare; suggester already audits its own errors.
+    child_brief = _build_task_brief(ctx, user_turn)
+    parent_suggestions: list = []
+    if child_brief.strip():
+        try:
+            parent_suggestions = ps.suggest_parents(
+                workspace=workspace,
+                child_brief=child_brief,
+                top_k=3,
+                threshold=0.15,
+                exclude_task_ids={args.task_id},
+            )
+        except Exception:
+            parent_suggestions = []
+
     rendered = render_prompt(
         task_id=args.task_id,
         workspace=workspace,
         codenook_root=codenook,
         ctx=ctx,
         user_turn=user_turn,
+        parent_suggestions=parent_suggestions,
     )
     prompt_path.write_text(rendered, encoding="utf-8")
 
@@ -352,6 +401,28 @@ def cmd_confirm(args: argparse.Namespace) -> int:
     state.setdefault("config_overrides", {})
 
     atomic_write_json(str(state_path), state)
+
+    # M10.3 — apply user-confirmed parent_id (if any) AFTER the state
+    # seed exists. Cycle / not-found / already-attached are surfaced as
+    # exit 4 so the caller can re-prompt the user. set_parent emits the
+    # chain_attached / chain_attach_failed audit itself.
+    parent_id = draft.get("parent_id")
+    if isinstance(parent_id, str) and parent_id:
+        try:
+            tc.set_parent(workspace, args.task_id, parent_id)
+        except (
+            tc.AlreadyAttachedError,
+            tc.CycleError,
+            tc.TaskNotFoundError,
+            ValueError,
+        ) as e:
+            _emit({
+                "action": "error",
+                "task_id": args.task_id,
+                "code": "parent_attach_failed",
+                "errors": [f"{type(e).__name__}: {e}"],
+            })
+            return 4
 
     if (task_dir / "router-context.md").exists():
         rc.update_frontmatter(

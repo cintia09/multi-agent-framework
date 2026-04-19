@@ -11,6 +11,7 @@ See docs/v6/router-agent-v6.md §4.2 + §8.
 from __future__ import annotations
 
 import os
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -45,6 +46,7 @@ _VALID_ROLES = (
 _VALID_ACCEPT = ("required", "optional", "skip")
 _M4_STATE_VERSION = 1
 _M4_DEFAULT_MAX_ITERATIONS = 8
+_TASK_ID_RE = re.compile(r"^T-[A-Za-z0-9_-]+$")
 
 
 def _validate(cfg: dict) -> None:
@@ -94,6 +96,17 @@ def _validate(cfg: dict) -> None:
 
     if "custom" in cfg and not isinstance(cfg["custom"], dict):
         raise ValueError("custom must be a mapping")
+
+    if "parent_id" in cfg and cfg["parent_id"] is not None:
+        pid = cfg["parent_id"]
+        if not isinstance(pid, str) or not pid:
+            raise ValueError(
+                "parent_id must be a non-empty 'T-...' string or null"
+            )
+        if not _TASK_ID_RE.match(pid):
+            raise ValueError(
+                f"parent_id {pid!r} must match ^T-[A-Za-z0-9_-]+$"
+            )
 
     sp = cfg.get("selected_plugins")
     if sp is not None:
@@ -192,6 +205,15 @@ def freeze_to_state_json(
     Non-state-schema fields (input, models, hitl_overrides, custom) are
     parked under `config_overrides`, which is the only schema-permitted
     object container for arbitrary task configuration.
+
+    NOTE — M10.3: ``parent_id`` is intentionally NOT propagated into the
+    returned state by this function. The orchestration layer
+    (``router-agent.render_prompt.cmd_confirm``) is responsible for
+    calling ``task_chain.set_parent`` AFTER the state seed is written;
+    that path enforces cycle / existence / already-attached invariants
+    and emits the ``chain_attached`` audit. Keeping the freeze transform
+    pure isolates the suggester / UX integration from the state-shape
+    transform.
     """
     if not isinstance(draft, dict):
         raise TypeError("draft must be a dict")

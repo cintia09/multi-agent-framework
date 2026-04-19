@@ -41,6 +41,8 @@ propose a confident pick and ask the user to confirm or override.
 
 {{MEMORY_INDEX}}
 
+{{PARENT_SUGGESTIONS}}
+
 ---
 
 ## Current router-context (frontmatter)
@@ -113,7 +115,16 @@ file I/O within `tasks/{{TASK_ID}}/`. No shell-out, no network.
    ---
    ```
 
-4. **Do NOT invoke `init-task`, `orchestrator-tick`, or write
+4. **Set `parent_id` in `draft-config.yaml`** using the
+   "Suggested parents" menu rendered above. Pick one of the numbered
+   candidates by writing its task id (e.g. `parent_id: "T-007"`), or
+   pick `0` (independent) by writing `parent_id: null`. Confirm the
+   choice with the user before finalising the draft. On
+   `spawn.sh --confirm`, this value is consumed by `task_chain.set_parent`
+   to link the new task to its ancestor; an invalid id, a cycle, or a
+   missing parent will fail the handoff.
+
+5. **Do NOT invoke `init-task`, `orchestrator-tick`, or write
    `state.json` yourself.** The next `spawn.sh --confirm` invocation
    handles handoff after the user confirms.
 
