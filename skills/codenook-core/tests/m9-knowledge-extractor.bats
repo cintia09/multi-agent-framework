@@ -208,6 +208,30 @@ print(len(fm['tags']))
   fi
 }
 
+# ------------------------------------------------------------------ TC-M9.3-12b
+
+@test "[m9.3] TC-M9.3-12b ipv6 ula blocks write" {
+  ws=$(m9_seed_workspace); m9_init_memory "$ws"
+  body='Hosted at fd00::1234.'
+  mock_dir=$(mock_extract_json "$ws" "$(jq -cn --arg b "$body" '{candidates:[{title:"U","summary":"s","tags":["x"],body:$b}]}')")
+
+  run env CN_LLM_MOCK_DIR="$mock_dir" bash "$EXTRACT_SH" \
+        --task-id t1 --workspace "$ws" --phase p --reason after_phase \
+        --input "$FX/k1.md"
+  [ "$status" -eq 1 ] || { echo "expected exit 1, got $status; out=$output"; return 1; }
+
+  [ -z "$(ls -A "$ws/.codenook/memory/knowledge")" ] \
+    || { echo "knowledge file should not exist"; ls "$ws/.codenook/memory/knowledge"; return 1; }
+
+  log="$ws/.codenook/memory/history/extraction-log.jsonl"
+  grep -q '"outcome":[[:space:]]*"blocked_secret"' "$log" \
+    || { echo "missing outcome=blocked_secret"; cat "$log"; return 1; }
+
+  if grep -q "fd00::1234" "$log"; then
+    echo "raw ipv6 ula leaked into audit log!"; cat "$log"; return 1
+  fi
+}
+
 # ------------------------------------------------------------------ TC-M9.3-13
 
 @test "[m9.3] TC-M9.3-13 wall budget 30s" {

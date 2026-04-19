@@ -59,6 +59,7 @@ _SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("internal-ip-10", re.compile(r"\b10\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")),
     ("internal-ip-192", re.compile(r"\b192\.168\.\d{1,3}\.\d{1,3}\b")),
     ("internal-ip-172", re.compile(r"\b172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}\b")),
+    ("internal-ipv6-ula", re.compile(r"\b[fF][cdCD][0-9a-fA-F]{2}:[0-9a-fA-F:]*\b")),
     (
         "connection-string",
         re.compile(
