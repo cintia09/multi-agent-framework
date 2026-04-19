@@ -64,10 +64,17 @@ new GC CLI.
   CLAUDE.md; (3) the shared SECRET_PATTERNS regex set across every
   staged blob. Install with `cp skills/codenook-core/templates/pre-commit-hook.sh
   .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit`.
-- **E2E bats** `tests/e2e/m9-e2e.bats` covering TC-M9.8-01..04:
-  full extractor round-trip, GC dry-run + real run, pre-commit hook
-  blocks plugins/, router→extractor→memory-index loop survives across
-  two ticks (snapshot stable, no duplicates, no `.tmp.*` leaks).
+- **E2E bats** `tests/e2e/m9-e2e.bats` covering TC-M9.8-01..04 (full
+  spec contracts: extractor-batch round-trip surfacing α's summary in
+  β's router prompt; watermark async produces a candidate within 5s;
+  3 concurrent extractor-batch dispatches with no `.tmp.*` residue
+  and no hash collisions; spawn `--confirm` materialises state.json
+  while the rendered prompt cites seeded knowledge + applies_when
+  config) plus regressions TC-M9.8-10 (GC dry-run/real run) and
+  TC-M9.8-11 (pre-commit hook rejects top-level `plugins/` but allows
+  nested `tests/fixtures/plugins/...` after the fast-gate anchor fix)
+  and TC-M9.8-12 (router→extractor→memory-index loop idempotent
+  across two ticks).
 - **Backlog folds** — TC-M9.1-06 surface check now requires
   `promote_skill` and `promote_config_entry`; `_read_task_context()`
   also consumes `.txt` / `.log`; TC-M9.2-07 documents ±20% timing
@@ -76,7 +83,9 @@ new GC CLI.
 
 #### Quality gates
 
-- 791+ bats tests green across the full M1..M9.8 suite (M9.8 adds 4 e2e).
+- 795+ bats tests green across the full M1..M9.8 suite (M9.8 fix-r1
+  brings 7 e2e cases — TC-M9.8-01..04 spec contracts + TC-M9.8-10..12
+  GC, hook regression, idempotent loop).
 - `_lib/plugin_readonly.py --target . --json` exits 0.
 - `_lib/claude_md_linter.py --check-claude-md CLAUDE.md` 0 errors.
 - 0 `description.md` references; no greenfield-forbidden tokens.

@@ -31,8 +31,14 @@ fail() {
 
 # ---------------------------------------------------------------- 0. fast staged-plugins gate
 # This gate runs *before* the python helpers so even a checkout that
-# does not vendor codenook-core still rejects writes under plugins/.
-staged_plugins="$(git diff --cached --name-only --diff-filter=AM | grep -E '(^|/)plugins/' || true)"
+# does not vendor codenook-core still rejects writes under the repo's
+# top-level ``plugins/`` tree (the read-only invariant).
+#
+# fix-r1 (M9.8): anchor to the repo root so nested fixture paths such
+# as ``tests/fixtures/plugins/...`` are NOT swept up — git's
+# ``--name-only`` already emits paths relative to the repo root, so a
+# ``^plugins/`` anchor is sufficient.
+staged_plugins="$(git diff --cached --name-only --diff-filter=AM | grep -E '^plugins/' || true)"
 if [ -n "$staged_plugins" ]; then
   fail "staged write under plugins/ — read-only invariant violated:
 $staged_plugins"
