@@ -58,9 +58,16 @@ def _tasks_root(workspace: Path) -> Path:
 
 def _safe_resolve(workspace: Path, ancestor: str, name: str) -> Optional[Path]:
     """Resolve ``<ws>/.codenook/tasks/<ancestor>/<name>`` and assert it stays
-    inside the ancestor directory. Returns None on traversal violation.
+    inside the ancestor directory **and** the ancestor directory itself
+    stays inside ``<ws>/.codenook/tasks/`` (belt-and-suspenders against a
+    malformed ancestor id that escaped earlier validation). Returns None
+    on per-file traversal; raises ``ValueError`` on tasks-root escape so
+    the top-level try/except in ``summarize`` audits + returns "".
     """
+    tasks_root = _tasks_root(workspace)
     ancestor_dir = (workspace / _TASKS_REL / ancestor).resolve()
+    # Belt-and-suspenders: ancestor_dir must stay under tasks_root.
+    ancestor_dir.relative_to(tasks_root)
     target = (ancestor_dir / name).resolve()
     try:
         target.relative_to(ancestor_dir)
@@ -106,7 +113,10 @@ def _list_artifacts(workspace: Path, ancestor: str) -> list[str]:
     alphabetically for determinism.
     """
     items: list[str] = []
+    tasks_root = _tasks_root(workspace)
     ancestor_dir = (workspace / _TASKS_REL / ancestor).resolve()
+    # Belt-and-suspenders: ancestor_dir must stay under tasks_root.
+    ancestor_dir.relative_to(tasks_root)
     outputs_dir = (ancestor_dir / "outputs").resolve()
     if outputs_dir.is_dir():
         try:
@@ -125,7 +135,22 @@ def _list_artifacts(workspace: Path, ancestor: str) -> list[str]:
     return items[:_ARTIFACT_CAP]
 
 
-def _collect_ancestor(workspace: Path, ancestor: str) -> dict[str, Any]:
+def _collect_ancestor(workspace: Path, ancestor: str) -> Optional[dict[str, Any]]:
+    # Spec §6 / review-r1 fix #2: reject malformed ancestor ids before
+    # any filesystem read. walk_ancestors trusts state.json contents,
+    # so a corrupted "parent_id": "../../etc" would otherwise reach
+    # _safe_resolve / _list_artifacts. Skip + audit, never raise.
+    try:
+        task_chain._check_task_id(ancestor)
+    except (ValueError, TypeError):
+        _audit_safe(
+            workspace,
+            outcome="chain_summarize_failed",
+            verdict="failed",
+            source_task=ancestor if isinstance(ancestor, str) else "",
+            reason=f"bad_ancestor_id:{ancestor!r}"[:200],
+        )
+        return None
     state = task_chain._read_state_json(workspace, ancestor) or {}
     title = state.get("title") or state.get("task_id") or ancestor
     phase = state.get("phase") or "unknown"
@@ -230,7 +255,7 @@ def _audit_safe(workspace: Path, *, outcome: str, verdict: str,
     try:
         extract_audit.audit(
             workspace,
-            asset_type="chain_summarize",
+            asset_type="chain",
             outcome=outcome,
             verdict=verdict,
             source_task=source_task,
@@ -261,16 +286,22 @@ def summarize(workspace: Path | str,
         pass1: list[str] = []
         for aid in ancestors:
             meta = _collect_ancestor(ws, aid)
+            if meta is None:
+                # Bad ancestor id (already audited); skip silently.
+                continue
             metas.append(meta)
             prompt = _pass1_prompt(meta)
             resp = call_llm(prompt, call_name="chain_summarize", mode=llm_mode)
             pass1.append(resp if isinstance(resp, str) else str(resp))
 
+        if not metas:
+            return ""
+
         # Initial render (pass-1 only).
         sections = [_render_section(meta, body)
                     for meta, body in zip(metas, pass1)]
         body = "\n\n".join(sections)
-        rendered = _wrap(body, len(ancestors))
+        rendered = _wrap(body, len(metas))
 
         # Pass-2 if over budget.
         if token_estimate.estimate(rendered) > max_tokens:
@@ -282,7 +313,7 @@ def summarize(workspace: Path | str,
             p2_resp = call_llm(p2_prompt, call_name="chain_summarize", mode=llm_mode)
             if not isinstance(p2_resp, str):
                 p2_resp = str(p2_resp)
-            rendered = _wrap(p2_resp, len(ancestors))
+            rendered = _wrap(p2_resp, len(metas))
 
         # Secret scan + redact (returns redacted text; not a failure).
         hit, rule_id = secret_scan.scan_secrets(rendered)
