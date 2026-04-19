@@ -89,8 +89,18 @@ CodeNook v6 在 M9 之后，workspace 内运行时可见的两层资产：
 
 1. **plugins/ 在运行时严格只读**。所有抽取器、router、orchestrator-tick
    均不允许写 `plugins/` 或 `.codenook/plugins/` 之下任何路径。违者由
-   `_lib/plugin_readonly_check.py` 在 CI / pre-commit 拦截（FR-RO-1），
-   bats 测试模拟违例必须抛 `PermissionError`（FR-RO-2 / AC-RO-2）。
+   `_lib/plugin_readonly.py`（M9.7 实现，spec 早期草稿名为
+   `plugin_readonly_check.py`）双层守护：
+   - **运行时**：`assert_writable_path(path, workspace_root=…)` 在
+     `memory_layer._atomic_write_text` 入口处调用；任何 resolved path
+     的目录段含 `plugins` 即抛 `PluginReadOnlyViolation`（继承自
+     `PermissionError`，AC-RO-2 / FR-RO-2）。违例同时触发
+     `extract_audit.audit(outcome="plugin_readonly_violation",
+     verdict="rejected")` 落 `extraction-log.jsonl`。
+   - **静态扫描**：CLI `python3 _lib/plugin_readonly.py --target <dir>
+     [--json]` 扫描所有 `*.py`，识别 `open(…plugins/…, "w|a|x")`、
+     `Path("…plugins/…").write_text/_bytes`、`shutil.copy/move(…
+     plugins/…)`，CI / pre-commit 直接拦截（FR-RO-1 / AC-RO-1）。
 2. **memory/ 是可写层的唯一根**。memory 之下不允许再次按 plugin / 领域
    分子目录（FR-LAY-1）；任何资产只能落入 `knowledge/ | skills/ | config.yaml`
    三处。
@@ -99,7 +109,17 @@ CodeNook v6 在 M9 之后，workspace 内运行时可见的两层资产：
    沉淀为 knowledge 条目或 config entry（FR-LAY-5）。这一规则避免了
    「同一段背景说明散落在多个层级」的歧义。
 4. **CLAUDE.md / 主会话不允许扫描 memory/**（NFR-LAYER）。主会话仍域无
-   关；memory 的内容只对 router-agent 与 task agent 可见。
+   关；memory 的内容只对 router-agent 与 task agent 可见。该规则由
+   `_lib/claude_md_linter.py` 的 M9.7 扩展词表执行：
+   - 拦截写 plugins 描述：`(let me|I will|main session may) (write|edit|
+     modify|update|create) … plugins/…`（FR-RO-3 / AC-RO-3 /
+     TC-M9.7-04）。
+   - 拦截扫 memory shell 命令：`grep|cat|ls|find|rg|head|tail|awk|sed`
+     紧邻 `.codenook/memory`（NFR-LAYER / TC-M9.7-06）。
+   - 校验 `CLAUDE.md` 自身必须含 `## 上下文水位监控` 章节（M9.2 契约，
+     AC-DOC-3 / TC-M9.7-05）。CLI 自动启用：当目标路径解析到仓库根
+     `CLAUDE.md`（即同级存在 `.git/` 或 `skills/codenook-core/`），或
+     显式带 `--check-claude-md` flag 时生效；其余 fixtures 不受影响。
 
 ### 2.2 与 M8 读层的衔接（无任何沿用）
 

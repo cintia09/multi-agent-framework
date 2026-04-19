@@ -42,8 +42,12 @@ import memory_index  # noqa: E402
 import memory_layer as ml  # noqa: E402
 from extract_audit import audit as _audit_canonical  # noqa: E402
 from llm_call import call_llm  # noqa: E402
-from secret_scan import redact as _redact  # noqa: E402
-from secret_scan import scan_secrets as _scan_secrets  # noqa: E402
+try:  # M9.7 / TC-M9.7-07 — fail closed when secret scanner is missing.
+    from secret_scan import redact as _redact  # noqa: E402
+    from secret_scan import scan_secrets as _scan_secrets  # noqa: E402
+except ImportError:
+    print("secret scanner unavailable; refusing to write", file=sys.stderr)
+    sys.exit(1)
 
 # ---------------------------------------------------------------- constants
 

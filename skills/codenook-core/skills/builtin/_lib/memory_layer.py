@@ -129,7 +129,16 @@ def init_memory_skeleton(workspace_root: Path | str) -> None:
 
 
 def _atomic_write_text(path: Path, content: str) -> None:
-    """tempfile + os.replace in the same directory → atomic on POSIX."""
+    """tempfile + os.replace in the same directory → atomic on POSIX.
+
+    Also enforces the M9.7 plugin read-only invariant: any target that
+    resolves under a ``plugins/`` directory raises
+    :class:`plugin_readonly.PluginReadOnlyViolation` *before* the
+    tempfile is created.
+    """
+    from plugin_readonly import assert_writable_path  # local: avoid import cycles
+
+    assert_writable_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     # suffix=".tmp" (not the real extension) so concurrent scanners that
     # filter by extension cannot race-pick the in-flight file.

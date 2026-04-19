@@ -33,10 +33,10 @@ FIX="$TESTS_ROOT/fixtures/m9-claude-md-linter"
 }
 
 @test "[m9.7] TC-M9.7-05 fixture missing memory protocol section fails" {
-  # When file basename is CLAUDE.md, linter requires the memory protocol section.
+  # When --check-claude-md is passed, linter requires the memory protocol section.
   ws="$(make_scratch)"
   cp "$FIX/bad-no-memory-protocol.md" "$ws/CLAUDE.md"
-  run_with_stderr "python3 '$LINTER' '$ws/CLAUDE.md'"
+  run_with_stderr "python3 '$LINTER' --check-claude-md '$ws/CLAUDE.md'"
   [ "$status" -eq 1 ] || { echo "stdout: $output"; echo "stderr: $STDERR"; return 1; }
   assert_contains "$STDERR" "上下文水位监控"
 }
