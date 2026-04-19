@@ -117,3 +117,40 @@ with open(os.path.join(os.environ["WS_DIR"], "state.json"), "w") as f:
     json.dump(state, f, indent=2)
 PY
 }
+
+# seed_draft_config <ws> <tid> <plugin> <input> [parent_id]
+# Writes a minimal-valid draft-config.yaml under the task dir. When
+# parent_id is supplied (non-empty) it is rendered verbatim; pass the
+# string "null" to seed the explicit-null UX (TC-M10.3-03).
+seed_draft_config() {
+  local ws="$1" tid="$2" plugin="$3" input="$4" parent="${5:-}"
+  local dir="$ws/.codenook/tasks/$tid"
+  mkdir -p "$dir"
+  {
+    echo "_draft: true"
+    echo "plugin: \"$plugin\""
+    echo "input: \"$input\""
+    if [ -n "$parent" ]; then
+      if [ "$parent" = "null" ]; then
+        echo "parent_id: null"
+      else
+        echo "parent_id: \"$parent\""
+      fi
+    fi
+  } >"$dir/draft-config.yaml"
+}
+
+# render_prompt_path <ws> <tid> — echo the path to the rendered prompt.
+render_prompt_path() {
+  echo "$1/.codenook/tasks/$2/.router-prompt.md"
+}
+
+# m10_router_render <task_id> <ws> [extra args...]
+# Invoke render_prompt.py with PYTHONPATH=$M10_LIB_DIR.
+m10_router_render() {
+  local tid="$1"; shift
+  local ws="$1"; shift
+  PYTHONPATH="$M10_LIB_DIR" python3 \
+    "$CORE_ROOT/skills/builtin/router-agent/render_prompt.py" \
+    --task-id "$tid" --workspace "$ws" "$@"
+}
