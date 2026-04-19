@@ -6,6 +6,7 @@ manifest: phase-1-clarifier.md
 output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
+one_line_job: "Restate the user's request as 1-3 testable bullets and surface every blocking ambiguity."
 ---
 
 # Clarifier (generic)

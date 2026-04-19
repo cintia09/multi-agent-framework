@@ -6,6 +6,7 @@ manifest: phase-1-outliner.md
 output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
+one_line_job: "Turn the user's article topic into a structured outline the drafter can fill in."
 ---
 
 # Outliner (writing)

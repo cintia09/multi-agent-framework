@@ -52,3 +52,27 @@ fields:
 
   custom:
     type: object
+
+  # M8.10 — multi-plugin + role gating (per docs/v6/router-agent-v6.md
+  # "Design patch — multi-plugin + workspace-overlay").
+  selected_plugins:
+    type: array
+    items:
+      type: string
+  role_constraints:
+    type: object
+    fields:
+      excluded:
+        type: array
+        items:
+          type: object
+          fields:
+            plugin: { type: string, required: true, min_length: 1 }
+            role:   { type: string, required: true, min_length: 1 }
+      included:
+        type: array
+        items:
+          type: object
+          fields:
+            plugin: { type: string, required: true, min_length: 1 }
+            role:   { type: string, required: true, min_length: 1 }

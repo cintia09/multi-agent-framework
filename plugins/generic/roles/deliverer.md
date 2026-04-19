@@ -6,6 +6,7 @@ manifest: phase-4-deliverer.md
 output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
+one_line_job: "Package the executor's artefact for the user, sanity-check it against the clarifier's criteria, and close the task."
 ---
 
 # Deliverer (generic)

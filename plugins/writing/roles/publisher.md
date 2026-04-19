@@ -6,6 +6,7 @@ manifest: phase-5-publisher.md
 output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
+one_line_job: "Place the revised article on disk in its final form and emit a release record."
 ---
 
 # Publisher (writing)

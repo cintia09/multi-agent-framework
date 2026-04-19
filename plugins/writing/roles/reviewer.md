@@ -6,6 +6,7 @@ manifest: phase-3-reviewer.md
 output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
+one_line_job: "Critique the draft for argument, structure, voice and factual accuracy; produce an actionable revision list."
 ---
 
 # Reviewer (writing)

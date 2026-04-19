@@ -186,3 +186,91 @@ print('OK')
   [ "$status" -eq 0 ] || { echo "$output"; return 1; }
   assert_contains "$output" "OK"
 }
+
+# ─── M8.10: selected_plugins + role_constraints ────────────────────────
+
+@test "M8.10 write_draft accepts selected_plugins + role_constraints" {
+  d=$(make_scratch)
+  run py_helper "
+import draft_config as dc
+dc.write_draft('$d/draft-config.yaml', {
+    'plugin':'development','input':'x',
+    'selected_plugins':['development','generic'],
+    'role_constraints':{'excluded':[{'plugin':'development','role':'validator'}]},
+})
+got = dc.read_draft('$d/draft-config.yaml')
+assert got['selected_plugins'] == ['development','generic']
+assert got['role_constraints']['excluded'][0]['plugin'] == 'development'
+print('OK')
+"
+  [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+  assert_contains "$output" "OK"
+}
+
+@test "M8.10 write_draft rejects malformed role_constraints" {
+  d=$(make_scratch)
+  run py_helper "
+import draft_config as dc
+try:
+    dc.write_draft('$d/draft-config.yaml', {'plugin':'development','input':'x',
+        'role_constraints':{'excluded':[{'plugin':'development'}]}})
+    print('NO_RAISE')
+except ValueError as e:
+    print('OK', 'role_constraints' in str(e))
+"
+  [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+  assert_contains "$output" "OK True"
+}
+
+@test "M8.10 write_draft rejects non-string selected_plugins entries" {
+  d=$(make_scratch)
+  run py_helper "
+import draft_config as dc
+try:
+    dc.write_draft('$d/draft-config.yaml', {'plugin':'development','input':'x',
+        'selected_plugins':['development', 7]})
+    print('NO_RAISE')
+except ValueError as e:
+    print('OK', 'selected_plugins' in str(e))
+"
+  [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+  assert_contains "$output" "OK True"
+}
+
+@test "M8.10 freeze_to_state_json copies selected_plugins + role_constraints to state root" {
+  run py_helper "
+import sys, json
+sys.path.insert(0, '$LIB_DIR')
+import draft_config as dc
+from jsonschema_lite import validate
+draft = {'_draft':True,'plugin':'development','input':'x',
+         'selected_plugins':['development','generic'],
+         'role_constraints':{'excluded':[{'plugin':'development','role':'validator'}],
+                             'included':[{'plugin':'generic','role':'executor'}]}}
+seed = dc.freeze_to_state_json(draft, plugin='development', task_id='T-077')
+assert seed['selected_plugins'] == ['development','generic']
+assert seed['role_constraints']['excluded'][0]['role'] == 'validator'
+assert seed['role_constraints']['included'][0]['role'] == 'executor'
+# top-level, NOT under config_overrides
+assert 'selected_plugins' not in seed.get('config_overrides', {})
+assert 'role_constraints' not in seed.get('config_overrides', {})
+with open('$STATE_SCHEMA') as h: schema = json.load(h)
+validate(seed, schema)
+print('OK')
+"
+  [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+  assert_contains "$output" "OK"
+}
+
+@test "M8.10 freeze_to_state_json omits role_constraints when not set" {
+  run py_helper "
+import draft_config as dc
+seed = dc.freeze_to_state_json({'_draft':True,'plugin':'development','input':'x'},
+                               plugin='development', task_id='T-001')
+assert 'role_constraints' not in seed
+assert 'selected_plugins' not in seed
+print('OK')
+"
+  [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+  assert_contains "$output" "OK"
+}

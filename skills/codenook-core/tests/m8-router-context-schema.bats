@@ -49,7 +49,7 @@ print('OK')
     run python3 - "$SCHEMAS_DIR/$f" <<'PY'
 import sys, yaml
 ALLOWED_TYPES = {"string","integer","boolean","number","array","object"}
-ALLOWED_KEYS  = {"type","required","enum","min","min_length","fields"}
+ALLOWED_KEYS  = {"type","required","enum","min","min_length","fields","items"}
 
 def check_field(spec, path):
     if not isinstance(spec, dict):
@@ -65,6 +65,8 @@ def check_field(spec, path):
     if t == "object" and "fields" in spec:
         for k, v in spec["fields"].items():
             check_field(v, f"{path}.{k}")
+    if t == "array" and "items" in spec:
+        check_field(spec["items"], f"{path}[]")
 
 with open(sys.argv[1]) as h:
     schema = yaml.safe_load(h)
@@ -134,6 +136,27 @@ fs = s['fields']
 for k in ('pid','hostname','started_at','task_id'):
     assert fs[k].get('required'), k + ' must be required'
 assert fs['pid']['type'] == 'integer' and fs['pid']['min'] == 1
+print('OK')
+"
+  [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+  assert_contains "$output" "OK"
+}
+
+@test "M8.10 draft-config schema declares selected_plugins + role_constraints" {
+  run python3 -c "
+import yaml
+with open('$SCHEMAS_DIR/draft-config.yaml.schema.yaml') as h: s = yaml.safe_load(h)
+fs = s['fields']
+assert fs['selected_plugins']['type'] == 'array'
+assert fs['selected_plugins']['items']['type'] == 'string'
+rc = fs['role_constraints']
+assert rc['type'] == 'object'
+for k in ('included','excluded'):
+    assert rc['fields'][k]['type'] == 'array'
+    item = rc['fields'][k]['items']
+    assert item['type'] == 'object'
+    for sub in ('plugin','role'):
+        assert item['fields'][sub].get('required'), sub
 print('OK')
 "
   [ "$status" -eq 0 ] || { echo "$output"; return 1; }

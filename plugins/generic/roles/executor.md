@@ -6,6 +6,7 @@ manifest: phase-3-executor.md
 output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
+one_line_job: "Carry out the analyzer's plan and produce the actual artefact (text, summary, list, snippet, etc.)."
 ---
 
 # Executor (generic)

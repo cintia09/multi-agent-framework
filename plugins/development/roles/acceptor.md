@@ -7,6 +7,7 @@ output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
   extra_verdicts_for_humans: "conditional_accept/reject"
+one_line_job: "Issue the final user-facing accept/reject judgment."
 ---
 
 # Acceptor

@@ -24,6 +24,40 @@
     "depends_on": {"type": "array", "items": {"type": "string"}},
     "decomposed": {"type": "boolean"},
     "config_overrides": {"type": "object"},
+    "selected_plugins": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "role_constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "excluded": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["plugin", "role"],
+            "properties": {
+              "plugin": {"type": "string"},
+              "role": {"type": "string"}
+            }
+          }
+        },
+        "included": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["plugin", "role"],
+            "properties": {
+              "plugin": {"type": "string"},
+              "role": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
     "in_flight_agent": {
       "type": ["object", "null"],
       "additionalProperties": false,

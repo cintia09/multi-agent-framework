@@ -7,6 +7,7 @@ output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
   extra_verdicts_for_humans: "needs_user_input/blocked"
+one_line_job: "Turn the user's vague request into a structured, testable specification."
 ---
 
 # Clarifier

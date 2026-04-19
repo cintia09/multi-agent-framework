@@ -7,6 +7,7 @@ output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
   extra_verdicts_for_humans: "blocked"
+one_line_job: "Write production code that satisfies the design + clarifier criteria."
 ---
 
 # Implementer

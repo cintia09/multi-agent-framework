@@ -6,6 +6,7 @@ manifest: phase-2-analyzer.md
 output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
+one_line_job: "Decompose the clarified request into a short ordered plan the executor can follow."
 ---
 
 # Analyzer (generic)

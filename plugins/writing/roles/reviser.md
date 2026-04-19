@@ -6,6 +6,7 @@ manifest: phase-4-reviser.md
 output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
+one_line_job: "Apply the reviewer's revision list to the draft and produce a publish-ready article."
 ---
 
 # Reviser (writing)

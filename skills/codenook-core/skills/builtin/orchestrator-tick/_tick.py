@@ -33,6 +33,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_lib"))
 from atomic import atomic_write_json, atomic_write_json_validated  # noqa: E402
+from role_index import is_role_allowed  # noqa: E402  (M8.10)
 
 # Schemas live at codenook-core/schemas/.
 SCHEMAS_DIR = Path(__file__).resolve().parents[3] / "schemas"
@@ -431,6 +432,67 @@ def dispatch_role(workspace: Path, state: dict, phase: dict, cfg: dict) -> dict:
     }
 
 
+# ── M8.10 role-skip wrapper ──────────────────────────────────────────────
+def dispatch_or_skip(
+    workspace: Path,
+    state: dict,
+    phase: dict,
+    cfg: dict,
+    phases: list[dict],
+    trans_doc: dict,
+) -> dict:
+    """Dispatch ``phase`` unless its role is excluded by
+    ``state.role_constraints``. When excluded, mark the phase as
+    ``skipped`` in history (mirroring ``done`` semantics) and walk
+    forward via the ``ok`` transition until an allowed phase is found
+    or the task completes. Disabled when role_constraints is missing.
+    """
+    constraints = state.get("role_constraints") or {}
+    plugin = state.get("plugin", "")
+    visited: set[str] = set()
+    cur = phase
+    while True:
+        if is_role_allowed(plugin, cur.get("role", ""), constraints):
+            return dispatch_role(workspace, state, cur, cfg)
+
+        pid = cur.get("id", "")
+        if pid in visited:
+            return {
+                "status": "error",
+                "next_action": f"role-skip cycle at {pid}",
+            }
+        visited.add(pid)
+        state["history"].append(
+            {
+                "ts": now_iso(),
+                "phase": pid,
+                "verdict": "skipped",
+                "_warning": (
+                    f"role-skip: {cur.get('role','')}"
+                    f" excluded by role_constraints"
+                ),
+            }
+        )
+        nxt = lookup_transition(trans_doc, pid, "ok")
+        if nxt is None:
+            return {
+                "status": "error",
+                "next_action": f"no transition from {pid}/ok (skip)",
+            }
+        if nxt == "complete":
+            state["status"] = "done"
+            state["phase"] = "complete"
+            dispatch_distiller(workspace, state["task_id"])
+            return {"status": "done", "next_action": "noop"}
+        nxt_phase = find_phase(phases, nxt)
+        if nxt_phase is None:
+            return {
+                "status": "error",
+                "next_action": f"transition target unknown: {nxt} (skip)",
+            }
+        cur = nxt_phase
+
+
 # ── tick (M4 algorithm) ─────────────────────────────────────────────────
 def tick(workspace: Path, state_file: Path) -> tuple[dict, dict]:
     state = read_json(state_file)
@@ -473,7 +535,7 @@ def tick(workspace: Path, state_file: Path) -> tuple[dict, dict]:
                 "next_action": f"missing: {','.join(pre_check)}",
                 "message_for_user": f"Please answer first: {', '.join(pre_check)}",
             }
-        result = dispatch_role(workspace, state, first, cfg)
+        result = dispatch_or_skip(workspace, state, first, cfg, phases, trans_doc)
         return state, result
 
     cur = find_phase(phases, state["phase"])
@@ -533,7 +595,7 @@ def tick(workspace: Path, state_file: Path) -> tuple[dict, dict]:
                 {"ts": now_iso(), "phase": cur.get("id"),
                  "_warning": "hitl_needs_changes"}
             )
-            return state, dispatch_role(workspace, state, cur, cfg)
+            return state, dispatch_or_skip(workspace, state, cur, cfg, phases, trans_doc)
         else:
             # pending or not_found
             if just_consumed_verdict is not None:
@@ -564,12 +626,12 @@ def tick(workspace: Path, state_file: Path) -> tuple[dict, dict]:
                 state["status"] = "blocked"
                 return state, {"status": "blocked",
                                "next_action": "max_iterations exceeded"}
-            return state, dispatch_role(workspace, state, cur, cfg)
+            return state, dispatch_or_skip(workspace, state, cur, cfg, phases, trans_doc)
         nxt_phase = find_phase(phases, nxt)
         if nxt_phase is None:
             return state, {"status": "error",
                            "next_action": f"transition target unknown: {nxt}"}
-        return state, dispatch_role(workspace, state, nxt_phase, cfg)
+        return state, dispatch_or_skip(workspace, state, nxt_phase, cfg, phases, trans_doc)
 
     # ── 6. recovery (only when status==in_progress + phase set + no in_flight) ──
     if state.get("status") == "in_progress":
@@ -577,7 +639,7 @@ def tick(workspace: Path, state_file: Path) -> tuple[dict, dict]:
             {"ts": now_iso(), "phase": cur.get("id"),
              "_warning": "recover: re-dispatch (no in_flight)"}
         )
-        return state, dispatch_role(workspace, state, cur, cfg)
+        return state, dispatch_or_skip(workspace, state, cur, cfg, phases, trans_doc)
 
     # Default: nothing to do (e.g., status=blocked + phase set + no in_flight).
     del state["last_tick_ts"]

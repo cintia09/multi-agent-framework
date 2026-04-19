@@ -6,6 +6,7 @@ manifest: phase-2-drafter.md
 output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
+one_line_job: "Expand the outliner's outline into a complete first draft of the article."
 ---
 
 # Drafter (writing)

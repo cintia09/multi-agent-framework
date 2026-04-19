@@ -7,6 +7,7 @@ output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
   extra_verdicts_for_humans: "has_failures/blocked_by_env"
+one_line_job: "Verify the implementation against acceptance criteria."
 ---
 
 # Tester

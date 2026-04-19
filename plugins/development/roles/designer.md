@@ -7,6 +7,7 @@ output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
   extra_verdicts_for_humans: "needs_user_input/infeasible"
+one_line_job: "Translate clarified criteria into a concrete technical design."
 ---
 
 # Designer

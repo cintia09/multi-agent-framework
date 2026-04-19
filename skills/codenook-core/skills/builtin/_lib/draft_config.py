@@ -95,6 +95,32 @@ def _validate(cfg: dict) -> None:
     if "custom" in cfg and not isinstance(cfg["custom"], dict):
         raise ValueError("custom must be a mapping")
 
+    sp = cfg.get("selected_plugins")
+    if sp is not None:
+        if not isinstance(sp, list) or not all(isinstance(x, str) for x in sp):
+            raise ValueError("selected_plugins must be a list of strings")
+
+    rc = cfg.get("role_constraints")
+    if rc is not None:
+        if not isinstance(rc, dict):
+            raise ValueError("role_constraints must be a mapping")
+        for k in rc:
+            if k not in ("included", "excluded"):
+                raise ValueError(f"role_constraints unknown key: {k!r}")
+        for k in ("included", "excluded"):
+            v = rc.get(k)
+            if v is None:
+                continue
+            if not isinstance(v, list):
+                raise ValueError(f"role_constraints.{k} must be a list")
+            for item in v:
+                if (not isinstance(item, dict)
+                        or not isinstance(item.get("plugin"), str)
+                        or not isinstance(item.get("role"), str)):
+                    raise ValueError(
+                        f"role_constraints.{k}[*] must be {{plugin,role}}"
+                    )
+
 
 def _atomic_write_text(path: Path, text: str) -> None:
     d = path.parent
@@ -174,6 +200,39 @@ def freeze_to_state_json(
         state["target_dir"] = draft["target_dir"]
     if "dual_mode" in draft:
         state["dual_mode"] = "parallel" if draft["dual_mode"] else "serial"
+
+    # M8.10 — top-level multi-plugin + role-gating fields (NOT under
+    # config_overrides; orchestrator-tick reads them from state root).
+    if "selected_plugins" in draft and draft["selected_plugins"] is not None:
+        sp = draft["selected_plugins"]
+        if not isinstance(sp, list) or not all(isinstance(x, str) for x in sp):
+            raise ValueError("selected_plugins must be a list of strings")
+        state["selected_plugins"] = list(sp)
+    if "role_constraints" in draft and draft["role_constraints"] is not None:
+        rc = draft["role_constraints"]
+        if not isinstance(rc, dict):
+            raise ValueError("role_constraints must be a mapping")
+        for k in rc:
+            if k not in ("included", "excluded"):
+                raise ValueError(
+                    f"role_constraints unknown key: {k!r}"
+                )
+        for k in ("included", "excluded"):
+            v = rc.get(k)
+            if v is None:
+                continue
+            if not isinstance(v, list):
+                raise ValueError(f"role_constraints.{k} must be a list")
+            for item in v:
+                if (not isinstance(item, dict)
+                        or not isinstance(item.get("plugin"), str)
+                        or not isinstance(item.get("role"), str)):
+                    raise ValueError(
+                        f"role_constraints.{k}[*] must be {{plugin,role}}"
+                    )
+        state["role_constraints"] = {
+            k: [dict(item) for item in rc[k]] for k in rc if rc[k] is not None
+        }
 
     for k in ("input", "models", "hitl_overrides", "custom"):
         if k in draft and draft[k] is not None:

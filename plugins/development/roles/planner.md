@@ -7,6 +7,7 @@ output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
   extra_verdicts_for_humans: "decomposed/too_complex"
+one_line_job: "Decide whether to decompose, and produce the plan + dependency graph."
 ---
 
 # Planner
