@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="blog/images/architecture.png" alt="CodeNook" width="680" />
+  <img src="docs/images/architecture.png" alt="CodeNook" width="680" />
 </p>
 
 <h1 align="center">🤖 CodeNook — Multi-Agent Development Framework</h1>
@@ -11,10 +11,10 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/v0.13.2-stable-10b981?style=flat-square" alt="v0.13.2 stable">
-  <img src="https://img.shields.io/badge/plugin_architecture-self--contained-6366f1?style=flat-square" alt="plugin architecture (self-contained workspaces)">
-  <img src="https://img.shields.io/badge/bats-851%2F851-22c55e?style=flat-square" alt="bats 851/851">
-  <img src="https://img.shields.io/badge/M1–M11-shipped-8b5cf6?style=flat-square" alt="M1-M11 shipped">
+  <img src="https://img.shields.io/badge/v0.14.0-stable-10b981?style=flat-square" alt="v0.14.0 stable">
+  <img src="https://img.shields.io/badge/python_installer-no--bash-6366f1?style=flat-square" alt="python installer (no bash dependency)">
+  <img src="https://img.shields.io/badge/plugins-development%20%7C%20generic%20%7C%20writing-8b5cf6?style=flat-square" alt="plugins: development | generic | writing">
+  <img src="https://img.shields.io/badge/M1–M11-shipped-22c55e?style=flat-square" alt="M1-M11 shipped">
 </p>
 
 <p align="center">
@@ -39,7 +39,7 @@
 
 CodeNook is a zero-runtime-dependency framework for driving software work through Claude Code or Copilot CLI. Every user turn is routed by a **router-agent** into a structured task; tasks are advanced one phase at a time by an **orchestrator-tick** state machine; each phase runs as an isolated sub-agent with a fully-rendered prompt; and after every phase the **extractor-batch** distills useful artefacts back into a workspace **memory layer** that future tasks read.
 
-The current shipped surface (v0.13.2) is the **plugin architecture** — a kernel (`skills/codenook-core/`) plus an installable **development plugin** (`plugins/development/`) that defines the 8-phase software-engineering pipeline. Other domains (writing, generic, …) ship as additional plugins on the same kernel. Since v0.13.0 every workspace is fully self-contained: the kernel is copied into `<ws>/.codenook/codenook-core/` at install time, so a workspace no longer depends on the source repo's filesystem location.
+The current shipped surface (v0.14.0) is the **plugin architecture** — a kernel (`skills/codenook-core/`) plus three first-party plugins shipped in this repo: **`development`** (8-phase software-engineering pipeline), **`generic`** (lightweight default for any domain), and **`writing`** (long-form authoring). All three install on the same kernel. Since v0.13.0 every workspace is fully self-contained: the kernel is copied into `<ws>/.codenook/codenook-core/` at install time, so a workspace no longer depends on the source repo's filesystem location. As of v0.14.0 the installer and CLI wrapper are pure-Python — no bash dependency on Windows.
 
 ## Why
 
@@ -68,7 +68,7 @@ The kernel knows nothing about software engineering. It contains:
 | Config & models | `config-resolve`, `config-validate`, `config-mutator`, `model-probe`, `secrets-resolve`, `task-config-set`, `preflight` |
 | Helpers (`_lib/`) | `task_chain`, `parent_suggester`, `chain_summarize`, `memory_layer`, `memory_index`, `llm_call`, `render_prompt`, `token_estimate`, `workspace_overlay`, `claude_md_linter`, `plugin_readonly`, `secret_scan` |
 
-Entry points: `init.sh` (workspace seed + plugin manager — see status table in §Quick Start) and `install.sh` (top-level install/upgrade wrapper around the 12-gate kernel installer; accepts a positional `<workspace_path>`).
+Entry points: `install.py` (top-level Python installer — installs the kernel + selected plugins through the 12-gate pipeline) and the per-workspace `.codenook/bin/codenook` shim (Python CLI for task / router / tick / hitl / status / chain subcommands).
 
 ### Layer 2 — `plugins/development/` (the domain pipeline)
 
@@ -108,47 +108,42 @@ A workspace's `.codenook/` directory is the only place the kernel writes:
 
 ### 1. Install
 
-Clone the repo and run the top-level installer against a workspace:
+Clone the repo and run the Python installer against a workspace:
 
 ```bash
 git clone https://github.com/cintia09/CodeNook.git
 cd CodeNook
-bash install.sh <workspace_path>          # install development plugin
-bash install.sh --dry-run <workspace>     # gates only, no commit
-bash install.sh --upgrade <workspace>     # re-install / version bump
-bash install.sh --check <workspace>       # report install state
+python install.py --target <workspace_path>            # install all plugins (development, generic, writing)
+python install.py --target <ws> --plugin development   # install one plugin
+python install.py --target <ws> --dry-run              # gates only, no commit
+python install.py --target <ws> --upgrade              # re-install / version bump
+python install.py --target <ws> --check                # report install state
+python install.py --target <ws> --yes                  # non-interactive (skip confirm prompts)
 ```
 
-The top-level `install.sh` (v0.13.2):
+`install.py` (v0.14.0):
 
-* Runs the kernel installer (`skills/codenook-core/install.sh`) and stages the plugin into `<workspace>/.codenook/plugins/<id>/` (atomic commit on green G01–G12).
-* Idempotently augments the workspace `CLAUDE.md` with a clearly delimited `<!-- codenook:begin --> ... <!-- codenook:end -->` bootloader block (re-runs replace the block in place; user content outside the markers is never touched).
+* Runs the 12-gate kernel install pipeline and atomically commits each plugin into `<workspace>/.codenook/plugins/<id>/` on green G01–G12.
+* Seeds `.codenook/{schemas,memory,bin/codenook,bin/codenook.cmd}` so the workspace is immediately usable.
+* Idempotently augments the workspace `CLAUDE.md` with a clearly delimited `<!-- codenook:begin --> ... <!-- codenook:end -->` bootloader block (re-runs replace the block in place; user content outside the markers is never touched). Skip with `--no-claude-md`.
+* Pure Python (3.9+) — no bash dependency. The legacy `install.sh.legacy` ships one more release as a fallback only.
 
-### 2. (Optional) Manage plugins from inside a workspace
+### 2. (Optional) Drive a workspace from its installed CLI
 
-The kernel ships an `init.sh` wrapper for plugin management subcommands. **As of v0.13.2 most subcommands are still planned for v0.14** — only the meta and refresh commands are live:
+After install, the workspace ships a thin Python shim at `.codenook/bin/codenook` (and `codenook.cmd` on Windows) that forwards to the kernel's `_lib/cli` package. The 1-for-1 subcommand surface from v0.13.x is preserved:
 
-| Subcommand | Status |
+| Subcommand | What it does |
 |---|---|
-| `init.sh --version` | ✅ live |
-| `init.sh --help` | ✅ live |
-| `init.sh --refresh-models` | ✅ live (re-probes model catalog into `.codenook/state.json`) |
-| `init.sh` (no args, seed CWD) | 🚧 planned for v0.12 — use `bash install.sh <ws>` |
-| `init.sh --install-plugin <path>` | 🚧 planned for v0.12 — use `bash skills/codenook-core/install.sh --src <path> --workspace <ws>` |
-| `init.sh --uninstall-plugin <name>` | 🚧 planned for v0.12 |
-| `init.sh --scaffold-plugin <name>` | 🚧 planned for v0.12 |
-| `init.sh --pack-plugin <dir>` | 🚧 planned for v0.12 |
-| `init.sh --upgrade-core` | 🚧 planned for v0.12 |
+| `codenook --version` / `--help` | Meta |
+| `codenook status` | Workspace + plugin install report |
+| `codenook task new\|list\|show` | Task lifecycle |
+| `codenook router <prompt>` | Drive a router-agent turn |
+| `codenook tick --task <T-NNN>` | Advance one phase |
+| `codenook hitl <list\|show\|render\|decide>` | HITL queue (terminal or self-contained HTML render) |
+| `codenook decide --id <eid> --decision <ans>` | Submit a HITL decision |
+| `codenook chain` | Inspect task-chain DAG |
 
-To install another plugin into a workspace today, call the kernel installer directly:
-
-```bash
-bash skills/codenook-core/install.sh \
-     --src plugins/writing \
-     --workspace ~/code/my-project
-```
-
-This runs the 12-gate install pipeline (`install-orchestrator`) and atomically commits the staged plugin tree into `.codenook/plugins/<id>/`.
+To install another plugin into an existing workspace, re-run `install.py --upgrade --plugin <id>` from the source repo.
 
 ### 3. Start a turn
 
@@ -253,7 +248,7 @@ my-plugin/
 └── validators/post-*.sh     # optional post-phase validators
 ```
 
-Build a tarball with `init.sh --pack-plugin <dir>`, install with `init.sh --install-plugin <tarball>`. The 12-gate install pipeline checks well-formedness (G01), schema (G02), id (G03), semver (G04), optional sha256 sig (G05), `requires.core_version` (G06), subsystem collisions (G07), security (G08 via `sec-audit`), shebang allowlist (G10), and YAML path normalisation (G11). On success the staged tree is atomically committed to `.codenook/plugins/<id>/`.
+Drop the plugin directory under `plugins/` in this repo (or any `--src` path) and run `python install.py --target <ws> --plugin <id>`. The 12-gate install pipeline checks well-formedness (G01), schema (G02), id (G03), semver (G04), optional sha256 sig (G05), `requires.core_version` (G06), subsystem collisions (G07), security (G08 via `sec-audit`), shebang allowlist (G10), and YAML path normalisation (G11). On success the staged tree is atomically committed to `.codenook/plugins/<id>/`.
 
 The verdict contract is the only thing roles must obey:
 
@@ -273,7 +268,8 @@ Every commit on this repo runs:
 
 | Gate | Command | What it checks |
 |------|---------|----------------|
-| Bats sweep | `bats skills/codenook-core/tests/` | 851 assertions across 101 test files (M1–M11) |
+| Bats sweep | `bats skills/codenook-core/tests/` | 114 test files (M1–M11) — see CI for current assertion count |
+| Pytest smoke | `pytest skills/codenook-core/tests/python/` | Python CLI / installer subprocess smoke tests (added in v0.14.0) |
 | `claude_md_linter` | `python3 skills/codenook-core/_lib/claude_md_linter.py --check-claude-md CLAUDE.md` | CLAUDE.md is free of forbidden surface |
 | `plugin_readonly` | `python3 skills/codenook-core/_lib/plugin_readonly.py --target . --json` | Kernel never mutates `plugins/` outside install |
 | `secret_scan` | `python3 skills/codenook-core/_lib/secret_scan.py <files>` | No keys / tokens / connection strings |
@@ -283,11 +279,12 @@ The kernel ships with bats fixtures for every gate failure mode under `skills/co
 
 ## Roadmap
 
-v0.13.2 is the latest stable release on the **plugin architecture** line — M1–M11 are shipped, full bats + pytest suite green, 100 of 117 acceptance tests PASS / 13 PARTIAL / 4 SKIP. The deferred surface for v0.14 is small and well-scoped:
+v0.14.0 is the latest stable release on the **plugin architecture** line. M1–M11 are shipped; the v0.14 cycle replaced the bash installer and CLI wrapper with a Python implementation (`install.py` + `_lib/cli/` + `_lib/install/`) so Windows users no longer need Git Bash. The previous bash entry points ship one more release as `install.sh.legacy` and `codenook-wrapper.sh.legacy` for fallback only. Currently deferred:
 
 - **A1-6** — `session-resume` schema v2 (replace 10 M1-compat keys, rewrite `m1-session-resume.bats` end-to-end).
 - **MEDIUM-04** — snapshot `fcntl.flock` to close the multi-process snapshot TOCTOU window.
 - **AT-REL-1, AT-LLM-2.1, AT-COMPAT-1, AT-COMPAT-3** — four acceptance tests deferred pending real-LLM and multi-host fixtures.
+- Phase C — slimming the ~30 thin `skills/builtin/*/*.sh` shims now that the new wrapper imports the underlying Python helpers directly.
 
 Historical release notes tracked in [`docs/release-report-v0.11.md`](docs/release-report-v0.11.md) and [`docs/cleanup-report-v0.11.1.md`](docs/cleanup-report-v0.11.1.md); current release notes live in [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -304,7 +301,7 @@ Historical release notes tracked in [`docs/release-report-v0.11.md`](docs/releas
 | [`docs/requirements.md`](docs/requirements.md) | ~70 FR / NFR (1162 lines) |
 | [`docs/acceptance.md`](docs/acceptance.md) | 117 acceptance tests |
 | [`docs/acceptance-execution-report.md`](docs/acceptance-execution-report.md) | 100 PASS / 13 PARTIAL / 4 SKIP |
-| [`blog/vibe-coding-and-multi-agent.md`](blog/vibe-coding-and-multi-agent.md) | Background essay |
+| [`docs/vibe-coding-and-multi-agent.md`](docs/vibe-coding-and-multi-agent.md) | Background essay |
 | [`CHANGELOG.md`](CHANGELOG.md) | Release notes |
 
 ## Contributing
