@@ -20,7 +20,7 @@ mk_workspace() {
 
 mk_tarball() {
   local out_dir="$1"
-  local tgz="$out_dir/development-0.1.0.tar.gz"
+  local tgz="$out_dir/development-0.2.0.tar.gz"
   ( cd "$PLUGIN_SRC/.." && tar -czf "$tgz" development )
   echo "$tgz"
 }
@@ -56,14 +56,15 @@ mk_tarball() {
     [ -f "$ws/.codenook/plugins/development/$f" ] \
       || { echo "missing $f" >&2; return 1; }
   done
-  for r in clarifier designer planner implementer tester reviewer acceptor validator; do
+  for r in clarifier designer planner implementer builder reviewer submitter test-planner tester acceptor; do
     [ -f "$ws/.codenook/plugins/development/roles/$r.md" ] \
       || { echo "missing roles/$r.md" >&2; return 1; }
   done
   count=$(ls "$ws/.codenook/plugins/development/manifest-templates"/phase-*.md | wc -l | tr -d ' ')
-  [ "$count" -eq 8 ]
+  [ "$count" -eq 11 ]
   [ -x "$ws/.codenook/plugins/development/skills/test-runner/runner.sh" ]
   [ -x "$ws/.codenook/plugins/development/validators/post-implement.sh" ]
+  [ -x "$ws/.codenook/plugins/development/validators/post-build.sh" ]
 }
 
 @test "all gate_results are ok in install JSON envelope" {

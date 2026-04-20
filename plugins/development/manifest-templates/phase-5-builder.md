@@ -1,16 +1,16 @@
-# Phase-3 dispatch manifest — planner
+# Phase-5 dispatch manifest — builder
 
 > Template rendered by orchestrator-tick into
-> `.codenook/tasks/{task_id}/prompts/phase-3-planner.md` before
-> dispatching the planner role.
+> `.codenook/tasks/{task_id}/prompts/phase-5-builder.md` before
+> dispatching the builder role.
 
 ## Header (set by orchestrator)
 
 ```
 Task:        {task_id}
 Plugin:      development
-Phase:       plan                (3 of 11)
-Role:        planner
+Phase:       build                (5 of 11)
+Role:        builder
 Iteration:   {iteration}
 Target dir:  {target_dir}
 Prior summary: {prior_summary_path}
@@ -19,16 +19,16 @@ Criteria:    {criteria_path}
 
 ## Your job (one line)
 
-Decide whether to decompose; produce the plan.
+Mechanical compile + lint + smoke. Pure pass/fail.
 
 ## Inputs you MUST read
 
 - `.codenook/tasks/{task_id}/state.json` — task metadata.
-- All upstream outputs under `.codenook/tasks/{task_id}/outputs/` for
-  phases earlier than plan.
-- The criteria document at `{criteria_path}` (if non-empty).
+- `.codenook/config/build-cmd.yaml` — cached build command (your role
+  is responsible for asking the user once via HITL when missing, then
+  caching the answer here per design §6.3).
 - The plugin role profile at
-  `.codenook/plugins/development/roles/planner.md` — your operating
+  `.codenook/plugins/development/roles/builder.md` — your operating
   contract; read first.
 
 ## Output contract
@@ -36,15 +36,20 @@ Decide whether to decompose; produce the plan.
 Write the report to:
 
 ```
-.codenook/tasks/{task_id}/outputs/phase-3-planner.md
+.codenook/tasks/{task_id}/outputs/phase-5-builder.md
 ```
 
 Begin with YAML frontmatter:
 
 ```
 ---
-verdict: ok                # or needs_revision / blocked
+verdict: ok                # ok = build (and lint) passed
+                           # needs_revision = build/lint failed (bounce
+                           #   to implementer per design §3)
+                           # blocked = environment unusable
 summary: <≤200 chars>
+build_command: "<from build-cmd.yaml>"
+exit_code: 0
 iteration: {iteration}
 ---
 ```
@@ -53,6 +58,8 @@ The orchestrator reads ONLY the `verdict` field to compute the next
 transition (per `.codenook/plugins/development/transitions.yaml`).
 
 ## Knowledge / skills
+
+{{TASK_CONTEXT}}
 
 - Plugin-shipped knowledge: `.codenook/plugins/development/knowledge/`.
 - Plugin-shipped skills:    `.codenook/plugins/development/skills/`.

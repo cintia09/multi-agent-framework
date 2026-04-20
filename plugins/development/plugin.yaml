@@ -16,7 +16,7 @@
 
 # ── M2 install-pipeline contract ────────────────────────────────────────
 id: development
-version: "0.1.2"
+version: "0.2.0"
 type: domain
 entry_points:
   install: phases.yaml
@@ -34,8 +34,11 @@ name: development
 applies_to: [software-engineering, code]
 codenook_core_version: ">=0.5.0-m5 <1.0.0"
 summary: >
-  Software development pipeline:
-  clarify → design → plan → implement → test → accept → validate → ship.
+  Profile-aware software-development pipeline (v0.2.0). Clarifier picks
+  a `task_type` (feature|hotfix|refactor|test-only|docs|review|design),
+  and the orchestrator walks the matching phase chain over the 11-phase
+  catalogue: clarify → design → plan → implement → build → review →
+  submit → test-plan → test → accept → ship.
 keywords:
   - python
   - javascript

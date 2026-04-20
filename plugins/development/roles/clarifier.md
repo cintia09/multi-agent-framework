@@ -4,15 +4,17 @@ plugin: development
 phase: clarify
 manifest: phase-1-clarifier.md
 output_contract:
-  frontmatter_required: [verdict]
+  frontmatter_required: [verdict, task_type]
   verdict_enum: [ok, needs_revision, blocked]
+  task_type_enum: [feature, hotfix, refactor, test-only, docs, review, design]
   extra_verdicts_for_humans: "needs_user_input/blocked"
-one_line_job: "Turn the user's vague request into a structured, testable specification."
+one_line_job: "Turn the user's vague request into a structured, testable specification AND pick a task_type profile."
 ---
 
 # Clarifier
 
-**One-line job:** Turn the user's vague request into a structured, testable specification.
+**One-line job:** Turn the user's vague request into a structured,
+testable specification AND pick a `task_type` profile.
 
 ## Self-bootstrap
 
@@ -29,11 +31,28 @@ is referenced from there.
 ## Steps
 
 1. Read the dispatch manifest at `.codenook/tasks/<task>/prompts/phase-1-clarifier.md`.
-2. Read upstream context: `.codenook/tasks/<task>/state.json` for `title`, `summary`, `target_dir`.
+2. Read upstream context: `.codenook/tasks/<task>/state.json` for
+   `title`, `summary`, `target_dir`.
 3. Restate the goal in ≤3 bullet points using the user's own vocabulary.
 4. Enumerate ≥3 acceptance criteria, each independently verifiable.
 5. List explicit non-goals to bound scope creep.
-6. Surface every ambiguity as a numbered question (block on HITL only when answers gate downstream work).
+6. Surface every ambiguity as a numbered question (block on HITL only
+   when answers gate downstream work).
+7. **Pick a `task_type` profile** (REQUIRED — this drives the entire
+   downstream pipeline). Choose ONE of:
+
+   | task_type   | when                                                            |
+   |-------------|-----------------------------------------------------------------|
+   | feature     | new end-to-end functionality (full pipeline)                    |
+   | hotfix      | urgent bug fix; skip design/plan/submit/accept                  |
+   | refactor    | internal restructure; full pipeline minus submit + accept       |
+   | test-only   | add tests to existing code; no implementer                      |
+   | docs        | documentation change only                                       |
+   | review      | read existing code and deliver a review report                  |
+   | design      | produce a design proposal, no implementation                    |
+
+   When uncertain, default to `feature` (most conservative — runs the
+   full pipeline). Rationale for the pick MUST appear in the body.
 
 ## Output contract
 
@@ -43,14 +62,20 @@ YAML frontmatter:
 
 ```
 ---
-verdict: ok            # or needs_revision / blocked
+verdict: ok                # or needs_revision / blocked
+task_type: feature         # one of the profiles in the table above
 summary: <≤200 chars>
 ---
 ```
 
-Followed by the body. The orchestrator reads only the frontmatter
-verdict to decide the next transition; the body is for humans (and the
-distiller).
+`task_type` is REQUIRED. The orchestrator reads it from the most recent
+clarifier output and selects the profile chain from
+`.codenook/plugins/development/phases.yaml` `profiles:`. The body is
+for humans (and the distiller).
+
+> **Profile change mid-task is out of scope for v0.2.0.** If you want
+> to switch profile after the first clarifier output, the user must
+> abort and restart the task.
 
 ## Knowledge
 

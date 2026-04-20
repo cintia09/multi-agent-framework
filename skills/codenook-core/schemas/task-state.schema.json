@@ -25,6 +25,14 @@
     "depends_on": {"type": "array", "items": {"type": "string"}},
     "decomposed": {"type": "boolean"},
     "config_overrides": {"type": "object"},
+    "task_type": {
+      "type": ["string", "null"],
+      "description": "Profile selector for profile-aware plugins (e.g. development v0.2.0). Set by clarifier output frontmatter; null/missing means the plugin's default profile is used."
+    },
+    "profile": {
+      "type": ["string", "null"],
+      "description": "Resolved profile name (cached by orchestrator-tick after the first dispatch). Internal."
+    },
     "selected_plugins": {
       "type": "array",
       "items": {"type": "string"}

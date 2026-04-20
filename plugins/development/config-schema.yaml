@@ -12,16 +12,18 @@ fields:
     type: object
     required: true
     fields:
-      clarifier:   { type: string, min_length: 1 }
-      designer:    { type: string, min_length: 1 }
-      planner:     { type: string, min_length: 1 }
-      implementer: { type: string, min_length: 1 }
-      reviewer:    { type: string, min_length: 1 }
-      tester:      { type: string, min_length: 1 }
-      acceptor:    { type: string, min_length: 1 }
-      validator:   { type: string, min_length: 1 }
-      distiller:   { type: string, min_length: 1 }
-      default:     { type: string, min_length: 1 }
+      clarifier:    { type: string, min_length: 1 }
+      designer:     { type: string, min_length: 1 }
+      planner:      { type: string, min_length: 1 }
+      implementer:  { type: string, min_length: 1 }
+      builder:      { type: string, min_length: 1 }
+      reviewer:     { type: string, min_length: 1 }
+      submitter:    { type: string, min_length: 1 }
+      test-planner: { type: string, min_length: 1 }
+      tester:       { type: string, min_length: 1 }
+      acceptor:     { type: string, min_length: 1 }
+      distiller:    { type: string, min_length: 1 }
+      default:      { type: string, min_length: 1 }
 
   hitl:
     type: object
@@ -48,3 +50,20 @@ fields:
     type: object
     fields:
       consumes: { type: array }
+
+  # ── v0.2.0: per-workspace build-cmd.yaml schema (design §6.3) ─────────
+  # Lives at <ws>/.codenook/config/build-cmd.yaml; populated by the
+  # builder role on first run (HITL-asks for the command, caches the
+  # answer). Schema fragment below is what config-validate enforces if
+  # the file is hand-edited.
+  build:
+    type: object
+    fields:
+      command: { type: string, min_length: 1 }
+      cwd:     { type: string, min_length: 1 }
+
+  lint:
+    type: object
+    fields:
+      command: { type: string, min_length: 1 }
+      cwd:     { type: string, min_length: 1 }

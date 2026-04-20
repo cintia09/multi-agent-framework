@@ -1,18 +1,20 @@
-# plugins/development/entry-questions.yaml
+# plugins/development/entry-questions.yaml — v0.2.0 phase-keyed gates.
+#
 # Phase-keyed map of state.json fields that MUST be non-null/non-empty
 # before the orchestrator may transition INTO the phase.
 #
 # Consumed by orchestrator-tick.check_entry_questions(). Missing fields
 # produce status=blocked + a "Please answer first: ..." message.
 #
-# Derived from v5 codenook-core.md §22.7 (Phase Entry Questions Stanza)
-# with the following v6 pins:
-#   * `dual_mode` is required at clarify so the very first dispatch
+# v0.2.0 changes vs. v0.1.x:
+#   * `validate` phase removed (folded into `build`).
+#   * New phases (`build`, `review`, `submit`, `test-plan`, `ship`) all
+#     have empty required-lists; their entry data is read from prior
+#     outputs / cached config (e.g. .codenook/config/build-cmd.yaml).
+#   * `clarify` still requires `dual_mode` so the very first dispatch
 #     already knows serial vs. parallel posture.
-#   * `target_dir` is required at implement so the role knows where to
-#     write code.
-#   * `max_iterations` is required at implement so the iteration cap is
-#     explicit (not silently 0).
+#   * `implement` still requires `dual_mode` + `max_iterations` +
+#     `target_dir` so the role knows where to write code.
 
 clarify:
   required:
@@ -30,13 +32,22 @@ implement:
     - max_iterations
     - target_dir
 
+build:
+  required: []
+
+review:
+  required: []
+
+submit:
+  required: []
+
+test-plan:
+  required: []
+
 test:
   required: []
 
 accept:
-  required: []
-
-validate:
   required: []
 
 ship:

@@ -2,17 +2,17 @@
 name: tester
 plugin: development
 phase: test
-manifest: phase-5-tester.md
+manifest: phase-9-tester.md
 output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
   extra_verdicts_for_humans: "has_failures/blocked_by_env"
-one_line_job: "Verify the implementation against acceptance criteria."
+one_line_job: "Verify the implementation against the test-plan."
 ---
 
 # Tester
 
-**One-line job:** Verify the implementation against acceptance criteria.
+**One-line job:** Verify the implementation against the test-plan.
 
 ## Self-bootstrap
 
@@ -20,7 +20,7 @@ You were dispatched by `.codenook/codenook-core/skills/builtin/orchestrator-tick
 manifest you must follow lives at:
 
 ```
-.codenook/tasks/<task>/prompts/phase-5-tester.md
+.codenook/tasks/<task>/prompts/phase-9-tester.md
 ```
 
 Read it first; everything you need (criteria, target_dir, prior outputs)
@@ -28,15 +28,26 @@ is referenced from there.
 
 ## Steps
 
-1. Read clarifier criteria and the implementer's `Files changed:` list.
-2. Detect the test runner (pytest / jest / go test) via `.codenook/plugins/development/skills/test-runner/runner.sh`.
-3. Run the smallest test set that exercises the changed surface; do not run the whole repo unless asked.
-4. On `verdict: needs_revision` (== v5 has_failures): include the first failing test name + ≤10 lines of trace.
-5. On environment failure (missing toolchain, network) emit `verdict: blocked`.
+1. Read the test-plan output (`outputs/phase-8-test-planner.md`) for
+   the case list, runner, and pass criteria.
+2. Read the implementer's `Files changed:` list (when present —
+   absent in the `test-only` profile).
+3. Detect the test runner via
+   `.codenook/plugins/development/skills/test-runner/runner.sh`.
+4. Run the smallest test set that exercises the planned cases; do not
+   run the whole repo unless the plan explicitly requires it.
+5. On `verdict: needs_revision` (== v5 has_failures): include the first
+   failing test name + ≤10 lines of trace.
+6. On environment failure (missing toolchain, network) emit
+   `verdict: blocked`.
+
+Failure routing (per design §3):
+* `test-only`: `needs_revision` bounces to `test-plan` (no implementer).
+* All other profiles: `needs_revision` bounces to `implement`.
 
 ## Output contract
 
-Write your full report to `.codenook/tasks/<task>/outputs/phase-5-tester.md`
+Write your full report to `.codenook/tasks/<task>/outputs/phase-9-tester.md`
 (the path the orchestrator named via `produces:`). Begin the file with
 YAML frontmatter:
 

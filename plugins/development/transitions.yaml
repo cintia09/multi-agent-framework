@@ -1,56 +1,253 @@
-# plugins/development/transitions.yaml
-# Verdict-driven phase transitions.
+# plugins/development/transitions.yaml — v0.2.0 profile-keyed transitions.
 #
 # Format consumed by orchestrator-tick.lookup_transition():
 #   transitions:
-#     <phase_id>:
-#       <verdict>: <next_phase_id | "complete">
+#     <profile>:
+#       <phase_id>:
+#         <verdict>: <next_phase_id | "complete">
+#
+# The orchestrator passes the resolved profile name; if a phase is not
+# present under the profile, the lookup falls back to the `default`
+# profile defined below. (Used as the universal "self-loop / sane
+# default" map; profile-specific tables only override what differs.)
 #
 # Verdict enum (see roles/*.md output contract):
-#   ok              → advance per table below
-#   needs_revision  → self-loop (iteration++); cap by state.max_iterations
+#   ok              → advance per table
+#   needs_revision  → bounce per design §3 (mostly to implementer; in
+#                     test-only to test-plan; in design/review to self
+#                     or clarify)
 #   blocked         → caller pauses task; waiting for HITL/decomposition
-#
-# `complete` is the sentinel that finishes the task (status=done +
-# distiller dispatch).
 
 transitions:
-  clarify:
-    ok: design
-    needs_revision: clarify
-    blocked: clarify
 
+  # ── default fallback (also used by profiles that don't override) ──────
+  default:
+    clarify:
+      ok: design
+      needs_revision: clarify
+      blocked: clarify
+    design:
+      ok: plan
+      needs_revision: design
+      blocked: design
+    plan:
+      ok: implement
+      needs_revision: plan
+      blocked: plan
+    implement:
+      ok: build
+      needs_revision: implement
+      blocked: implement
+    build:
+      ok: review
+      needs_revision: implement
+      blocked: build
+    review:
+      ok: submit
+      needs_revision: implement
+      blocked: review
+    submit:
+      ok: test-plan
+      needs_revision: review
+      blocked: submit
+    test-plan:
+      ok: test
+      needs_revision: implement
+      blocked: test-plan
+    test:
+      ok: accept
+      needs_revision: implement
+      blocked: test
+    accept:
+      ok: ship
+      needs_revision: implement
+      blocked: accept
+    ship:
+      ok: complete
+      needs_revision: ship
+      blocked: ship
+
+  # ── feature: full pipeline ────────────────────────────────────────────
+  feature:
+    clarify:
+      ok: design
+      needs_revision: clarify
+      blocked: clarify
+    design:
+      ok: plan
+      needs_revision: design
+      blocked: design
+    plan:
+      ok: implement
+      needs_revision: plan
+      blocked: plan
+    implement:
+      ok: build
+      needs_revision: implement
+      blocked: implement
+    build:
+      ok: review
+      needs_revision: implement
+      blocked: build
+    review:
+      ok: submit
+      needs_revision: implement
+      blocked: review
+    submit:
+      ok: test-plan
+      needs_revision: review
+      blocked: submit
+    test-plan:
+      ok: test
+      needs_revision: implement
+      blocked: test-plan
+    test:
+      ok: accept
+      needs_revision: implement
+      blocked: test
+    accept:
+      ok: ship
+      needs_revision: implement
+      blocked: accept
+    ship:
+      ok: complete
+      needs_revision: ship
+      blocked: ship
+
+  # ── hotfix: skip design/plan/submit/accept ───────────────────────────
+  hotfix:
+    clarify:
+      ok: implement
+      needs_revision: clarify
+      blocked: clarify
+    implement:
+      ok: build
+      needs_revision: implement
+      blocked: implement
+    build:
+      ok: review
+      needs_revision: implement
+      blocked: build
+    review:
+      ok: test-plan
+      needs_revision: implement
+      blocked: review
+    test-plan:
+      ok: test
+      needs_revision: implement
+      blocked: test-plan
+    test:
+      ok: ship
+      needs_revision: implement
+      blocked: test
+    ship:
+      ok: complete
+      needs_revision: ship
+      blocked: ship
+
+  # ── refactor: like feature minus submit + accept ─────────────────────
+  refactor:
+    clarify:
+      ok: design
+      needs_revision: clarify
+      blocked: clarify
+    design:
+      ok: plan
+      needs_revision: design
+      blocked: design
+    plan:
+      ok: implement
+      needs_revision: plan
+      blocked: plan
+    implement:
+      ok: build
+      needs_revision: implement
+      blocked: implement
+    build:
+      ok: review
+      needs_revision: implement
+      blocked: build
+    review:
+      ok: test-plan
+      needs_revision: implement
+      blocked: review
+    test-plan:
+      ok: test
+      needs_revision: implement
+      blocked: test-plan
+    test:
+      ok: ship
+      needs_revision: implement
+      blocked: test
+    ship:
+      ok: complete
+      needs_revision: ship
+      blocked: ship
+
+  # ── test-only: no implementer; failures bounce to test-plan ──────────
+  test-only:
+    clarify:
+      ok: test-plan
+      needs_revision: clarify
+      blocked: clarify
+    test-plan:
+      ok: test
+      needs_revision: test-plan
+      blocked: test-plan
+    test:
+      ok: accept
+      needs_revision: test-plan
+      blocked: test
+    accept:
+      ok: complete
+      needs_revision: test-plan
+      blocked: accept
+
+  # ── docs: minimal pipeline; review failure bounces to implement ──────
+  docs:
+    clarify:
+      ok: implement
+      needs_revision: clarify
+      blocked: clarify
+    implement:
+      ok: review
+      needs_revision: implement
+      blocked: implement
+    review:
+      ok: ship
+      needs_revision: implement
+      blocked: review
+    ship:
+      ok: complete
+      needs_revision: ship
+      blocked: ship
+
+  # ── review: read-only critique; review failure bounces to clarify ────
+  review:
+    clarify:
+      ok: review
+      needs_revision: clarify
+      blocked: clarify
+    review:
+      ok: ship
+      needs_revision: clarify
+      blocked: review
+    ship:
+      ok: complete
+      needs_revision: ship
+      blocked: ship
+
+  # ── design: produce a design proposal; everything self-loops ────────
   design:
-    ok: plan
-    needs_revision: design
-    blocked: design
-
-  plan:
-    ok: implement
-    needs_revision: plan
-    blocked: plan
-
-  implement:
-    ok: test
-    needs_revision: implement
-    blocked: implement
-
-  test:
-    ok: accept
-    needs_revision: implement
-    blocked: test
-
-  accept:
-    ok: validate
-    needs_revision: implement
-    blocked: accept
-
-  validate:
-    ok: ship
-    needs_revision: implement
-    blocked: validate
-
-  ship:
-    ok: complete
-    needs_revision: ship
-    blocked: ship
+    clarify:
+      ok: design
+      needs_revision: clarify
+      blocked: clarify
+    design:
+      ok: ship
+      needs_revision: design
+      blocked: design
+    ship:
+      ok: complete
+      needs_revision: ship
+      blocked: ship

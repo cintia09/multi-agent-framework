@@ -1,16 +1,16 @@
-# Phase-3 dispatch manifest — planner
+# Phase-10 dispatch manifest — acceptor
 
 > Template rendered by orchestrator-tick into
-> `.codenook/tasks/{task_id}/prompts/phase-3-planner.md` before
-> dispatching the planner role.
+> `.codenook/tasks/{task_id}/prompts/phase-10-acceptor.md` before
+> dispatching the acceptor role.
 
 ## Header (set by orchestrator)
 
 ```
 Task:        {task_id}
 Plugin:      development
-Phase:       plan                (3 of 11)
-Role:        planner
+Phase:       accept                (10 of 11)
+Role:        acceptor
 Iteration:   {iteration}
 Target dir:  {target_dir}
 Prior summary: {prior_summary_path}
@@ -19,16 +19,16 @@ Criteria:    {criteria_path}
 
 ## Your job (one line)
 
-Decide whether to decompose; produce the plan.
+Issue accept/reject judgment on every criterion.
 
 ## Inputs you MUST read
 
 - `.codenook/tasks/{task_id}/state.json` — task metadata.
 - All upstream outputs under `.codenook/tasks/{task_id}/outputs/` for
-  phases earlier than plan.
+  phases earlier than accept.
 - The criteria document at `{criteria_path}` (if non-empty).
 - The plugin role profile at
-  `.codenook/plugins/development/roles/planner.md` — your operating
+  `.codenook/plugins/development/roles/acceptor.md` — your operating
   contract; read first.
 
 ## Output contract
@@ -36,7 +36,7 @@ Decide whether to decompose; produce the plan.
 Write the report to:
 
 ```
-.codenook/tasks/{task_id}/outputs/phase-3-planner.md
+.codenook/tasks/{task_id}/outputs/phase-10-acceptor.md
 ```
 
 Begin with YAML frontmatter:

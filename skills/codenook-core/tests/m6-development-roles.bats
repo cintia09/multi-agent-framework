@@ -5,9 +5,9 @@ load helpers/load
 load helpers/assertions
 
 ROLES_DIR="$CORE_ROOT/../../plugins/development/roles"
-ROLE_NAMES="clarifier designer planner implementer tester reviewer acceptor validator"
+ROLE_NAMES="clarifier designer planner implementer builder reviewer submitter test-planner tester acceptor"
 
-@test "all 8 role files exist" {
+@test "all 10 role files exist" {
   for r in $ROLE_NAMES; do
     [ -f "$ROLES_DIR/$r.md" ] || { echo "missing $r.md" >&2; return 1; }
   done
@@ -51,8 +51,11 @@ ROLE_NAMES="clarifier designer planner implementer tester reviewer acceptor vali
   PHASES="$CORE_ROOT/../../plugins/development/phases.yaml"
   run python3 - "$PHASES" "$ROLES_DIR" <<'PY'
 import sys, yaml, os
-phases = yaml.safe_load(open(sys.argv[1]))["phases"]
-for p in phases:
+doc = yaml.safe_load(open(sys.argv[1]))
+phases = doc["phases"]
+# v0.2.0 catalogue is a map; v0.1.x was a list — support both.
+items = phases.values() if isinstance(phases, dict) else phases
+for p in items:
     role = p["role"]
     assert os.path.isfile(f"{sys.argv[2]}/{role}.md"), f"missing role file: {role}"
 print("ok")

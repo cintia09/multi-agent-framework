@@ -9,7 +9,7 @@
 ```
 Task:        {task_id}
 Plugin:      development
-Phase:       implement                (4 of 8)
+Phase:       implement                (4 of 11)
 Role:        implementer
 Iteration:   {iteration}
 Target dir:  {target_dir}

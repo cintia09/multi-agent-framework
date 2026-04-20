@@ -1,20 +1,37 @@
 # development plugin
 
-A v6 CodeNook plugin that drives software-engineering tasks through an
-8-phase pipeline: **clarify → design → plan → implement → test →
-accept → validate → ship**.
+A v6 CodeNook plugin that drives software-engineering tasks through a
+**profile-aware** pipeline. The clarifier picks one of seven
+`task_type` values and the orchestrator walks the matching chain over
+the 11-phase catalogue: **clarify → design → plan → implement → build
+→ review → submit → test-plan → test → accept → ship**.
 
 Built on the v6 plugin framework (`docs/implementation.md` §M6).
 
 ## Install
 
 ```
-init.sh --install-plugin dist/development-0.1.0.tar.gz
+init.sh --install-plugin dist/development-0.2.0.tar.gz
 ```
 
 The M2 12-gate pipeline (`install-orchestrator`) validates the manifest,
 schema, dependencies, secrets, sizes, paths, shebangs, and atomically
 commits the staged tree to `.codenook/plugins/development/`.
+
+## Profiles
+
+| `task_type`  | chain                                                                                     |
+|--------------|-------------------------------------------------------------------------------------------|
+| `feature`    | clarify → design → plan → implement → build → review → submit → test-plan → test → accept → ship |
+| `hotfix`     | clarify → plan → implement → build → review → submit → test → accept → ship               |
+| `refactor`   | clarify → design → plan → implement → build → review → submit → test-plan → test → accept → ship |
+| `test-only`  | clarify → test-plan → implement → build → test → accept → ship                            |
+| `docs`       | clarify → plan → implement → review → submit → ship                                       |
+| `review`     | clarify → review → submit                                                                 |
+| `design`     | clarify → design                                                                          |
+
+The clarifier defaults to `feature` if it cannot infer the type. The
+resolved profile is cached in `state.profile`.
 
 ## Layout
 
@@ -23,14 +40,14 @@ plugins/development/
 ├── plugin.yaml            # M2 install manifest + v6 router surface
 ├── config-defaults.yaml   # tier_* model defaults + hitl/concurrency
 ├── config-schema.yaml     # M5 config-validate DSL fragment
-├── phases.yaml            # 8 phase entries (id/role/produces/gates)
-├── transitions.yaml       # ok / needs_revision / blocked table
+├── phases.yaml            # 11-phase catalogue + 7 profile chains
+├── transitions.yaml       # profile-keyed ok / needs_revision / blocked
 ├── entry-questions.yaml   # required state fields per phase
-├── hitl-gates.yaml        # design_signoff, pre_test_review, acceptance
-├── roles/                 # 8 role profiles (clarifier..validator)
-├── manifest-templates/    # 8 phase-N-<role>.md dispatch templates
+├── hitl-gates.yaml        # 10 gates (every non-implement phase)
+├── roles/                 # 10 role profiles (clarifier..reviewer)
+├── manifest-templates/    # 11 phase-N-<role>.md dispatch templates
 ├── skills/test-runner/    # plugin-shipped pytest/npm/go wrapper
-├── validators/            # post-implement.sh, post-test.sh
+├── validators/            # post-implement.sh, post-build.sh, post-test.sh
 ├── prompts/               # criteria-{implement,test,accept}.md
 ├── knowledge/             # pytest-conventions.md
 └── examples/              # seed.json fixtures

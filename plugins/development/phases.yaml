@@ -1,65 +1,114 @@
-# plugins/development/phases.yaml
-# 8-phase software-development pipeline.
+# plugins/development/phases.yaml — v0.2.0 profile-aware pipeline.
 #
-# Each phase entry consumed by skills/builtin/orchestrator-tick:
-#   id                   — phase id (matches transitions.yaml keys)
-#   role                 — role name; orchestrator dispatches a sub-agent
-#                          using roles/<role>.md as the bootstrap profile
-#   produces             — relative path under tasks/<tid>/ that the role
-#                          MUST emit with frontmatter `verdict: <enum>`
-#   gate                 — optional HITL gate id (must exist in
-#                          hitl-gates.yaml); when present the orchestrator
-#                          opens a hitl-queue entry after the role returns
-#   supports_iteration   — informational; iteration cap applied by tick
-#   allows_fanout        — when true, planner.decomposed=true triggers
-#                          subtask seed (see orchestrator-tick.seed_subtasks)
-#   dual_mode_compatible — when state.dual_mode==parallel, tick dispatches
-#                          parallel_n agents instead of one
-#   post_validate        — relative path to a shell script run after the
-#                          role's output is consumed (skipped + warning if
-#                          missing)
+# Two top-level keys:
+#
+#   phases:    catalogue (map keyed by id) — each phase is defined ONCE.
+#              orchestrator-tick reads these via the resolved profile chain.
+#   profiles:  task_type → ordered list of phase ids (the chain).
+#
+# Phase entry fields (consumed by orchestrator-tick):
+#   role                  — role name; orchestrator dispatches a sub-agent
+#                           using roles/<role>.md as the bootstrap profile.
+#   produces              — relative path under tasks/<tid>/ that the role
+#                           MUST emit with frontmatter `verdict: <enum>`.
+#   gate                  — optional HITL gate id (must exist in
+#                           hitl-gates.yaml). Per design v2 every non-
+#                           `implement` phase has a gate.
+#   supports_iteration    — informational; iteration cap applied by tick.
+#   allows_fanout         — when true, planner.decomposed=true triggers
+#                           subtask seed.
+#   dual_mode_compatible  — when state.dual_mode==parallel, tick dispatches
+#                           parallel_n agents instead of one.
+#   post_validate         — relative path to a shell script run after the
+#                           role's output is consumed.
+#
+# Profile selection:
+#   * Clarifier emits `task_type: feature|hotfix|refactor|test-only|docs|review|design`
+#     in its frontmatter.
+#   * Tick caches the resolved profile in state.profile after the first
+#     dispatch.
+#   * Default profile (when clarifier is ambiguous): `feature`.
 
 phases:
-  - id: clarify
+  clarify:
     role: clarifier
     produces: outputs/phase-1-clarifier.md
     gate: requirements_signoff
 
-  - id: design
+  design:
     role: designer
     produces: outputs/phase-2-designer.md
     dual_mode_compatible: true
     gate: design_signoff
 
-  - id: plan
+  plan:
     role: planner
     produces: outputs/phase-3-planner.md
     allows_fanout: true
+    gate: plan_signoff
 
-  - id: implement
+  implement:
     role: implementer
     produces: outputs/phase-4-implementer.md
     supports_iteration: true
     allows_fanout: true
     dual_mode_compatible: true
     post_validate: validators/post-implement.sh
-    gate: pre_test_review
+    # No gate: implement is the only gate-less phase per design §2.
 
-  - id: test
+  build:
+    role: builder
+    produces: outputs/phase-5-builder.md
+    post_validate: validators/post-build.sh
+    gate: build_signoff
+
+  review:
+    role: reviewer
+    produces: outputs/phase-6-reviewer.md
+    gate: local_review_signoff
+
+  submit:
+    role: submitter
+    produces: outputs/phase-7-submitter.md
+    gate: submit_signoff
+
+  test-plan:
+    role: test-planner
+    produces: outputs/phase-8-test-planner.md
+    gate: test_plan_signoff
+
+  test:
     role: tester
-    produces: outputs/phase-5-tester.md
+    produces: outputs/phase-9-tester.md
     supports_iteration: true
     post_validate: validators/post-test.sh
+    gate: test_signoff
 
-  - id: accept
+  accept:
     role: acceptor
-    produces: outputs/phase-6-acceptor.md
+    produces: outputs/phase-10-acceptor.md
     gate: acceptance
 
-  - id: validate
-    role: validator
-    produces: outputs/phase-7-validator.md
-
-  - id: ship
+  ship:
     role: reviewer
-    produces: outputs/phase-8-reviewer.md
+    produces: outputs/phase-11-reviewer.md
+    gate: ship_signoff
+
+# ── profiles (task_type → phase chain) ──────────────────────────────────
+# Per design §1. `ship` is the terminal "deliver" phase for every profile.
+
+profiles:
+  feature:
+    phases: [clarify, design, plan, implement, build, review, submit, test-plan, test, accept, ship]
+  hotfix:
+    phases: [clarify, implement, build, review, test-plan, test, ship]
+  refactor:
+    phases: [clarify, design, plan, implement, build, review, test-plan, test, ship]
+  test-only:
+    phases: [clarify, test-plan, test, accept]
+  docs:
+    phases: [clarify, implement, review, ship]
+  review:
+    phases: [clarify, review, ship]
+  design:
+    phases: [clarify, design, ship]

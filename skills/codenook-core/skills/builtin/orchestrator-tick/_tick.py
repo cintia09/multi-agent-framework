@@ -214,11 +214,188 @@ def find_phase(phases: list[dict], pid: str) -> dict | None:
     return None
 
 
-def lookup_transition(trans: dict, cur_id: str, verdict: str) -> str | None:
+def lookup_transition(trans: dict, cur_id: str, verdict: str,
+                      profile: str | None = None) -> str | None:
+    """Resolve transitions[cur_id][verdict].
+
+    Supports three layouts:
+      1. Flat:   transitions: {phase: {verdict: target}}        (legacy)
+      2. Nested: transitions: <flat>                            (legacy w/ wrapper)
+      3. Profile-keyed: transitions: {profile: {phase: {...}}}  (v0.2.0+)
+
+    When ``profile`` is provided and the transitions doc has a
+    ``transitions:`` wrapper whose first-level value (for that profile)
+    looks like a phase map, we descend one level. Falls back to flat
+    layout for backward compatibility.
+    """
     table = trans.get("transitions", {}) or trans  # tolerant of either layout
+    # Profile-keyed: prefer profile lookup, fall back to "default" then flat.
+    if profile and isinstance(table, dict) and profile in table \
+            and isinstance(table[profile], dict) \
+            and any(isinstance(v, dict) for v in table[profile].values()):
+        ptable = table[profile]
+        cur = ptable.get(cur_id, {}) or {}
+        nxt = cur.get(verdict)
+        if nxt is not None:
+            return nxt
+        # Allow profile-level entries to inherit from "default" profile.
+        if "default" in table and isinstance(table["default"], dict):
+            cur = table["default"].get(cur_id, {}) or {}
+            return cur.get(verdict)
+        return None
     cur = table.get(cur_id, {}) or {}
     nxt = cur.get(verdict)
     return nxt
+
+
+# ── profile resolution (v0.2.0 development plugin) ──────────────────────
+def _read_clarifier_task_type(workspace: Path, task_id: str) -> str | None:
+    """Best-effort: scan task outputs/ for the most recent clarifier file
+    and return its frontmatter ``task_type`` field. Returns None if no
+    clarifier output exists or it lacks the field."""
+    out = task_root(workspace, task_id) / "outputs"
+    if not out.is_dir():
+        return None
+    candidates = sorted(out.glob("*clarifier*.md"))
+    if not candidates:
+        return None
+    try:
+        text = candidates[-1].read_text(encoding="utf-8")
+    except OSError:
+        return None
+    m = _FM_RE.match(text)
+    if not m:
+        return None
+    try:
+        fm = yaml.safe_load(m.group(1)) or {}
+    except yaml.YAMLError:
+        return None
+    if not isinstance(fm, dict):
+        return None
+    tt = fm.get("task_type")
+    if isinstance(tt, str) and tt.strip():
+        return tt.strip()
+    return None
+
+
+def _normalise_phase_catalogue(phases_doc: dict) -> dict[str, dict]:
+    """Return ``{phase_id: phase_dict}`` from either layout:
+      1. v1 flat list:  phases: [{id, role, ...}, ...]
+      2. v2 catalogue:  phases: {<id>: {role, ...}, ...}
+    """
+    raw = phases_doc.get("phases", [])
+    if isinstance(raw, dict):
+        out: dict[str, dict] = {}
+        for pid, spec in raw.items():
+            spec = dict(spec or {})
+            spec.setdefault("id", pid)
+            out[pid] = spec
+        return out
+    out = {}
+    for ph in raw:
+        if not isinstance(ph, dict):
+            continue
+        pid = ph.get("id")
+        if pid:
+            out[pid] = ph
+    return out
+
+
+def _resolve_profile(phases_doc: dict, state: dict,
+                     workspace: Path) -> tuple[str | None, list[str]]:
+    """Return ``(profile_name, phase_id_chain)``.
+
+    For backward compatibility (no ``profiles:`` key in phases.yaml), a
+    flat ``phases:`` list is treated as the single implicit ``default``
+    profile and the chain is the order they appear in.
+
+    Resolution order (v0.2.0+):
+      1. ``state['profile']``      — already-cached resolution.
+      2. clarifier output frontmatter ``task_type``.
+      3. ``state['task_type']``    — caller hint (entry-questions seed).
+      4. fallback default          — ``feature`` if defined, else first
+                                     declared profile.
+    Only resolutions from sources 1-3 are cached; source 4 is treated
+    as provisional so a clarifier output that arrives later (i.e. after
+    the very first tick) can still pin the real profile.
+    """
+    profiles = phases_doc.get("profiles")
+    if not profiles or not isinstance(profiles, dict):
+        # Legacy layout: chain is the flat list order.
+        raw = phases_doc.get("phases", [])
+        if isinstance(raw, list):
+            chain = [ph.get("id") for ph in raw if isinstance(ph, dict) and ph.get("id")]
+        else:
+            chain = list(raw.keys()) if isinstance(raw, dict) else []
+        return None, chain
+
+    cached = state.get("profile")
+    name: str | None = cached if cached in profiles else None
+    cache_ok = name is not None
+    if not name:
+        tt = _read_clarifier_task_type(workspace, state["task_id"])
+        if tt and tt in profiles:
+            name = tt
+            cache_ok = True
+    if not name:
+        hint = state.get("task_type")
+        if hint and hint in profiles:
+            name = hint
+            cache_ok = True
+    if not name:
+        # Provisional: do NOT cache so clarifier output (when written)
+        # still wins on the very next tick.
+        name = "feature" if "feature" in profiles else next(iter(profiles))
+        cache_ok = False
+
+    chain_spec = profiles.get(name)
+    if isinstance(chain_spec, dict):
+        chain = chain_spec.get("phases") or []
+    else:
+        chain = chain_spec or []
+    if not isinstance(chain, list):
+        chain = []
+    return (name if cache_ok else None), [str(x) for x in chain]
+
+
+def _build_phase_list(phases_doc: dict, chain: list[str]) -> list[dict]:
+    """Order the phase catalogue per ``chain``. Unknown ids are dropped."""
+    cat = _normalise_phase_catalogue(phases_doc)
+    out: list[dict] = []
+    for pid in chain:
+        spec = cat.get(pid)
+        if spec is not None:
+            out.append(spec)
+    return out
+
+
+def _load_pipeline(workspace: Path, state: dict
+                   ) -> tuple[list[dict], dict, str | None]:
+    """Read phases.yaml + transitions.yaml and resolve the active pipeline
+    (profile-aware). Returns ``(phases, trans_doc, profile_name)``.
+
+    Side effect: caches ``state['profile']`` once resolved so subsequent
+    ticks are stable even after the clarifier output changes.
+    """
+    plugin = state["plugin"]
+    pdir = workspace / ".codenook" / "plugins" / plugin
+    phases_doc = read_yaml(pdir / "phases.yaml")
+    trans_doc = read_yaml(pdir / "transitions.yaml")
+
+    profile, chain = _resolve_profile(phases_doc, state, workspace)
+    is_legacy = not isinstance(phases_doc.get("profiles"), dict) \
+                or not phases_doc.get("profiles")
+    if is_legacy:
+        raw = phases_doc.get("phases", [])
+        if isinstance(raw, list) and all(isinstance(p, dict) for p in raw):
+            phases = list(raw)
+        else:
+            phases = _build_phase_list(phases_doc, chain)
+    else:
+        phases = _build_phase_list(phases_doc, chain)
+        if profile is not None and state.get("profile") != profile:
+            state["profile"] = profile
+    return phases, trans_doc, profile
 
 
 # ── manifest + audit + dispatch (stubbed for M4) ─────────────────────────
@@ -636,6 +813,7 @@ def dispatch_or_skip(
     cfg: dict,
     phases: list[dict],
     trans_doc: dict,
+    profile: str | None = None,
 ) -> dict:
     """Dispatch ``phase`` unless its role is excluded by
     ``state.role_constraints``. When excluded, mark the phase as
@@ -669,7 +847,7 @@ def dispatch_or_skip(
                 ),
             }
         )
-        nxt = lookup_transition(trans_doc, pid, "ok")
+        nxt = lookup_transition(trans_doc, pid, "ok", profile=profile)
         if nxt is None:
             return {
                 "status": "error",
@@ -693,10 +871,7 @@ def dispatch_or_skip(
 def tick(workspace: Path, state_file: Path) -> tuple[dict, dict]:
     state = read_json(state_file)
     plugin = state["plugin"]
-    pdir = workspace / ".codenook" / "plugins" / plugin
-    phases_doc = read_yaml(pdir / "phases.yaml")
-    trans_doc = read_yaml(pdir / "transitions.yaml")
-    phases = phases_doc.get("phases", [])
+    phases, trans_doc, profile = _load_pipeline(workspace, state)
     cfg = state.get("config_overrides", {})  # M5 will full-merge; M4 uses task-only
 
     state["last_tick_ts"] = now_iso()
@@ -728,7 +903,7 @@ def tick(workspace: Path, state_file: Path) -> tuple[dict, dict]:
         if pre_check:
             return state, _missing_field_response(workspace, plugin,
                                                   first.get("id"), pre_check)
-        result = dispatch_or_skip(workspace, state, first, cfg, phases, trans_doc)
+        result = dispatch_or_skip(workspace, state, first, cfg, phases, trans_doc, profile=profile)
         return state, result
 
     cur = find_phase(phases, state["phase"])
@@ -815,7 +990,7 @@ def tick(workspace: Path, state_file: Path) -> tuple[dict, dict]:
                 {"ts": now_iso(), "phase": cur.get("id"),
                  "_warning": "hitl_needs_changes"}
             )
-            return state, dispatch_or_skip(workspace, state, cur, cfg, phases, trans_doc)
+            return state, dispatch_or_skip(workspace, state, cur, cfg, phases, trans_doc, profile=profile)
         else:
             # pending or not_found
             if just_consumed_verdict is not None:
@@ -831,7 +1006,8 @@ def tick(workspace: Path, state_file: Path) -> tuple[dict, dict]:
 
     # ── 5. transition (only when we have a verdict to act on) ──
     if verdict_for_transition is not None:
-        nxt = lookup_transition(trans_doc, cur.get("id"), verdict_for_transition)
+        nxt = lookup_transition(trans_doc, cur.get("id"), verdict_for_transition,
+                                profile=profile)
         if nxt is None:
             return state, {"status": "error",
                            "next_action": f"no transition from {cur.get('id')}/{verdict_for_transition}"}
@@ -846,12 +1022,12 @@ def tick(workspace: Path, state_file: Path) -> tuple[dict, dict]:
                 state["status"] = "blocked"
                 return state, {"status": "blocked",
                                "next_action": "max_iterations exceeded"}
-            return state, dispatch_or_skip(workspace, state, cur, cfg, phases, trans_doc)
+            return state, dispatch_or_skip(workspace, state, cur, cfg, phases, trans_doc, profile=profile)
         nxt_phase = find_phase(phases, nxt)
         if nxt_phase is None:
             return state, {"status": "error",
                            "next_action": f"transition target unknown: {nxt}"}
-        return state, dispatch_or_skip(workspace, state, nxt_phase, cfg, phases, trans_doc)
+        return state, dispatch_or_skip(workspace, state, nxt_phase, cfg, phases, trans_doc, profile=profile)
 
     # ── 6. recovery (only when status==in_progress + phase set + no in_flight) ──
     if state.get("status") == "in_progress":
@@ -859,7 +1035,7 @@ def tick(workspace: Path, state_file: Path) -> tuple[dict, dict]:
             {"ts": now_iso(), "phase": cur.get("id"),
              "_warning": "recover: re-dispatch (no in_flight)"}
         )
-        return state, dispatch_or_skip(workspace, state, cur, cfg, phases, trans_doc)
+        return state, dispatch_or_skip(workspace, state, cur, cfg, phases, trans_doc, profile=profile)
 
     # Default: nothing to do (e.g., status=blocked + phase set + no in_flight).
     del state["last_tick_ts"]
@@ -1032,7 +1208,8 @@ def main() -> None:
                     and summary.get("next_action", "").startswith("awaiting"))
     inert_noop = (summary.get("next_action") == "noop"
                   and prior_state.get("status") in
-                  ("done", "cancelled", "error", "blocked", "waiting"))
+                  ("done", "cancelled", "error", "blocked", "waiting")
+                  and prior_state.get("status") == new_state.get("status"))
     if not (waiting_noop or inert_noop):
         new_state["updated_at"] = now_iso()
         persist_state(state_file, new_state)

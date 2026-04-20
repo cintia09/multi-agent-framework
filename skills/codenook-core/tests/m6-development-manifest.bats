@@ -25,7 +25,7 @@ import sys, yaml
 d = yaml.safe_load(open(sys.argv[1]))
 # M2 contract
 assert d["id"] == "development"
-assert d["version"] == "0.1.0"
+assert d["version"] == "0.2.0"
 assert d["type"] == "domain"
 assert isinstance(d["entry_points"], dict) and d["entry_points"]
 assert isinstance(d["declared_subsystems"], list) and d["declared_subsystems"]
@@ -87,7 +87,7 @@ PY
   echo "$output" | grep -q '"ok": *true'
 }
 
-@test "M2 G04 plugin-version-check accepts version 0.1.0" {
+@test "M2 G04 plugin-version-check accepts version 0.2.0" {
   run_with_stderr "\"$VER_GATE\" --src \"$PLUGIN_DIR\" --json"
   [ "$status" -eq 0 ]
   echo "$output" | grep -q '"ok": *true'

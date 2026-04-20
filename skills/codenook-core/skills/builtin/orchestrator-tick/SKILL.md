@@ -36,12 +36,38 @@ tick.sh --task <T-NNN> [--workspace <dir>] [--dry-run] [--json]
 }
 ```
 
-## Algorithm (M4)
+## Algorithm (M4 + v0.2.0 profiles)
 
 Implements the §3.3 pseudocode in full. Reads
 `.codenook/plugins/<plugin>/{phases,transitions,entry-questions}.yaml`,
 mutates `tasks/<id>/state.json` atomically (`_lib/atomic.py`), and
 appends to `history/dispatch.jsonl` via `dispatch-audit/emit.sh`.
+
+### Profile resolution (v0.2.0+)
+
+When `phases.yaml` declares both a `phases:` map (the catalogue) and a
+`profiles:` map (chains over that catalogue), the orchestrator selects
+the active chain on every tick via `_resolve_profile(...)`:
+
+1. `state.profile` — the cached resolution from a previous tick wins.
+2. The clarifier's output frontmatter `task_type` (if present) — read
+   from the most recent `outputs/phase-1-clarifier.md`.
+3. `state.task_type` — caller hint from entry-questions / seed.
+4. Fallback default (`feature` if defined, else the first profile).
+
+Sources 1–3 cache the resolved name into `state.profile` so the chain
+stays stable across subsequent ticks. Source 4 is *provisional*: it
+does not cache, so a clarifier output that arrives later still pins
+the real profile.
+
+`transitions.yaml` is profile-keyed (`{profile: {phase: {verdict: target}}}`).
+A `default:` profile may be defined; profile-specific entries inherit
+unspecified `(phase, verdict)` rows from `default`.
+
+**Backward compatibility.** A plugin that ships a flat
+`phases:` *list* (e.g. `generic`, `writing`) and a flat
+`transitions:` table is treated as the single implicit `default`
+profile and goes through the legacy code path unchanged.
 
 Decision branches:
 

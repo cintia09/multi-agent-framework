@@ -1,5 +1,7 @@
-# plugins/development/hitl-gates.yaml
-# HITL gate catalogue for the development plugin.
+# plugins/development/hitl-gates.yaml — v0.2.0 gate catalogue.
+#
+# Per design v2 §5: every non-`implement` phase carries a HITL gate.
+# `pre_test_review` (the old implement-phase gate) is removed.
 #
 # Each gate id is referenced from phases.yaml `gate:` field. After the
 # role for that phase returns, orchestrator-tick.write_hitl_entry()
@@ -8,11 +10,10 @@
 # via skills/builtin/hitl-adapter/terminal.sh.
 #
 # Contract per gate:
-#   trigger             — phase id whose `gate:` references this gate
+#   trigger             — phase id whose `gate:` references this gate.
 #   required_reviewers  — list of roles allowed to decide (currently only
-#                         "human" is honoured by hitl-adapter; future
-#                         M7+ may add automated reviewers)
-#   description         — human-readable purpose, surfaced in the queue UI
+#                         "human" is honoured by hitl-adapter).
+#   description         — human-readable purpose, surfaced in queue UI.
 
 gates:
   requirements_signoff:
@@ -20,26 +21,70 @@ gates:
     required_reviewers: [human]
     description: >
       Approve the clarified requirements (goals, acceptance criteria,
-      non-goals, ambiguities) before any design work starts. Catches
-      misunderstood scope at the cheapest possible point in the pipeline.
+      task_type, non-goals, ambiguities) before downstream work starts.
+      Catches misunderstood scope at the cheapest possible point.
 
   design_signoff:
     trigger: design
     required_reviewers: [human]
     description: >
-      Approve the design before any planning or coding begins. Gate exists
-      because design decisions are the most expensive to revert downstream.
+      Approve the design before any planning or coding begins. Design
+      decisions are the most expensive to revert downstream.
 
-  pre_test_review:
-    trigger: implement
+  plan_signoff:
+    trigger: plan
     required_reviewers: [human]
     description: >
-      Spot-check the implementation diff before automated tests run.
-      Cheaper than letting a faulty implementation eat the full test budget.
+      Approve the plan (decomposition, sequencing, fanout) before the
+      implementer starts. Catches missing or out-of-scope subtasks early.
+
+  build_signoff:
+    trigger: build
+    required_reviewers: [human]
+    description: >
+      Confirm the build/lint/smoke passed and the cached build command
+      is still correct for the current change. Pure mechanical gate.
+
+  local_review_signoff:
+    trigger: review
+    required_reviewers: [human]
+    description: >
+      Sign off on the local code-review critique before the change goes
+      out for external review (PR/CL) or, in the `review` profile, ships
+      as a stand-alone review report.
+
+  submit_signoff:
+    trigger: submit
+    required_reviewers: [human]
+    description: >
+      Confirm the external review submission decision (Gerrit / GitHub /
+      skip) and the recorded PR/CL link. External LGTM is out of
+      orchestrator scope; resume tick once it lands.
+
+  test_plan_signoff:
+    trigger: test-plan
+    required_reviewers: [human]
+    description: >
+      Approve the test document (cases, fixtures, pass criteria) before
+      tests actually run. Catches missing scenarios up-front.
+
+  test_signoff:
+    trigger: test
+    required_reviewers: [human]
+    description: >
+      Spot-check the test results before user acceptance. Cheaper than
+      letting a flaky or false-pass result slip into accept.
 
   acceptance:
     trigger: accept
     required_reviewers: [human]
     description: >
       Final user acceptance — confirm the change actually solved the
-      reported problem before the validate + ship phases run.
+      reported problem before ship.
+
+  ship_signoff:
+    trigger: ship
+    required_reviewers: [human]
+    description: >
+      Final deliver-mode sign-off: stamp the shippable artefact (code
+      release, design proposal, review report, etc.) and close the task.

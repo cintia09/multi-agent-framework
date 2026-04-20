@@ -9,7 +9,7 @@
 ```
 Task:        {task_id}
 Plugin:      development
-Phase:       clarify                (1 of 8)
+Phase:       clarify                (1 of 11)
 Role:        clarifier
 Iteration:   {iteration}
 Target dir:  {target_dir}

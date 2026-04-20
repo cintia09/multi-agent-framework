@@ -1,17 +1,14 @@
 #!/usr/bin/env bats
-# M6 U10 — DoD: 8-phase E2E loop with mocked role outputs (impl-v6 §M6.4).
+# m6-development-e2e.bats — v0.2.0 end-to-end smoke for the default
+# (`feature`) profile.
 #
-# Mirrors the spec's "install -> 50-tick loop -> done" line:
-#   1. Install plugins/development/ into a fresh workspace.
-#   2. Create T-001 with phase=null + plugin=development.
-#   3. For up to 50 iterations: run tick.sh; whenever the orchestrator
-#      blocks waiting for a role output, write a mocked verdict:ok
-#      output; whenever it opens an HITL gate, run hitl-adapter decide
-#      approve.
-#   4. Assert state.json.status == "done" and history covers all 8 phases.
+# Drives a fresh workspace through install → 80 ticks, mocking each
+# role output as `verdict: ok` and auto-approving every HITL gate.
+# Asserts state.json.status == "done" and that every phase in the
+# `feature` profile chain appears in history with verdict=ok.
 #
-# The "diff against v5 baseline" half of the DoD line is documented as a
-# known gap (see plugins/development/README.md "Known gaps").
+# Other profiles are exercised in m2-profiles.bats (and m3-tick-profiles
+# for tick's profile resolution unit-tests).
 
 load helpers/load
 load helpers/assertions
@@ -39,7 +36,7 @@ create_task() {
 {
   "schema_version": 1,
   "task_id": "$tid",
-  "title": "M6 DoD task",
+  "title": "M6 v0.2.0 DoD task",
   "plugin": "development",
   "phase": null,
   "iteration": 0,
@@ -57,30 +54,46 @@ EOF
 EOF
 }
 
+# Mock role output. Clarifier outputs include `task_type: feature` so
+# the orchestrator selects the `feature` profile.
 write_role_output() {
   local ws="$1" tid="$2" expected="$3"
   local out="$ws/.codenook/tasks/$tid/$expected"
   mkdir -p "$(dirname "$out")"
-  cat >"$out" <<'EOF'
+  if [[ "$expected" == *clarifier* ]]; then
+    cat >"$out" <<'EOF'
+---
+verdict: ok
+task_type: feature
+summary: mock clarifier
+---
+mocked clarifier body
+EOF
+  else
+    cat >"$out" <<'EOF'
 ---
 verdict: ok
 summary: mock verdict
 ---
 mocked role body
 EOF
+  fi
 }
 
-@test "M6 DoD: install + 8-phase loop drives task to done within 50 ticks" {
+@test "M6 DoD v0.2.0: install + feature-profile loop drives task to done within 80 ticks" {
   ws="$(setup_ws_with_plugin)"
   create_task "$ws" "T-001"
 
   local i=0 status_code finished=0
-  for i in $(seq 1 50); do
-    set +e
-    out=$("$TICK_SH" --task T-001 --workspace "$ws" --json)
-    status_code=$?
-    set -e
-    # E2E-P-009: contract is 0=advanced/done, 2=entry-q, 3=hitl, 1=error.
+  for i in $(seq 1 80); do
+    out=""
+    status_code=0
+    if ! out=$("$TICK_SH" --task T-001 --workspace "$ws" --json 2>/dev/null); then
+      status_code=$?
+    fi
+    if [ -z "$out" ]; then
+      echo "tick produced no JSON (i=$i, rc=$status_code)" >&2; return 1
+    fi
     case "$status_code" in
       0|3) : ;;
       *) echo "tick failed (i=$i, rc=$status_code): $out" >&2; return 1 ;;
@@ -102,7 +115,6 @@ EOF
       return 1
     fi
 
-    # If the orchestrator is waiting for a role output, materialise it.
     expected=$(jq -r '.in_flight_agent.expected_output // empty' \
                "$ws/.codenook/tasks/T-001/state.json")
     if [ -n "$expected" ]; then
@@ -113,15 +125,14 @@ EOF
       fi
     fi
 
-    # If the orchestrator is waiting for an HITL gate, approve it.
     if [ "$tick_status" = "waiting" ]; then
       cur_phase=$(jq -r '.phase' "$ws/.codenook/tasks/T-001/state.json")
       gate=$(python3 - "$ws" "$cur_phase" <<'PY'
 import sys, yaml
 ws, phase = sys.argv[1], sys.argv[2]
 phases = yaml.safe_load(open(f"{ws}/.codenook/plugins/development/phases.yaml"))["phases"]
-ph = next((p for p in phases if p["id"] == phase), None)
-print(ph.get("gate", "") if ph else "")
+ph = phases.get(phase) if isinstance(phases, dict) else next((p for p in phases if p["id"] == phase), None)
+print((ph or {}).get("gate", ""))
 PY
 )
       if [ -n "$gate" ]; then
@@ -129,29 +140,33 @@ PY
         if [ -f "$ws/.codenook/hitl-queue/$eid.json" ]; then
           "$HITL_SH" decide --workspace "$ws" --id "$eid" \
             --decision approve --reviewer human \
-            --comment "M6 e2e auto-approve" >/dev/null
+            --comment "M6 v0.2.0 e2e auto-approve" >/dev/null
         fi
       fi
     fi
   done
 
   [ "$finished" = "1" ] || {
-    echo "did not finish within 50 ticks" >&2
+    echo "did not finish within 80 ticks" >&2
     cat "$ws/.codenook/tasks/T-001/state.json" >&2
     return 1
   }
 
-  jq -e '.status == "done"' "$ws/.codenook/tasks/T-001/state.json" >/dev/null
+  jq -e '.status == "done"' "$ws/.codenook/tasks/T-001/state.json" >/dev/null || {
+    cat "$ws/.codenook/tasks/T-001/state.json" >&2; return 1; }
 
-  # All 8 distinct phases must appear in history (ignoring HITL warnings).
-  python3 - "$ws/.codenook/tasks/T-001/state.json" <<'PY'
-import json, sys
+  # Every phase in the `feature` chain must appear in history with
+  # verdict=ok at least once.
+  python3 - "$ws/.codenook/tasks/T-001/state.json" \
+           "$ws/.codenook/plugins/development/phases.yaml" <<'PY'
+import json, sys, yaml
 state = json.load(open(sys.argv[1]))
-phases_seen = {h["phase"] for h in state["history"]
-               if h.get("verdict") == "ok"}
-expected = {"clarify","design","plan","implement","test","accept","validate","ship"}
-missing = expected - phases_seen
+profs = yaml.safe_load(open(sys.argv[2]))["profiles"]
+chain = profs["feature"]["phases"] if isinstance(profs["feature"], dict) else profs["feature"]
+phases_seen = {h["phase"] for h in state["history"] if h.get("verdict") == "ok"}
+missing = set(chain) - phases_seen
 assert not missing, f"phases never observed verdict=ok: {missing}"
+assert state.get("profile") == "feature", state.get("profile")
 print("ok")
 PY
 }

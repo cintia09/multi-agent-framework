@@ -16,6 +16,7 @@ POST_IMPL="$PLUGIN_DIR/validators/post-implement.sh"
 @test "validators are present and executable" {
   [ -x "$POST_IMPL" ]
   [ -x "$PLUGIN_DIR/validators/post-test.sh" ]
+  [ -x "$PLUGIN_DIR/validators/post-build.sh" ]
 }
 
 @test "prompts criteria files exist" {

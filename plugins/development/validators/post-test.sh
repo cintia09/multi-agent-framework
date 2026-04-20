@@ -5,7 +5,7 @@
 # orchestrator's job).
 set -euo pipefail
 TID="${1:?usage: post-test.sh <task_id>}"
-OUT=".codenook/tasks/$TID/outputs/phase-5-tester.md"
+OUT=".codenook/tasks/$TID/outputs/phase-9-tester.md"
 [ -f "$OUT" ] || { echo "post-test: missing $OUT" >&2; exit 1; }
 head -10 "$OUT" | grep -q '^verdict:' \
   || { echo "post-test: $OUT lacks verdict frontmatter" >&2; exit 1; }

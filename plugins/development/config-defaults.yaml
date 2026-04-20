@@ -18,20 +18,24 @@
 #           max_parallel: 1                  # single-task mode
 
 models:
-  clarifier:   tier_balanced
-  designer:    tier_strong
-  planner:     tier_strong
-  implementer: tier_strong
-  reviewer:    tier_strong
-  tester:      tier_balanced
-  acceptor:    tier_balanced
-  validator:   tier_balanced
-  distiller:   tier_cheap
-  default:     tier_strong
+  clarifier:    tier_balanced
+  designer:     tier_strong
+  planner:      tier_strong
+  implementer:  tier_strong
+  builder:      tier_cheap
+  reviewer:     tier_strong
+  submitter:    tier_balanced
+  test-planner: tier_balanced
+  tester:       tier_balanced
+  acceptor:     tier_balanced
+  distiller:    tier_cheap
+  default:      tier_strong
 
 hitl:
   mode: confirm
-  gates: [design_signoff, pre_test_review, acceptance]
+  gates: [requirements_signoff, design_signoff, plan_signoff, build_signoff,
+          local_review_signoff, submit_signoff, test_plan_signoff,
+          test_signoff, acceptance, ship_signoff]
 
 concurrency:
   max_parallel: 2

@@ -1,16 +1,16 @@
-# Phase-3 dispatch manifest — planner
+# Phase-9 dispatch manifest — tester
 
 > Template rendered by orchestrator-tick into
-> `.codenook/tasks/{task_id}/prompts/phase-3-planner.md` before
-> dispatching the planner role.
+> `.codenook/tasks/{task_id}/prompts/phase-9-tester.md` before
+> dispatching the tester role.
 
 ## Header (set by orchestrator)
 
 ```
 Task:        {task_id}
 Plugin:      development
-Phase:       plan                (3 of 11)
-Role:        planner
+Phase:       test                (9 of 11)
+Role:        tester
 Iteration:   {iteration}
 Target dir:  {target_dir}
 Prior summary: {prior_summary_path}
@@ -19,16 +19,16 @@ Criteria:    {criteria_path}
 
 ## Your job (one line)
 
-Decide whether to decompose; produce the plan.
+Run the relevant tests; report failures.
 
 ## Inputs you MUST read
 
 - `.codenook/tasks/{task_id}/state.json` — task metadata.
 - All upstream outputs under `.codenook/tasks/{task_id}/outputs/` for
-  phases earlier than plan.
+  phases earlier than test.
 - The criteria document at `{criteria_path}` (if non-empty).
 - The plugin role profile at
-  `.codenook/plugins/development/roles/planner.md` — your operating
+  `.codenook/plugins/development/roles/tester.md` — your operating
   contract; read first.
 
 ## Output contract
@@ -36,7 +36,7 @@ Decide whether to decompose; produce the plan.
 Write the report to:
 
 ```
-.codenook/tasks/{task_id}/outputs/phase-3-planner.md
+.codenook/tasks/{task_id}/outputs/phase-9-tester.md
 ```
 
 Begin with YAML frontmatter:
