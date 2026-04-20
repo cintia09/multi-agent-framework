@@ -1,3 +1,33 @@
+## v0.13.23 (2026-04-20)
+
+### Added
+- `hitl-adapter/html.sh render --id <eid>` — renders a pending HITL
+  queue entry as a self-contained `.html` file (default location:
+  `.codenook/hitl-queue/<id>.html`). The page includes the gate
+  prompt, full context-file content, and the exact `codenook decide`
+  command snippet. Useful when the gate prompt is long, code-heavy,
+  or easier to review in a browser than in a terminal scroll.
+- `codenook hitl <list|show|render|decide>` wrapper subcommand
+  delegates to `terminal.sh` / `html.sh`; `render` writes the file
+  and prints its absolute path on stdout.
+- Bootloader (`CLAUDE.md`) HITL relay: when clearing a gate, the
+  conductor now briefly asks the user whether to switch channels.
+  **Default is `terminal`** (current behavior); the user can opt in
+  to `html` per gate, in which case the conductor shells out to
+  `codenook hitl render`, gives the user the file path, then
+  collects the decision back in the terminal as usual. If the
+  shell wrapper is unreachable the question is skipped and
+  `terminal` is used unconditionally.
+
+### Notes
+- Decision submission still goes through `terminal.sh decide`
+  (or the `codenook decide` / `codenook hitl decide` wrappers).
+  `html.sh` is render-only by design — no clickable buttons,
+  no localhost server, no embedded JS callbacks.
+- The rendered file is HTML-escaped end-to-end and self-contained
+  (inline CSS, no remote assets); safe to commit to a task branch
+  for reviewer hand-off if desired.
+
 ## v0.13.22 (2026-04-20)
 
 ### Changed

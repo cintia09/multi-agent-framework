@@ -10,6 +10,12 @@ terminal.sh list  [--json] [--workspace <dir>]
 terminal.sh show  --id <hitl-entry-id> [--workspace <dir>]
 terminal.sh decide --id <id> --decision <approve|reject|needs_changes>
                    --reviewer <name> [--comment "..."] [--workspace <dir>]
+
+html.sh     render --id <hitl-entry-id> [--out <path>] [--workspace <dir>]
+                   # writes a self-contained .html file (default:
+                   # .codenook/hitl-queue/<id>.html) for human review;
+                   # decision submission still goes through `terminal.sh
+                   # decide`. Path of the file is printed on stdout.
 ```
 
 ## Exit codes

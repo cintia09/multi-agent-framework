@@ -16,6 +16,7 @@
 #   codenook router   --task T-NNN --user-turn "…"
 #   codenook tick     --task T-NNN [--json]
 #   codenook decide   --task T-NNN --phase <id> --decision approve|reject|needs_changes [--comment "…"]
+#   codenook hitl     <list|show|render|decide> [args...]   # render writes a .html file for browser review
 #   codenook status   [--task T-NNN]
 #   codenook chain    link --child T-X --parent T-Y [--force]
 #   codenook chain    show <task>
@@ -98,6 +99,7 @@ LIB_DIR="$KERNEL_DIR/_lib"
 TICK_SH="$KERNEL_DIR/orchestrator-tick/tick.sh"
 ROUTER_SPAWN="$KERNEL_DIR/router-agent/spawn.sh"
 HITL_SH="$KERNEL_DIR/hitl-adapter/terminal.sh"
+HITL_HTML_SH="$KERNEL_DIR/hitl-adapter/html.sh"
 TASK_CONFIG_SET="$KERNEL_DIR/task-config-set/set.sh"
 
 export PYTHONPATH="$LIB_DIR${PYTHONPATH:+:$PYTHONPATH}"
@@ -478,6 +480,66 @@ PY
   echo "{\"id\":\"$entry_id\",\"task\":\"$task\",\"phase\":\"$phase\",\"gate\":\"$gate\",\"decision\":\"$decision\"}"
 }
 
+cmd_hitl() {
+  # codenook hitl <subcmd> [args...]
+  # Subcommands: list | show | render | decide
+  #   list   — pending HITL entries (delegates to terminal.sh list)
+  #   show   — print context file (delegates to terminal.sh show)
+  #   render — render an entry as a self-contained .html file
+  #            (delegates to html.sh render). Prints the file path.
+  #   decide — same as `codenook decide` but takes an explicit --id
+  #            instead of --task/--phase lookup.
+  local sub="${1:-}"
+  [ $# -ge 1 ] && shift || true
+  case "$sub" in
+    ""|-h|--help)
+      cat <<EOF
+codenook hitl <subcmd> [args...]
+  list   [--json]
+  show   --id <hitl-entry-id>
+  render --id <hitl-entry-id> [--out <path>]
+  decide --id <id> --decision <approve|reject|needs_changes> \\
+         [--reviewer <name>] [--comment "..."]
+EOF
+      return 0 ;;
+    list)
+      if [ ! -x "$HITL_SH" ]; then
+        echo "codenook hitl: hitl-adapter not found at $HITL_SH" >&2; exit 1
+      fi
+      "$HITL_SH" list --workspace "$CODENOOK_WORKSPACE" "$@"
+      ;;
+    show)
+      if [ ! -x "$HITL_SH" ]; then
+        echo "codenook hitl: hitl-adapter not found at $HITL_SH" >&2; exit 1
+      fi
+      "$HITL_SH" show --workspace "$CODENOOK_WORKSPACE" "$@"
+      ;;
+    render)
+      if [ ! -x "$HITL_HTML_SH" ]; then
+        echo "codenook hitl: html.sh not found at $HITL_HTML_SH" >&2; exit 1
+      fi
+      "$HITL_HTML_SH" render --workspace "$CODENOOK_WORKSPACE" "$@"
+      ;;
+    decide)
+      if [ ! -x "$HITL_SH" ]; then
+        echo "codenook hitl: hitl-adapter not found at $HITL_SH" >&2; exit 1
+      fi
+      # default reviewer = USER if not passed
+      local has_reviewer=0
+      for arg in "$@"; do
+        [ "$arg" = "--reviewer" ] && has_reviewer=1
+      done
+      if [ "$has_reviewer" = "0" ]; then
+        "$HITL_SH" decide --reviewer "${USER:-cli}" --workspace "$CODENOOK_WORKSPACE" "$@"
+      else
+        "$HITL_SH" decide --workspace "$CODENOOK_WORKSPACE" "$@"
+      fi
+      ;;
+    *)
+      echo "codenook hitl: unknown subcommand: $sub" >&2; exit 2 ;;
+  esac
+}
+
 cmd_status() {
   local task=""
   while [ $# -gt 0 ]; do
@@ -554,6 +616,7 @@ case "${1:-}" in
   router) shift; cmd_router "$@" ;;
   tick)   shift; cmd_tick   "$@" ;;
   decide) shift; cmd_decide "$@" ;;
+  hitl)   shift; cmd_hitl "$@" ;;
   status) shift; cmd_status "$@" ;;
   chain)  shift; cmd_chain  "$@" ;;
   *) echo "codenook: unknown subcommand: $1" >&2; usage >&2; exit 2 ;;

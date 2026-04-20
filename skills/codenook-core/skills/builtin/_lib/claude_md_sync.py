@@ -92,8 +92,14 @@ explicitly asks for it.
 - `.codenook/memory/knowledge/*.md` — workspace-shared knowledge
   distilled from prior tasks. May influence scope, defaults, or
   warnings to surface to the user. Skim file names; read on demand.
-- `.codenook/memory/skills/*.md` — workspace-shared procedural
-  skills (recipes, conventions). Same usage as `knowledge/`.
+- `.codenook/memory/skills/<name>/SKILL.md` — workspace-shared
+  procedural skills (recipes, conventions, ad-hoc tools). Same
+  layout as a regular skill folder: each subdirectory's `SKILL.md`
+  declares the skill's name + use_case + how to invoke. Skim the
+  subdirectory names and `SKILL.md` headings; read full body on
+  demand. These are first-class skill candidates — rank them next
+  to plugin `available_skills:` entries when the user's request
+  matches.
 - `.codenook/memory/history/` and `.codenook/memory/_pending/` —
   prior task summaries and draft notes. Useful when the user
   references "last time" or wants to continue earlier work.
@@ -227,9 +233,30 @@ inspect `status`:
   `message_for_user` verbatim.
 
 On `waiting` you may also need to clear an HITL gate. Scan
-`.codenook/hitl-queue/*.json` for entries with `decision == null`,
-relay each `prompt` field verbatim to the user, capture the answer,
-then:
+`.codenook/hitl-queue/*.json` for entries with `decision == null`.
+For each open entry:
+
+1. **Default channel is `terminal`.** Before relaying the prompt,
+   briefly ask the user whether to switch to the `html` channel for
+   this gate (one short ask_user with two choices: `terminal`
+   (default) / `html`). If the user picks anything other than
+   `html`, treat it as `terminal`.
+   - `terminal` (default) — relay the `prompt` field verbatim via
+     your normal `ask_user`-style facility.
+   - `html` — render the gate as a self-contained file the user
+     can open in a browser, then collect the decision back in the
+     terminal:
+
+     ```bash
+     <codenook> hitl render --id <entry-id>
+     # prints the file path; tell the user to open it (file://...)
+     # then ask for their decision + comment in the terminal as usual.
+     ```
+
+   If only `terminal` is reachable in your runtime (e.g. no shell
+   wrapper available), skip the question and use it.
+2. Relay the prompt (verbatim if terminal; via the rendered file if
+   html), capture the user's answer, then submit the decision:
 
 ```bash
 <codenook> decide --task <T-NNN> --phase <phase> \

@@ -154,6 +154,84 @@ def cmd_decide(ws: Path, eid: str, decision: str, reviewer: str,
     return 0
 
 
+def _html_escape(s: str) -> str:
+    return (s.replace("&", "&amp;")
+             .replace("<", "&lt;")
+             .replace(">", "&gt;")
+             .replace('"', "&quot;"))
+
+
+def cmd_render_html(ws: Path, eid: str, out_path: str) -> int:
+    """Render HITL entry as a self-contained HTML file for human review.
+
+    The resulting file is static — submission still happens via
+    `terminal.sh decide` (or the `codenook decide` wrapper). The
+    HTML simply renders the prompt, context, and a quick-copy
+    decide command so the operator can answer from any browser.
+    """
+    if not eid:
+        print("html.sh: --id is required", file=sys.stderr); return 2
+    _check_eid(eid)
+    entry = load_entry(ws, eid)
+    if entry is None:
+        print(f"html.sh: hitl entry not found: {eid}", file=sys.stderr); return 2
+
+    cp = entry.get("context_path") or ""
+    ctx_text = ""
+    if cp and not os.path.isabs(cp):
+        target = (ws / cp).resolve()
+        try:
+            target.relative_to(ws.resolve())
+            if target.is_file():
+                ctx_text = target.read_text(encoding="utf-8")
+        except ValueError:
+            pass
+
+    prompt = entry.get("prompt") or "(no prompt)"
+    task_id = entry.get("task_id") or "?"
+    gate = entry.get("gate") or "?"
+    created = entry.get("created_at") or "?"
+
+    html = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>HITL gate {_html_escape(eid)}</title>
+<style>
+body{{font:14px/1.5 -apple-system,Segoe UI,sans-serif;max-width:920px;margin:2em auto;padding:0 1em;color:#222}}
+h1{{font-size:1.4em}}
+.meta{{color:#666;font-size:.9em;margin-bottom:1em}}
+.prompt{{background:#fffbe6;border-left:4px solid #f5b301;padding:.7em 1em;margin:1em 0;white-space:pre-wrap}}
+.ctx{{background:#f7f7f7;padding:1em;border-radius:4px;white-space:pre-wrap;font-family:Menlo,Consolas,monospace;font-size:13px;max-height:60vh;overflow:auto}}
+.cmd{{background:#1e1e1e;color:#d4d4d4;padding:.8em 1em;border-radius:4px;font-family:Menlo,Consolas,monospace;font-size:13px;white-space:pre-wrap;overflow-x:auto}}
+.decisions span{{display:inline-block;margin:.3em .5em .3em 0;padding:.25em .6em;border-radius:3px;color:#fff;font-size:.85em}}
+.decisions .a{{background:#2e8b57}} .decisions .r{{background:#c0392b}} .decisions .n{{background:#d68910}}
+</style></head><body>
+<h1>HITL gate · {_html_escape(eid)}</h1>
+<div class="meta">task <b>{_html_escape(task_id)}</b> · gate <b>{_html_escape(gate)}</b> · created {_html_escape(created)}</div>
+
+<h2>Prompt</h2>
+<div class="prompt">{_html_escape(prompt)}</div>
+
+<h2>Context ({_html_escape(cp) if cp else 'none'})</h2>
+<div class="ctx">{_html_escape(ctx_text) if ctx_text else '(no context)'}</div>
+
+<h2>How to answer</h2>
+<p>This page is read-only. Decide from the terminal:</p>
+<div class="cmd">codenook decide --id {_html_escape(eid)} \\
+        --decision &lt;approve|reject|needs_changes&gt; \\
+        --reviewer "&lt;your name&gt;" \\
+        --comment "&lt;optional&gt;"</div>
+<p class="decisions">Possible decisions:
+<span class="a">approve</span><span class="r">reject</span><span class="n">needs_changes</span></p>
+</body></html>
+"""
+
+    out = Path(out_path) if out_path else queue_dir(ws) / f"{eid}.html"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(html, encoding="utf-8")
+    print(str(out))
+    return 0
+
+
 def main() -> None:
     sub = os.environ["CN_SUBCMD"]
     ws = Path(os.environ["CN_WORKSPACE"])
@@ -168,6 +246,12 @@ def main() -> None:
             os.environ.get("CN_DECISION", ""),
             os.environ.get("CN_REVIEWER", ""),
             os.environ.get("CN_COMMENT", ""),
+        ))
+    if sub == "render-html":
+        sys.exit(cmd_render_html(
+            ws,
+            os.environ.get("CN_ID", ""),
+            os.environ.get("CN_OUT", ""),
         ))
     print(f"terminal.sh: unknown subcommand: {sub}", file=sys.stderr)
     sys.exit(2)
