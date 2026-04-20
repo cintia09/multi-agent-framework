@@ -137,10 +137,16 @@ for entries with `decision == null`, relay each `prompt` field
 verbatim to the user, capture the answer, then:
 
 ```bash
-<codenook> decide --task <T-NNN> --phase <phase> \
+<codenook> decide --task <T-NNN> --phase <phase-or-gate-id> \
                   --decision <approve|reject|needs_changes> \
                   [--comment "..."]
 ```
+
+The `--phase` flag accepts **either** the phase id from `phases.yaml`
+(e.g. `clarify`, `design`, `plan`) **or** the gate id from the queue
+entry (e.g. `requirements_signoff`, `design_signoff`). The CLI maps
+phase → gate via the plugin's `phases.yaml`. When the phase has no
+`gate:` field declared, fall back to passing the gate id directly.
 
 Resume the tick loop when all gates resolve.
 

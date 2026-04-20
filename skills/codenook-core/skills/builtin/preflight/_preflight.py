@@ -42,15 +42,35 @@ def _discover_known_phases(workspace: str, state: dict) -> list[str]:
             with open(phases_yaml, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
             phases = data.get("phases", []) or []
+            if isinstance(phases, dict):
+                # v0.2.0+ catalogue (map keyed by phase id)
+                return [pid for pid in phases.keys() if isinstance(pid, str)]
             return [p["id"] for p in phases if isinstance(p, dict) and p.get("id")]
         except ImportError:
-            # Minimal fallback parser: collect lines `  - id: <name>`.
-            ids = []
+            # Minimal fallback parser: collect lines `  - id: <name>` (list)
+            # and top-level `<id>:` keys (map).
+            ids: list[str] = []
             with open(phases_yaml, "r", encoding="utf-8") as f:
+                in_phases = False
                 for line in f:
-                    s = line.strip()
-                    if s.startswith("- id:"):
-                        ids.append(s.split(":", 1)[1].strip().strip('"\''))
+                    rstripped = line.rstrip("\n")
+                    if rstripped.startswith("phases:"):
+                        in_phases = True
+                        continue
+                    if in_phases:
+                        if rstripped and not rstripped.startswith((" ", "\t", "#")):
+                            in_phases = False
+                            continue
+                        s = rstripped.strip()
+                        if s.startswith("- id:"):
+                            ids.append(s.split(":", 1)[1].strip().strip('"\''))
+                        elif (rstripped.startswith("  ")
+                              and not rstripped.startswith("    ")
+                              and ":" in s
+                              and not s.startswith("-")):
+                            key = s.split(":", 1)[0].strip()
+                            if key and not any(c in key for c in " \t#"):
+                                ids.append(key)
             return ids
     except Exception:
         return []

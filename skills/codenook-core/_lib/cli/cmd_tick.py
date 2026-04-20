@@ -100,21 +100,49 @@ def _augment_envelope(ctx: CodenookContext, task: str, tick_out: str) -> str:
         return tick_out
 
     phase_idx = None
-    phases_yaml = ctx.workspace / ".codenook" / "plugins" / plugin / "phases.yaml"
-    if phases_yaml.is_file():
-        seq: list[str] = []
-        for line in phases_yaml.read_text(encoding="utf-8").splitlines():
-            m = re.match(r"\s*-\s*id:\s*(\S+)", line)
+    template = None
+    prompt_basename = None
+
+    if expected:
+        # Canonical source: derive from the expected_output (i.e. the
+        # phase's `produces:` artifact). Works for both v0.1 list and
+        # v0.2 map phases.yaml layouts.
+        produced_basename = Path(expected).name
+        if produced_basename:
+            prompt_basename = produced_basename
+            m = re.match(r"^phase-(\d+)-", produced_basename)
             if m:
-                seq.append(m.group(1))
-        if phase in seq:
-            phase_idx = seq.index(phase) + 1
+                phase_idx = int(m.group(1))
+
+    if phase_idx is None:
+        # Fallback: parse phases.yaml — handle both list and map layout.
+        phases_yaml = ctx.workspace / ".codenook" / "plugins" / plugin / "phases.yaml"
+        if phases_yaml.is_file():
+            try:
+                import yaml as _yaml  # type: ignore[import-untyped]
+                doc = _yaml.safe_load(phases_yaml.read_text(encoding="utf-8")) or {}
+                phases_raw = doc.get("phases", [])
+                if isinstance(phases_raw, dict):
+                    seq = list(phases_raw.keys())
+                else:
+                    seq = [
+                        p.get("id") for p in phases_raw
+                        if isinstance(p, dict) and p.get("id")
+                    ]
+                if phase in seq:
+                    phase_idx = seq.index(phase) + 1
+            except Exception:
+                pass
     if phase_idx is None:
         m = re.match(r"^(\d+)", str(phase))
         phase_idx = int(m.group(1)) if m else 1
 
+    if prompt_basename is None:
+        prompt_basename = f"phase-{phase_idx}-{role}.md"
+
     mt_dir = ctx.workspace / ".codenook" / "plugins" / plugin / "manifest-templates"
     candidates = [
+        mt_dir / prompt_basename,
         mt_dir / f"phase-{phase_idx}-{role}.md",
         mt_dir / f"phase-{phase}-{role}.md",
     ]
@@ -122,7 +150,7 @@ def _augment_envelope(ctx: CodenookContext, task: str, tick_out: str) -> str:
 
     prompts_dir = ctx.workspace / ".codenook" / "tasks" / task / "prompts"
     prompts_dir.mkdir(parents=True, exist_ok=True)
-    prompt_p = prompts_dir / f"phase-{phase_idx}-{role}.md"
+    prompt_p = prompts_dir / prompt_basename
 
     if template is not None:
         body = template.read_text(encoding="utf-8")
@@ -135,6 +163,15 @@ def _augment_envelope(ctx: CodenookContext, task: str, tick_out: str) -> str:
         }
         for k, v in subs.items():
             body = body.replace("{" + k + "}", v)
+        # M10+ slot (parity with orchestrator-tick._tick._render_phase_prompt)
+        try:
+            _lib = ctx.kernel_dir / "_lib"
+            sys.path.insert(0, str(_lib))
+            import memory_layer as _ml  # type: ignore[import-not-found]
+            task_ctx = _ml.build_task_context(ctx.workspace, task)
+        except Exception:
+            task_ctx = ""
+        body = body.replace("{{TASK_CONTEXT}}", task_ctx)
         prompt_p.write_text(body, encoding="utf-8")
     elif not prompt_p.is_file():
         prompt_p.write_text(

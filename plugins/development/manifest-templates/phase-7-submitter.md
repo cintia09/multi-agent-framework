@@ -49,6 +49,12 @@ iteration: {iteration}
 ---
 ```
 
+**YAML safety**: when `summary` (or any frontmatter scalar) contains a
+`:`, `#`, `{`, `[`, `&`, `*`, `?`, `|`, `>`, or starts with `-`,
+**wrap the value in double quotes**. Example:
+`summary: "Test plan: 3 unit tests for parse_percent"`.
+Unquoted colons are the most common cause of `yaml_parse_error` blocks.
+
 Failure routing (per design §3): `needs_revision` bounces to `review`
 (unique among phases — local review must reconsider before another
 submit attempt).

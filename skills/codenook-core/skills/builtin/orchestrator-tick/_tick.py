@@ -423,22 +423,51 @@ def append_dispatch_log(workspace: Path, role: str, payload: str) -> None:
         )
 
 
+def _phase_artifact_basename(phase: dict) -> str:
+    """Return the canonical ``phase-N-role.md`` basename for a phase.
+
+    Derived from the phase's ``produces:`` field when available (so the
+    template / prompt / output filenames stay aligned with the artifact
+    contract). Falls back to ``phase-{id}-{role}.md`` when ``produces``
+    is missing or malformed.
+    """
+    produces = (phase.get("produces") or "").strip()
+    if produces:
+        base = Path(produces).name
+        if base:
+            return base
+    pid = phase.get("id", "?")
+    role = phase.get("role", "?")
+    return f"phase-{pid}-{role}.md"
+
+
 def _render_phase_prompt(workspace: Path, state: dict, phase: dict) -> str | None:
     """Read the phase manifest template and substitute {{TASK_CONTEXT}} (M10+).
+
+    Template lookup uses the canonical basename derived from the phase's
+    ``produces:`` field (e.g. ``phase-2-designer.md``). Falls back to
+    ``phase-{id}-{role}.md`` for plugins that omit ``produces``.
 
     Returns the rendered text, or None if no template is found.
     Best-effort; never raises.
     """
     try:
         plugin = state.get("plugin", "")
-        pid = phase.get("id", "")
-        role = phase.get("role", "")
+        basename = _phase_artifact_basename(phase)
         template_path = (
             workspace / ".codenook" / "plugins" / plugin
-            / "manifest-templates" / f"phase-{pid}-{role}.md"
+            / "manifest-templates" / basename
         )
         if not template_path.is_file():
-            return None
+            # Backward-compat fallback: try the legacy id-based name.
+            pid = phase.get("id", "")
+            role = phase.get("role", "")
+            template_path = (
+                workspace / ".codenook" / "plugins" / plugin
+                / "manifest-templates" / f"phase-{pid}-{role}.md"
+            )
+            if not template_path.is_file():
+                return None
         template = template_path.read_text(encoding="utf-8")
         task_id = state.get("task_id", "")
         task_context = ""
@@ -473,8 +502,9 @@ def dispatch_agent(workspace: Path, state: dict, phase: dict, n: int = 1) -> str
     if rendered is not None:
         prompt_dir = _assert_under(root / "prompts", root)
         prompt_dir.mkdir(parents=True, exist_ok=True)
+        basename = _phase_artifact_basename(phase)
         prompt_file = _assert_under(
-            root / "prompts" / f"phase-{pid}-{role}.md", root
+            root / "prompts" / basename, root
         )
         prompt_file.write_text(rendered, encoding="utf-8")
     return agent_id

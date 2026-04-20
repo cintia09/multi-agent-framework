@@ -49,6 +49,12 @@ iteration: {iteration}
 ---
 ```
 
+**YAML safety**: when `summary` (or any frontmatter scalar) contains a
+`:`, `#`, `{`, `[`, `&`, `*`, `?`, `|`, `>`, or starts with `-`,
+**wrap the value in double quotes**. Example:
+`summary: "Test plan: 3 unit tests for parse_percent"`.
+Unquoted colons are the most common cause of `yaml_parse_error` blocks.
+
 `verdict: ok` terminates the task (transitions.yaml: ship.ok →
 complete). Use `needs_revision` (which self-loops) sparingly — only when
 the artefact is provably broken and a re-pack will fix it.

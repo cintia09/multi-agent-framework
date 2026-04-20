@@ -51,33 +51,68 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
     phases_yaml = ctx.workspace / ".codenook" / "plugins" / plugin / "phases.yaml"
     if phases_yaml.is_file():
         try:
-            phases = (yaml.safe_load(phases_yaml.read_text(encoding="utf-8"))
-                      or {}).get("phases", []) or []
-            for p in phases:
-                if p.get("id") == phase:
-                    gate = p.get("gate") or phase
-                    break
+            phases_doc = (
+                yaml.safe_load(phases_yaml.read_text(encoding="utf-8")) or {}
+            )
+            phases_raw = phases_doc.get("phases", []) or []
+            if isinstance(phases_raw, dict):
+                # v0.2.0+ catalogue (map keyed by phase id)
+                spec = phases_raw.get(phase) or {}
+                if isinstance(spec, dict):
+                    gate = spec.get("gate") or phase
+            elif isinstance(phases_raw, list):
+                # v0.1 flat list
+                for p in phases_raw:
+                    if isinstance(p, dict) and p.get("id") == phase:
+                        gate = p.get("gate") or phase
+                        break
         except Exception:
             pass
 
     qdir = ctx.workspace / ".codenook" / "hitl-queue"
     entry_id = ""
+    pending_gates: list[str] = []
     if qdir.is_dir():
+        # First pass: try the resolved gate (phase-id mapping).
         for p in sorted(qdir.glob("*.json")):
             try:
                 e = json.loads(p.read_text(encoding="utf-8"))
             except Exception:
                 continue
-            if (e.get("task_id") == task
-                    and e.get("gate") == gate
-                    and not e.get("decision")):
+            if e.get("task_id") != task or e.get("decision"):
+                if e.get("task_id") == task and not e.get("decision"):
+                    g = e.get("gate") or ""
+                    if g and g not in pending_gates:
+                        pending_gates.append(g)
+                continue
+            g = e.get("gate") or ""
+            if g and g not in pending_gates:
+                pending_gates.append(g)
+            if g == gate:
                 entry_id = e.get("id") or ""
                 break
+        # Second pass: allow --phase to be the gate-id directly when the
+        # phase-id lookup did not match (e.g. the conductor passed
+        # ``--phase requirements_signoff`` instead of ``--phase clarify``).
+        if not entry_id and phase != gate:
+            for p in sorted(qdir.glob("*.json")):
+                try:
+                    e = json.loads(p.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                if (e.get("task_id") == task
+                        and e.get("gate") == phase
+                        and not e.get("decision")):
+                    entry_id = e.get("id") or ""
+                    gate = phase
+                    break
 
     if not entry_id:
+        hint = (f" (pending gates: {', '.join(pending_gates)})"
+                if pending_gates else "")
         sys.stderr.write(
             f"codenook decide: no pending HITL entry for task={task} "
-            f"phase={phase} (gate={gate})\n")
+            f"phase={phase} (gate={gate}){hint}\n")
         return 1
 
     helper = ctx.kernel_dir / "hitl-adapter" / "_hitl.py"
@@ -105,5 +140,5 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
     print(json.dumps({
         "id": entry_id, "task": task, "phase": phase,
         "gate": gate, "decision": decision,
-    }))
+    }), flush=True)
     return 0

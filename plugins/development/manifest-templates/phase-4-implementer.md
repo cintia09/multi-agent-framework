@@ -49,6 +49,11 @@ iteration: {iteration}
 ---
 ```
 
+**YAML safety**: when `summary` (or any frontmatter scalar) contains a
+`:`, `#`, `{`, `[`, `&`, `*`, `?`, `|`, `>`, or starts with
+`-`, **wrap the value in double quotes**. Example: `summary: "Test plan: 3 unit tests for parse_percent"`.
+Unquoted colons are the most common cause of `yaml_parse_error` blocks.
+
 The orchestrator reads ONLY the `verdict` field to compute the next
 transition (per `.codenook/plugins/development/transitions.yaml`).
 

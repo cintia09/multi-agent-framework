@@ -90,6 +90,11 @@ phases:
     gate: acceptance
 
   ship:
+    # Reuses the reviewer role (no separate `shipper` role) — both this
+    # and the `review` phase consult the same role file
+    # (`roles/reviewer.md`); the manifest template `phase-11-reviewer.md`
+    # tells the reviewer to operate in `mode: ship` (final-sign-off
+    # checklist) instead of `mode: review` (post-build code review).
     role: reviewer
     produces: outputs/phase-11-reviewer.md
     gate: ship_signoff
