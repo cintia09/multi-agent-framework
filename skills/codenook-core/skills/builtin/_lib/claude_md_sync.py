@@ -81,18 +81,46 @@ The wrapper allocates the next `T-NNN` for you. **Do not** scan
 <codenook> router --task <T-NNN> --user-turn "<verbatim user text>"
 ```
 
-`router` prints the router-agent reply on stdout. Relay that text
-**verbatim** to the user. Do not paraphrase, summarise, or annotate.
+`router` prints a **single-line JSON envelope** on stdout, of the form:
+
+```json
+{{"action": "prompt", "task_id": "T-001",
+ "prompt_path": ".codenook/tasks/T-001/.router-prompt.md",
+ "context_path": ".codenook/tasks/T-001/router-context.md",
+ "reply_path":   ".codenook/tasks/T-001/router-reply.md"}}
+```
+
+This envelope is **not** the reply — it tells you where to find the
+prompt and where to put the response. To complete the round-trip:
+
+1. **Read `prompt_path`** — it contains the full router-agent system
+   prompt (role definition, plugin catalogue, draft state, etc).
+2. **Dispatch a sub-agent** using your host's sub-agent / Task
+   facility. Use `prompt_path`'s contents as the **system prompt**
+   for that sub-agent and an **empty** user message. The sub-agent
+   must write its complete response to the file at `reply_path`
+   (overwriting any prior content).
+3. **Read `reply_path`** and relay the contents **verbatim** to the
+   user. Do not paraphrase, summarise, or annotate.
+
+If your host has no sub-agent facility, you may process the prompt
+in your own context, but you **must** still write the response to
+`reply_path` before relaying — downstream tooling reads it.
+
+> Headless / batch alternative: set `CN_ROUTER_DRIVE=1` before calling
+> `router` and the wrapper will run `host_driver.py` in-process. This
+> uses `_lib/llm_call.py` (mock by default; set `CN_LLM_MODE=real` to
+> shell out to the `claude` CLI). Off by default — interactive
+> conductors should drive the dispatch themselves per the steps above.
 
 ### On user follow-ups during the drafting dialog
 
-Each follow-up is another `router` call with the user's exact words:
+Each follow-up is another `router` call with the user's exact words.
+The same JSON envelope → dispatch → relay loop applies:
 
 ```bash
 <codenook> router --task <T-NNN> --user-turn "<verbatim user reply>"
 ```
-
-Same relay rule: print the wrapper's stdout verbatim.
 
 ### On user confirmation ("go" / "confirm" / "approve")
 

@@ -283,20 +283,26 @@ cmd_router() {
   [ -n "$user_turn" ] || { echo "codenook router: --user-turn required" >&2; exit 2; }
 
   # Run router-agent. spawn.sh prints a single-line JSON envelope on stdout
-  # describing the round-trip; the actual reply body lands in router-reply.md.
+  # describing the round-trip; the actual reply body lands in router-reply.md
+  # AFTER the conductor (main LLM session) dispatches a sub-agent using
+  # prompt_path as the system prompt (see CLAUDE.md §1).
   "$ROUTER_SPAWN" --task-id "$task" --workspace "$CODENOOK_WORKSPACE" --user-turn "$user_turn"
-  # If a host_driver is available, drive the LLM round-trip in the same call.
-  if [ -x "$ROUTER_DRIVER" ] || [ -f "$ROUTER_DRIVER" ]; then
-    python3 "$ROUTER_DRIVER" --task-id "$task" --workspace "$CODENOOK_WORKSPACE" || true
-  fi
-  # Surface router-reply.md to the caller so the conductor (LLM) can relay
-  # it verbatim without needing to read the file separately.
-  local _reply="$CODENOOK_WORKSPACE/.codenook/tasks/$task/router-reply.md"
-  if [ -f "$_reply" ]; then
-    echo
-    echo "----- router-reply.md -----"
-    cat "$_reply"
-    echo "----- end router-reply -----"
+
+  # Optional headless / batch mode: if CN_ROUTER_DRIVE=1, run host_driver.py
+  # to do the LLM round-trip in-process (uses _lib/llm_call.py — defaults to
+  # mock unless CN_LLM_MODE=real). Off by default so the conductor LLM can
+  # drive the dispatch via its own sub-agent facility (the v6 protocol).
+  if [ "${CN_ROUTER_DRIVE:-0}" = "1" ]; then
+    if [ -x "$ROUTER_DRIVER" ] || [ -f "$ROUTER_DRIVER" ]; then
+      python3 "$ROUTER_DRIVER" --task-id "$task" --workspace "$CODENOOK_WORKSPACE" || true
+    fi
+    local _reply="$CODENOOK_WORKSPACE/.codenook/tasks/$task/router-reply.md"
+    if [ -f "$_reply" ]; then
+      echo
+      echo "----- router-reply.md -----"
+      cat "$_reply"
+      echo "----- end router-reply -----"
+    fi
   fi
 }
 

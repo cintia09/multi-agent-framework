@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.12] - cmd_router: stop hijacking the LLM round-trip; teach JSON envelope dispatch
+
+### Fixed
+
+- **`templates/codenook-wrapper.sh` `cmd_router`** — v0.13.11 made
+  `codenook router` always run `host_driver.py` (which hits
+  `_lib/llm_call.py`, defaulting to mock) and then cat
+  `router-reply.md`. That stole the v6 protocol's LLM round-trip from
+  the conductor (Copilot CLI / Claude Code / Cursor / etc.) and made
+  every reply look like `[mock-llm:router] …`. Reverted to v6 design:
+  `cmd_router` now only runs `spawn.sh` (which prints the JSON
+  envelope on stdout) and exits. The conductor LLM is responsible for
+  reading `prompt_path`, dispatching its own sub-agent with that file
+  as the system prompt, and reading `reply_path` afterwards.
+  Headless / batch use can opt back in with `CN_ROUTER_DRIVE=1`.
+
+### Changed
+
+- **`_lib/claude_md_sync.py` `render_block`** — rewrote the *How to
+  start a task* and *On user follow-ups* sections to teach the
+  conductor the JSON envelope dispatch protocol explicitly: parse
+  `{prompt_path, reply_path, ...}`, dispatch sub-agent with
+  `prompt_path` contents as system prompt, ensure sub-agent writes
+  `reply_path`, then read and relay verbatim. Documented the
+  `CN_ROUTER_DRIVE=1` headless escape hatch.
+
 ## [0.13.11] - Wrapper: Windows Python auto-discovery + relay router-reply
 
 ### Fixed
