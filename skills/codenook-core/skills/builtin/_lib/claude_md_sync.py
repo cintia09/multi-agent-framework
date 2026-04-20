@@ -55,7 +55,7 @@ such a host should use the `codenook router` wrapper above; it calls
 ### What the orchestrator reads
 
 - `.codenook/state.json` — installed plugins, kernel version, paths
-- `.codenook/state.example.md` — annotated task `state.json` reference
+- `.codenook/schemas/state.example.md` — annotated task `state.json` reference
 - `.codenook/schemas/` — `task-state`, `installed`, `hitl-entry`, `queue-entry`
 - `.codenook/plugins/{plugin}/` — read-only phase prompts and roles
 - `.codenook/memory/` — `knowledge`, `skills`, `history`, `_pending`, `config.yaml`
