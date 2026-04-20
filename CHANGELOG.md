@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.5] - Windows: codenook.cmd shim so PowerShell can call the wrapper
+
+### Added
+
+- **`templates/codenook-wrapper.cmd`** — Windows shim installed alongside
+  the existing bash wrapper. Forwards all args to bash via Git for
+  Windows (`%ProgramFiles%\Git\bin\bash.exe`, then PATH). Without this,
+  PowerShell users running `.codenook\bin\codenook ...` saw the
+  Windows "Open with…" dialog because the unix-style `codenook` file
+  has no extension. Now `.codenook\bin\codenook task new ...` works
+  natively from PowerShell / cmd.
+- **install.sh** — copies `codenook-wrapper.cmd` → `<ws>/.codenook/bin/codenook.cmd`
+  next to the bash wrapper.
+
 ## [0.13.4] - Hot-fix: post-install assertion under Git-Bash on Windows
 
 ### Fixed

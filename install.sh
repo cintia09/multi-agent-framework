@@ -30,7 +30,7 @@
 
 set -euo pipefail
 
-VERSION="0.13.4"
+VERSION="0.13.5"
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_PLUGIN="development"
 
@@ -361,6 +361,11 @@ BIN_DIR="$WORKSPACE/.codenook/bin"
 mkdir -p "$BIN_DIR"
 cp -f "$TPL_DIR/codenook-wrapper.sh" "$BIN_DIR/codenook"
 chmod +x "$BIN_DIR/codenook"
+# Windows shim so PowerShell / cmd users can call `.codenook\bin\codenook ...`
+# without the OS popping the "Open with…" dialog for the extension-less script.
+if [ -f "$TPL_DIR/codenook-wrapper.cmd" ]; then
+  cp -f "$TPL_DIR/codenook-wrapper.cmd" "$BIN_DIR/codenook.cmd"
+fi
 
 info "Seeded .codenook/{schemas,memory,bin/codenook}"
 

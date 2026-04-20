@@ -43,7 +43,7 @@ if [ ! -f "$STATE_JSON" ]; then
   exit 1
 fi
 
-KERNEL_DIR="$(python3 -c "import json,sys; d=json.load(open('$STATE_JSON')); print(d.get('kernel_dir') or '')" 2>/dev/null || true)"
+KERNEL_DIR="$(CN_STATE="$STATE_JSON" python3 -c "import json,os; d=json.load(open(os.environ['CN_STATE'])); print(d.get('kernel_dir') or '')" 2>/dev/null || true)"
 if [ -z "$KERNEL_DIR" ] || [ ! -d "$KERNEL_DIR" ]; then
   echo "codenook: kernel_dir missing/invalid in $STATE_JSON" >&2
   echo "          re-run: bash install.sh \"$CODENOOK_WORKSPACE\"" >&2
@@ -119,7 +119,7 @@ cmd_task_new() {
   fi
 
   if [ -z "$plugin" ]; then
-    plugin="$(python3 -c "import json; d=json.load(open('$STATE_JSON')); ip=d.get('installed_plugins') or []; print((ip[0].get('id') if ip else '') or '')")"
+    plugin="$(CN_STATE="$STATE_JSON" python3 -c "import json,os; d=json.load(open(os.environ['CN_STATE'])); ip=d.get('installed_plugins') or []; print((ip[0].get('id') if ip else '') or '')")"
   fi
   if [ -z "$plugin" ]; then
     echo "codenook task new: no installed plugin found in state.json" >&2; exit 1
@@ -285,7 +285,7 @@ cmd_decide() {
   # Resolve hitl-queue entry id for (task, phase=gate). Phases.yaml maps
   # phase id → gate id; look up the matching pending entry by task+gate.
   local plugin
-  plugin="$(python3 -c "import json; d=json.load(open('$CODENOOK_WORKSPACE/.codenook/tasks/$task/state.json')); print(d['plugin'])")"
+  plugin="$(CN_TS="$CODENOOK_WORKSPACE/.codenook/tasks/$task/state.json" python3 -c "import json,os; d=json.load(open(os.environ['CN_TS'])); print(d['plugin'])")"
   local gate
   gate="$(python3 - "$CODENOOK_WORKSPACE/.codenook/plugins/$plugin/phases.yaml" "$phase" <<'PY' 2>/dev/null
 import sys, yaml
@@ -344,8 +344,8 @@ cmd_status() {
         [ -d "$d" ] || continue
         local id; id="$(basename "$d")"
         local ph st
-        ph="$(python3 -c "import json; d=json.load(open('$d/state.json')); print(d.get('phase') or '<none>')" 2>/dev/null || echo '?')"
-        st="$(python3 -c "import json; d=json.load(open('$d/state.json')); print(d.get('status') or '?')" 2>/dev/null || echo '?')"
+        ph="$(CN_TS="$d/state.json" python3 -c "import json,os; d=json.load(open(os.environ['CN_TS'])); print(d.get('phase') or '<none>')" 2>/dev/null || echo '?')"
+        st="$(CN_TS="$d/state.json" python3 -c "import json,os; d=json.load(open(os.environ['CN_TS'])); print(d.get('status') or '?')" 2>/dev/null || echo '?')"
         echo "  $id phase=$ph status=$st"
       done
     fi
@@ -394,7 +394,7 @@ PY
 # --- dispatch -----------------------------------------------------------------
 case "${1:-}" in
   -h|--help|help|"") usage; exit 0 ;;
-  --version) python3 -c "import json;print(json.load(open('$STATE_JSON')).get('kernel_version','?'))" ;;
+  --version) CN_STATE="$STATE_JSON" python3 -c "import json,os;print(json.load(open(os.environ['CN_STATE'])).get('kernel_version','?'))" ;;
   task)   shift; cmd_task   "$@" ;;
   router) shift; cmd_router "$@" ;;
   tick)   shift; cmd_tick   "$@" ;;
