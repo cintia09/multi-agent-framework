@@ -19,5 +19,5 @@ CN_SRC="$SRC" CN_WORKSPACE="$WORKSPACE" CN_UPGRADE="$UPGRADE" \
 CN_DRY_RUN="$DRY_RUN" CN_JSON="$JSON_OUT" \
 CN_REQUIRE_SIG="${CODENOOK_REQUIRE_SIG:-0}" \
 CN_BUILTIN_DIR="$(cd "$(dirname "$0")/.." && pwd)" \
-CN_CORE_VERSION="$(cat "$(dirname "$0")/../../../VERSION" 2>/dev/null | tr -d '[:space:]')" \
+CN_CORE_VERSION="${CN_CORE_VERSION:-$(cat "$(dirname "$0")/../../../VERSION" 2>/dev/null | tr -d '[:space:]')}" \
   exec python3 "$(dirname "$0")/_orchestrator.py"
