@@ -25,7 +25,6 @@ def render_block(version: str, plugin: str) -> str:
 
 ## CodeNook v{version} bootloader
 
-This workspace has the CodeNook plugin **`{plugin}`** installed.
 CodeNook is a multi-agent task orchestrator. The LLM (you) acts as a
 **pure conductor**: when the user asks for a CodeNook task, you hand
 the work off to the orchestrator and relay its messages verbatim. You
@@ -325,7 +324,8 @@ identical across platforms. There is no "raw-bash form" fallback.
 - `.codenook/state.json` — installed plugins, kernel version, paths
 - `.codenook/codenook-core/` — self-contained kernel (read-only)
 - `.codenook/schemas/` — `task-state`, `installed`, `hitl-entry`, `queue-entry`
-- `.codenook/plugins/{plugin}/` — read-only phase prompts and roles
+- `.codenook/plugins/<id>/` — read-only phase prompts and roles for
+  each installed plugin (ids listed in `state.json.installed_plugins`)
 - `.codenook/memory/` — `knowledge`, `skills`, `history`, `_pending`, `config.yaml`
 - `.codenook/tasks/<task_id>/` — per-task state, prompts, audit log
 
@@ -336,7 +336,8 @@ identical across platforms. There is no "raw-bash form" fallback.
 
 `state.json` supports `parent_id` (linked parent task) and `chain_root`
 (cached terminal ancestor; auto-maintained by `codenook chain link`).
-See `plugins/{plugin}/README.md` § task-chains.
+See the installed plugin's `README.md` § task-chains for plugin-specific
+notes.
 
 For install flow and CLI subcommand reference see the project README
 and `docs/architecture.md`.
