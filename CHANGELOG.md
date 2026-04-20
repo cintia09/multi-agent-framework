@@ -1,4 +1,4 @@
-## Unreleased — post-v0.14.0
+## v0.15.0 (2026-04-20)
 
 ### Added
 - **Development plugin v0.2.0 — profile-aware 11-phase pipeline**
