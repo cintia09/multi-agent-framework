@@ -497,6 +497,12 @@ def dispatch_parallel(workspace: Path, state: dict, phase: dict, cfg: dict) -> d
 def dispatch_role(workspace: Path, state: dict, phase: dict, cfg: dict) -> dict:
     missing = check_entry_questions(workspace, state["plugin"], phase.get("id"), state)
     if missing:
+        # E2E-P-005: pin state to the target phase + mark blocked so the
+        # next tick does NOT fall through to the recovery branch and re-
+        # dispatch the previous role (which was the v0.11.3 papercut).
+        state["phase"] = phase.get("id")
+        state["status"] = "blocked"
+        state["in_flight_agent"] = None
         return _missing_field_response(workspace, state["plugin"],
                                        phase.get("id"), missing)
     if phase.get("allows_fanout") and state.get("decomposed"):
@@ -943,11 +949,27 @@ def main() -> None:
 
 
 def _exit_for(summary: dict) -> int:
+    """E2E-P-009 — documented tick exit-code contract.
+
+      0  phase advanced, task done, or benign re-dispatch
+      2  entry-question pending (status=blocked + missing field)
+      3  HITL pending (status=waiting on hitl gate)
+      1  actual error (cancelled / error / blocked-without-recovery)
+    """
     s = summary.get("status")
-    if s in ("advanced", "done", "waiting"):
+    if s in ("advanced", "done"):
         return 0
     if s == "blocked":
+        # Entry-question blocked → exit 2.
+        if summary.get("missing"):
+            return 2
         return 1
+    if s == "waiting":
+        nxt = summary.get("next_action", "") or ""
+        if nxt.startswith("hitl:") or nxt.startswith("awaiting"):
+            # awaiting role output is benign waiting → 0; explicit hitl → 3.
+            return 3 if nxt.startswith("hitl:") else 0
+        return 0
     if s in ("cancelled", "error"):
         return 1
     return 0
