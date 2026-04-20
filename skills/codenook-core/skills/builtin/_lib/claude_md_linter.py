@@ -304,6 +304,21 @@ def _looks_like_repo_claude_md(path: Path) -> bool:
 _BEGIN_MARKER = "<!-- codenook:begin -->"
 _END_MARKER = "<!-- codenook:end -->"
 
+# E2E-P-004 — kernel-reference tokens that are legitimate inside the
+# installer-managed marker block. These are silenced from the
+# inside-marker scan; outside-marker scans still flag them so user
+# CLAUDE.md prose remains domain-pure.
+_ALLOWED_INSIDE_MARKER: frozenset[str] = frozenset({
+    "development",
+    "plugins/development",
+    "codenook-core",
+    "task new",
+    "router",
+    "tick",
+    "decide",
+    "chain link",
+})
+
 
 def _marker_lineranges(text: str) -> tuple[tuple[int, int] | None, list[tuple[int, int]]]:
     """Return (inside_range, outside_ranges).
@@ -333,7 +348,8 @@ def _marker_lineranges(text: str) -> tuple[tuple[int, int] | None, list[tuple[in
     return inside, outside
 
 
-def _filter_findings(findings: list[dict], ranges: list[tuple[int, int]]) -> list[dict]:
+def _filter_findings(findings: list[dict], ranges: list[tuple[int, int]],
+                     *, drop_marker_allowlist: bool = False) -> list[dict]:
     if not ranges:
         return []
     out = []
@@ -345,6 +361,8 @@ def _filter_findings(findings: list[dict], ranges: list[tuple[int, int]]) -> lis
             continue
         for a, b in ranges:
             if a <= ln <= b:
+                if drop_marker_allowlist and f.get("token") in _ALLOWED_INSIDE_MARKER:
+                    break  # silently drop — kernel-reference token
                 out.append(f); break
     return out
 
@@ -417,7 +435,10 @@ def cli_main(argv: list[str]) -> int:
             # avoid silently skipping un-augmented files.
             if marker_only and inside is None:
                 ranges = [(1, len(text.splitlines()))] if text else []
-            kept = _filter_findings(raw, ranges)
+            kept = _filter_findings(
+                raw, ranges,
+                drop_marker_allowlist=marker_only and inside is not None,
+            )
         aggregated.extend(kept)
 
     errors = [f for f in aggregated if f["severity"] == "error"]
