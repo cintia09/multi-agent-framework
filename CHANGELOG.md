@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.11] - Wrapper: Windows Python auto-discovery + relay router-reply
+
+### Fixed
+
+- **`templates/codenook-wrapper.cmd`** — the Windows shim previously only
+  located `bash.exe`. Git-Bash bundled with Git-for-Windows ships **without
+  Python**, so `bash codenook` failed at the very first `python3` call
+  (silently parsed `kernel_dir` as empty → "kernel_dir missing/invalid").
+  The shim now also discovers a Windows-side Python install and prepends
+  its directory to `PATH` before launching bash. Search order:
+  `%LOCALAPPDATA%\Programs\Python\Python3{13,12,11,10}`, then
+  `%ProgramFiles%`/`%ProgramFiles(x86)%`, then `where python`, then
+  `where py` (Python launcher).
+
+- **`templates/codenook-wrapper.sh`** — Windows Python is named
+  `python.exe`, not `python3.exe`, so prepending its dir alone is not
+  enough — the wrapper (and every downstream call: `spawn.sh`, `tick.sh`,
+  `host_driver.py`) hard-coded `python3`. The bash wrapper now synthesizes
+  a tiny `python3` shim in a temp dir at startup if `python3` is absent
+  but `python` is present, and front-loads it onto `PATH`. Subprocesses
+  inherit `PATH`, so all 17 internal `python3` call sites just work
+  without any per-site change.
+
+- **`templates/codenook-wrapper.sh` `cmd_router`** — `spawn.sh` only
+  prints a single-line JSON envelope (`{prompt_path, reply_path, ...}`)
+  on stdout; the human-readable router reply lands in
+  `tasks/<T>/router-reply.md`. Previously `cmd_router` returned just the
+  envelope, leaving the conductor LLM to discover and read the file
+  itself. `cmd_router` now appends the reply file contents to stdout,
+  delimited by `----- router-reply.md -----` markers, so the LLM can
+  relay it verbatim per the CLAUDE.md protocol contract.
+
 ## [0.13.10] - Bootloader: shell-agnostic examples (fix Linux regression)
 
 ### Fixed

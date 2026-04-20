@@ -25,6 +25,31 @@
 
 set -euo pipefail
 
+# --- ensure `python3` is callable -------------------------------------------
+# On Windows the .cmd shim prepends a Python install dir to PATH, but the
+# executable there is usually `python.exe` (not `python3.exe`). We synthesize
+# a tiny `python3` shim in a temp dir and front-load it onto PATH so every
+# downstream call (this script, spawn.sh, tick.sh, host_driver.py) finds it
+# without code changes.
+if ! command -v python3 >/dev/null 2>&1; then
+  if command -v python >/dev/null 2>&1; then
+    _CN_SHIM_DIR="${TMPDIR:-/tmp}/codenook-pyshim-$$"
+    mkdir -p "$_CN_SHIM_DIR"
+    cat > "$_CN_SHIM_DIR/python3" <<'PYSHIM'
+#!/usr/bin/env bash
+exec python "$@"
+PYSHIM
+    chmod +x "$_CN_SHIM_DIR/python3"
+    PATH="$_CN_SHIM_DIR:$PATH"
+    export PATH
+    trap 'rm -rf "$_CN_SHIM_DIR"' EXIT
+  else
+    echo "codenook: neither python3 nor python found on PATH" >&2
+    echo "          install Python 3 (https://www.python.org/downloads/) and re-run" >&2
+    exit 1
+  fi
+fi
+
 # --- locate workspace + kernel ------------------------------------------------
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_DEFAULT="$(cd "$HERE/../.." && pwd)"
@@ -257,10 +282,21 @@ cmd_router() {
   [ -n "$task" ] || { echo "codenook router: --task required" >&2; exit 2; }
   [ -n "$user_turn" ] || { echo "codenook router: --user-turn required" >&2; exit 2; }
 
+  # Run router-agent. spawn.sh prints a single-line JSON envelope on stdout
+  # describing the round-trip; the actual reply body lands in router-reply.md.
   "$ROUTER_SPAWN" --task-id "$task" --workspace "$CODENOOK_WORKSPACE" --user-turn "$user_turn"
   # If a host_driver is available, drive the LLM round-trip in the same call.
   if [ -x "$ROUTER_DRIVER" ] || [ -f "$ROUTER_DRIVER" ]; then
     python3 "$ROUTER_DRIVER" --task-id "$task" --workspace "$CODENOOK_WORKSPACE" || true
+  fi
+  # Surface router-reply.md to the caller so the conductor (LLM) can relay
+  # it verbatim without needing to read the file separately.
+  local _reply="$CODENOOK_WORKSPACE/.codenook/tasks/$task/router-reply.md"
+  if [ -f "$_reply" ]; then
+    echo
+    echo "----- router-reply.md -----"
+    cat "$_reply"
+    echo "----- end router-reply -----"
   fi
 }
 

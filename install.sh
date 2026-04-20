@@ -30,7 +30,43 @@
 
 set -euo pipefail
 
-VERSION="0.13.10"
+# --- ensure `python3` is callable -------------------------------------------
+# Git-Bash on Windows ships without python; users may only have `python.exe`
+# on PATH (or none). First try common Windows install dirs, then synthesize
+# a `python3` shim if only `python` is available. Subprocesses inherit PATH.
+if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; then
+  for _d in \
+      "${LOCALAPPDATA:-}/Programs/Python/Python313" \
+      "${LOCALAPPDATA:-}/Programs/Python/Python312" \
+      "${LOCALAPPDATA:-}/Programs/Python/Python311" \
+      "${LOCALAPPDATA:-}/Programs/Python/Python310" \
+      "/c/Program Files/Python313" "/c/Program Files/Python312" \
+      "/c/Program Files/Python311" "/c/Program Files/Python310" ; do
+    if [ -x "$_d/python.exe" ]; then
+      PATH="$_d:$PATH"; export PATH; break
+    fi
+  done
+fi
+if ! command -v python3 >/dev/null 2>&1; then
+  if command -v python >/dev/null 2>&1; then
+    _CN_SHIM_DIR="${TMPDIR:-/tmp}/codenook-pyshim-$$"
+    mkdir -p "$_CN_SHIM_DIR"
+    cat > "$_CN_SHIM_DIR/python3" <<'PYSHIM'
+#!/usr/bin/env bash
+exec python "$@"
+PYSHIM
+    chmod +x "$_CN_SHIM_DIR/python3"
+    PATH="$_CN_SHIM_DIR:$PATH"
+    export PATH
+    trap 'rm -rf "$_CN_SHIM_DIR"' EXIT
+  else
+    echo "codenook install: neither python3 nor python found on PATH" >&2
+    echo "                  install Python 3 (https://www.python.org/downloads/) and re-run" >&2
+    exit 2
+  fi
+fi
+
+VERSION="0.13.11"
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_PLUGIN="development"
 

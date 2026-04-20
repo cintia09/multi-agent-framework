@@ -26,17 +26,66 @@ for %%P in (
   "%LOCALAPPDATA%\Programs\Git\bin\bash.exe"
 ) do (
   if exist %%~P (
-    "%%~P" "%BASH_SCRIPT%" %*
-    exit /b %ERRORLEVEL%
+    set "BASH_EXE=%%~P"
+    goto :have_bash
   )
 )
 
 REM 2) Fallback: any bash on PATH
 where bash >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-  bash "%BASH_SCRIPT%" %*
-  exit /b %ERRORLEVEL%
+  set "BASH_EXE=bash"
+  goto :have_bash
 )
 
 echo codenook.cmd: no bash.exe found. Install Git for Windows or add bash to PATH. 1>&2
 exit /b 127
+
+:have_bash
+REM 3) Locate a usable Windows-side Python and prepend its dir to PATH so the
+REM    bash wrapper (which calls `python3` / `python`) finds it. Git-Bash does
+REM    not ship its own Python.
+set "PY_DIR="
+for %%D in (
+  "%LOCALAPPDATA%\Programs\Python\Python313"
+  "%LOCALAPPDATA%\Programs\Python\Python312"
+  "%LOCALAPPDATA%\Programs\Python\Python311"
+  "%LOCALAPPDATA%\Programs\Python\Python310"
+  "%ProgramFiles%\Python313"
+  "%ProgramFiles%\Python312"
+  "%ProgramFiles%\Python311"
+  "%ProgramFiles%\Python310"
+  "%ProgramFiles(x86)%\Python313"
+  "%ProgramFiles(x86)%\Python312"
+  "%ProgramFiles(x86)%\Python311"
+  "%ProgramFiles(x86)%\Python310"
+) do (
+  if exist "%%~D\python.exe" (
+    set "PY_DIR=%%~D"
+    goto :have_python
+  )
+)
+
+REM 3b) Fallback: ask `where` (covers winget / Microsoft Store / custom installs)
+for /f "delims=" %%P in ('where python 2^>nul') do (
+  if exist "%%~P" (
+    for %%I in ("%%~P") do set "PY_DIR=%%~dpI"
+    goto :have_python
+  )
+)
+
+REM 3c) `py` launcher fallback
+for /f "delims=" %%P in ('where py 2^>nul') do (
+  if exist "%%~P" (
+    for %%I in ("%%~P") do set "PY_DIR=%%~dpI"
+    goto :have_python
+  )
+)
+
+:have_python
+if defined PY_DIR (
+  set "PATH=%PY_DIR%;%PATH%"
+)
+
+"%BASH_EXE%" "%BASH_SCRIPT%" %*
+exit /b %ERRORLEVEL%
