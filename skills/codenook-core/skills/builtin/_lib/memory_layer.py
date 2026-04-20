@@ -198,6 +198,21 @@ def _flock_release(fd: int) -> None:
         os.close(fd)
 
 
+# Directory-level sentinel lock paths. Used to serialize the scan +
+# fuzzy-match + merge + write sequence in write_knowledge / write_skill
+# so two concurrent writers cannot both load pre-merge bodies and
+# have os.replace silently drop one side's additions (post-D+E
+# review finding 1). Per-file locks in patch_* protect patch-vs-patch;
+# the directory lock covers merge-vs-merge and merge-vs-create on the
+# same target.
+def _knowledge_write_lock(ws: Path | str) -> Path:
+    return _knowledge_dir(ws) / ".write.lock"
+
+
+def _skills_write_lock(ws: Path | str) -> Path:
+    return _skills_dir(ws) / ".write.lock"
+
+
 # -------------------------------------------------------------- frontmatter
 
 
@@ -326,21 +341,35 @@ def write_knowledge(
     target = _knowledge_path(workspace_root, topic)
 
     # ── Change E: fuzzy-merge on write ──────────────────────────────
+    # Locking scheme (post-D+E review finding 1): acquire a
+    # directory-level sentinel lock for the entire scan → match →
+    # merge → write sequence so concurrent extractors cannot both
+    # load a pre-merge body and have os.replace drop one writer's
+    # additions. The fresh-file branch (below) is unlocked: each
+    # writer targets a distinct topic path there.
     if fuzzy_merge and not target.exists():
-        title = str(fm.get("title") or topic)
-        source_task = str(
-            fm.get("created_from_task") or created_from_task or fm.get("source_task") or ""
-        )
-        matched = _fuzzy_match_existing_knowledge(workspace_root, title, body)
-        if matched is not None:
-            return _merge_into_existing_knowledge(
-                workspace_root,
-                existing=matched,
-                source_task=source_task,
-                new_title=title,
-                new_body=body,
-                new_tags=list(fm.get("tags") or []),
-            )
+        lock_path = _knowledge_write_lock(workspace_root)
+        fd = _flock_acquire(lock_path)
+        try:
+            # Re-check under lock: another writer may have just created
+            # this exact topic path.
+            if not target.exists():
+                title = str(fm.get("title") or topic)
+                source_task = str(
+                    fm.get("created_from_task") or created_from_task or fm.get("source_task") or ""
+                )
+                matched = _fuzzy_match_existing_knowledge(workspace_root, title, body)
+                if matched is not None:
+                    return _merge_into_existing_knowledge(
+                        workspace_root,
+                        existing=matched,
+                        source_task=source_task,
+                        new_title=title,
+                        new_body=body,
+                        new_tags=list(fm.get("tags") or []),
+                    )
+        finally:
+            _flock_release(fd)
 
     rendered = _render_frontmatter_doc(fm, body)
     _atomic_write_text(target, rendered, workspace_root=workspace_root)
@@ -461,6 +490,11 @@ def _fuzzy_match_existing_knowledge(
     Returns ``{"path", "frontmatter", "body", "reason", "score"}`` on
     the first hit (stable, alphabetical by filename via
     :func:`scan_knowledge`), or None when nothing is close enough.
+
+    Finding 7 (review): bodies are cached by (path, mtime_ns) for the
+    lifetime of the process so a single extractor batch that writes N
+    topics does N disk-reads in total instead of O(N²). TODO: promote
+    to a proper body index once memory grows > 200 entries.
     """
     try:
         import text_fingerprint as tf  # local: _lib is on sys.path
@@ -470,9 +504,8 @@ def _fuzzy_match_existing_knowledge(
         ex_path = meta.get("path")
         if not ex_path:
             continue
-        try:
-            doc = read_knowledge(ex_path)
-        except OSError:
+        doc = _read_knowledge_cached(ex_path)
+        if doc is None:
             continue
         ex_title = (
             doc["frontmatter"].get("title")
@@ -492,6 +525,47 @@ def _fuzzy_match_existing_knowledge(
                 "score": score,
             }
     return None
+
+
+# ── Body cache for fuzzy-match scans (finding 7) ────────────────────
+# Module-level dict keyed by (path, mtime_ns). Invalidates automatically
+# on mtime change, so atomic writes from this same process that bump
+# mtime_ns will trigger a re-read on the next scan.
+_BODY_CACHE: dict[tuple[str, int], dict[str, Any]] = {}
+
+
+def _read_knowledge_cached(path: str | Path) -> dict[str, Any] | None:
+    try:
+        mtime_ns = os.stat(str(path)).st_mtime_ns
+    except OSError:
+        return None
+    key = (str(path), mtime_ns)
+    cached = _BODY_CACHE.get(key)
+    if cached is not None:
+        return cached
+    try:
+        doc = read_knowledge(path)
+    except OSError:
+        return None
+    _BODY_CACHE[key] = doc
+    return doc
+
+
+def _read_skill_cached(workspace_root: Path | str, name: str, path: str | Path) -> dict[str, Any] | None:
+    try:
+        mtime_ns = os.stat(str(path)).st_mtime_ns
+    except OSError:
+        return None
+    key = (str(path), mtime_ns)
+    cached = _BODY_CACHE.get(key)
+    if cached is not None:
+        return cached
+    try:
+        doc = read_skill(workspace_root, name)
+    except OSError:
+        return None
+    _BODY_CACHE[key] = doc
+    return doc
 
 
 def _append_source_ref(fm: dict[str, Any], source_task: str) -> bool:
@@ -625,7 +699,30 @@ def append_by_role_reference(
             workspace_root, topic=topic, mutator=_mutate,
             rationale=f"by_role-ref role={role}",
         )
-    except Exception:
+    except (FileNotFoundError, ValueError):
+        # Expected not-found / validation failure modes: fall through
+        # silently — the caller treats None as "topic unavailable".
+        return None
+    except Exception as e:  # noqa: BLE001 — see comment
+        # Finding 5 (review): keep the best-effort contract (never raise
+        # into the caller) but leave an audit breadcrumb so lock
+        # timeouts and other real failures are distinguishable from
+        # "topic didn't exist".
+        try:
+            append_audit(
+                workspace_root,
+                {
+                    "ts": _now_iso(),
+                    "asset_type": "knowledge",
+                    "topic": topic,
+                    "verdict": "by_role_reference_failed",
+                    "reason": f"{type(e).__name__}: {e}"[:200],
+                    "role": role,
+                    "source_task": source_task,
+                },
+            )
+        except Exception:
+            pass
         return None
 
 
@@ -668,21 +765,29 @@ def write_skill(
     target = _skill_md(workspace_root, name)
 
     # ── Change E: fuzzy-merge on write (skills) ─────────────────────
+    # See write_knowledge for locking rationale — same scheme applied
+    # to the skills tree.
     if fuzzy_merge and not target.exists():
-        title = str(fm.get("title") or fm.get("name") or name)
-        source_task = str(
-            fm.get("created_from_task") or created_from_task or fm.get("source_task") or ""
-        )
-        matched = _fuzzy_match_existing_skill(workspace_root, title, body)
-        if matched is not None:
-            return _merge_into_existing_skill(
-                workspace_root,
-                existing=matched,
-                source_task=source_task,
-                new_title=title,
-                new_body=body,
-                new_tags=list(fm.get("tags") or []),
-            )
+        lock_path = _skills_write_lock(workspace_root)
+        fd = _flock_acquire(lock_path)
+        try:
+            if not target.exists():
+                title = str(fm.get("title") or fm.get("name") or name)
+                source_task = str(
+                    fm.get("created_from_task") or created_from_task or fm.get("source_task") or ""
+                )
+                matched = _fuzzy_match_existing_skill(workspace_root, title, body)
+                if matched is not None:
+                    return _merge_into_existing_skill(
+                        workspace_root,
+                        existing=matched,
+                        source_task=source_task,
+                        new_title=title,
+                        new_body=body,
+                        new_tags=list(fm.get("tags") or []),
+                    )
+        finally:
+            _flock_release(fd)
 
     target.parent.mkdir(parents=True, exist_ok=True)
     _atomic_write_text(target, _render_frontmatter_doc(fm, body), workspace_root=workspace_root)
@@ -754,11 +859,10 @@ def _fuzzy_match_existing_skill(
         name = meta.get("name") or (
             Path(ex_path).parent.name if ex_path else ""
         )
-        if not name:
+        if not name or not ex_path:
             continue
-        try:
-            doc = read_skill(workspace_root, name)
-        except OSError:
+        doc = _read_skill_cached(workspace_root, name, ex_path)
+        if doc is None:
             continue
         ex_title = (
             doc["frontmatter"].get("title")

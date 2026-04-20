@@ -135,20 +135,6 @@ jq -cn \
 
 LOOKUP_ROOT="${CN_EXTRACTOR_LOOKUP_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 
-# ── Change D (v0.15.x): aggregate per-task artefact paths ────────────
-# Each extractor is already dispatched *once* per (task, phase, reason),
-# but we additionally publish the task's role-output artefacts as a
-# newline-delimited list in CN_ARTEFACT_PATHS so extractors can synth a
-# single `by_topic` entry instead of one-per-role. Extractors that do
-# not read this env simply keep their legacy directory-scan behaviour.
-CN_ARTEFACT_PATHS=""
-_ART_DIR="$WORKSPACE/.codenook/tasks/$TASK_ID/outputs"
-if [ -d "$_ART_DIR" ]; then
-  # shellcheck disable=SC2012 — stable ordering is what we want.
-  CN_ARTEFACT_PATHS=$(ls -1 "$_ART_DIR"/*.md 2>/dev/null | sort || true)
-fi
-export CN_ARTEFACT_PATHS
-
 # M9.5 fix: init the memory skeleton ONCE before fan-out so every extractor
 # sees a complete layout (dirs + config.yaml). Without this, the first
 # extractor (knowledge-extractor) creates the dirs while the later

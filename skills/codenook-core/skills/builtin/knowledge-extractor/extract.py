@@ -283,6 +283,11 @@ def _aggregate_candidates_per_task(
         label = role or f
         if label and label not in sources_lines:
             sources_lines.append(label)
+
+    # Finding 4 (review): truncate the aggregated per-role body *first*,
+    # then append the Sources block, so provenance isn't chopped off for
+    # tasks with several long role outputs.
+    body = body[: INPUT_BODY_TRUNC * 2]
     if sources_lines:
         body = (
             body.rstrip() + "\n\n## Sources\n"
@@ -299,7 +304,7 @@ def _aggregate_candidates_per_task(
         "title": title,
         "summary": summary,
         "tags": merged_tags[: MAX_TAGS],
-        "body": body[:INPUT_BODY_TRUNC * 2],  # allow a larger merged body
+        "body": body,
         "_source_roles": [r for r in roles if r],
         "_source_files": [f for f in files if f],
         "_aggregated": True,
@@ -588,6 +593,11 @@ def _process_candidate(
         frontmatter=new_fm,
         status="candidate",
         created_from_task=task_id,
+        # Finding 3 (review): when we've already decided to suffix the
+        # topic (FR-LAY-3 collision path), the extractor is explicitly
+        # asking for a distinct entry — don't let fuzzy-merge fold it
+        # back into the sibling it tried to distinguish from.
+        fuzzy_merge=not suffixed,
     )
     _audit(
         workspace,

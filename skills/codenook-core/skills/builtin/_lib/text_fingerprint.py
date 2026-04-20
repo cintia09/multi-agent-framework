@@ -43,6 +43,13 @@ SUBSTRING_OVERLAP_THRESHOLD = 0.70
 #: during merge. Below this, we record the source link only.
 MATERIAL_NEW_RATIO = 0.20
 
+#: Minimum SequenceMatcher body ratio required *in addition to* a
+#: normalized-title equality before :func:`is_fuzzy_match` returns True
+#: on the title path. Without this guard, generic titles ("Key
+#: Findings", "Summary", "Notes", "Gotchas") from unrelated tasks would
+#: collapse into a single incoherent file.
+TITLE_MATCH_MIN_BODY_RATIO = 0.30
+
 _WORD_RE = re.compile(r"[a-z0-9]+")
 
 
@@ -134,16 +141,26 @@ def is_fuzzy_match(
 
     ``reason`` ∈ {``title_normalized_match``, ``body_fingerprint``,
     ``substring_overlap``, ``no_match``}. ``score`` is the dominant
-    numeric signal (1.0 for the title-normalized path).
+    numeric signal (title path reports the body ratio that passed the
+    sanity gate).
+
+    Title-equality is gated by a minimum body similarity
+    (:data:`TITLE_MATCH_MIN_BODY_RATIO`) so that generic titles like
+    "Key Findings", "Summary", "Notes" do not merge unrelated entries.
     """
     nt_new = normalize_title(new_title)
     nt_ex = normalize_title(existing_title)
-    if nt_new and nt_new == nt_ex:
-        return True, "title_normalized_match", 1.0
 
     fp_new = normalize_fingerprint(new_body)
     fp_ex = normalize_fingerprint(existing_body)
     body_ratio = similarity(fp_new, fp_ex)
+
+    # Option A (post-D+E review): title-eq alone is not enough — require
+    # a minimum body similarity, otherwise two unrelated "Key Findings"
+    # files get welded together.
+    if nt_new and nt_new == nt_ex and body_ratio >= TITLE_MATCH_MIN_BODY_RATIO:
+        return True, "title_normalized_match", body_ratio
+
     if body_ratio >= body_threshold:
         return True, "body_fingerprint", body_ratio
 
