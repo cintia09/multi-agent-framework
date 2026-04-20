@@ -19,6 +19,7 @@ Exit codes:
 """
 from __future__ import annotations
 
+import datetime as _dt
 import json
 import os
 import secrets
@@ -245,7 +246,32 @@ def commit(staged: Path, workspace: Path, plugin_id: str,
             shutil.rmtree(backup, ignore_errors=True)
 
 
-def update_state_json(workspace: Path, plugin_id: str, version: str) -> None:
+def _aggregate_files_sha256(staged: Path) -> str:
+    """Aggregate sha256 of all regular files under `staged` (sorted)."""
+    import hashlib
+    h = hashlib.sha256()
+    base = Path(staged).resolve()
+    files = []
+    for root, _, names in os.walk(base, followlinks=False):
+        for n in names:
+            p = Path(root) / n
+            if p.is_symlink() or not p.is_file():
+                continue
+            files.append(p)
+    for p in sorted(files, key=lambda x: x.relative_to(base).as_posix()):
+        rel = p.relative_to(base).as_posix().encode("utf-8")
+        h.update(b"\0path:" + rel + b"\0")
+        try:
+            h.update(p.read_bytes())
+        except OSError:
+            pass
+    return h.hexdigest()
+
+
+def update_state_json(workspace: Path, plugin_id: str, version: str,
+                      *, kernel_version: str = "",
+                      kernel_dir: str = "",
+                      files_sha256: str = "") -> None:
     sj = workspace / ".codenook" / "state.json"
     if sj.is_file():
         try:
@@ -256,13 +282,34 @@ def update_state_json(workspace: Path, plugin_id: str, version: str) -> None:
         data = {}
     if not isinstance(data, dict):
         data = {}
+
+    now_iso = _dt.datetime.now(tz=_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
     installs = data.get("installed_plugins")
     if not isinstance(installs, list):
         installs = []
+    # Backward-compat: keep prior records, drop any duplicate id.
     installs = [r for r in installs
                 if not (isinstance(r, dict) and r.get("id") == plugin_id)]
-    installs.append({"id": plugin_id, "version": version})
+    entry = {
+        "id": plugin_id,
+        "version": version,
+        "installed_at": now_iso,
+    }
+    if files_sha256:
+        entry["files_sha256"] = files_sha256
+    installs.append(entry)
+
+    # E2E-019: enrich workspace state.json schema (v1).
+    data["schema_version"] = "v1"
+    if kernel_version:
+        data["kernel_version"] = kernel_version
+    data["installed_at"] = now_iso
+    if kernel_dir:
+        data["kernel_dir"] = kernel_dir
+    data.setdefault("bin", ".codenook/bin/codenook")
     data["installed_plugins"] = installs
+
     sj.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_json(str(sj), data)
 
@@ -314,6 +361,8 @@ def main() -> int:
     json_out = os.environ.get("CN_JSON", "0") == "1"
     require_sig = os.environ.get("CN_REQUIRE_SIG", "0") == "1"
     builtin_dir = Path(os.environ["CN_BUILTIN_DIR"]).resolve()
+    core_version = os.environ.get("CN_CORE_VERSION", "")
+    kernel_dir = str(builtin_dir)
 
     if not src.exists():
         print(f"orchestrator: --src not found: {src}", file=sys.stderr)
@@ -390,11 +439,15 @@ def main() -> int:
         try:
             if not plugin_id:
                 raise RuntimeError("plugin id missing after gates passed (bug)")
+            files_sha256 = _aggregate_files_sha256(staged)
             commit(staged, workspace, plugin_id, upgrade)
             # commit() consumed `staged` via os.replace; mark consumed so the
             # finally block doesn't try to rmtree the now-installed plugin dir.
             staged = None
-            update_state_json(workspace, plugin_id, version or "")
+            update_state_json(workspace, plugin_id, version or "",
+                              kernel_version=core_version,
+                              kernel_dir=kernel_dir,
+                              files_sha256=files_sha256)
         except Exception as e:
             commit_result = {"ok": False, "gate": "commit",
                              "reasons": [f"commit failed: {e}"]}
