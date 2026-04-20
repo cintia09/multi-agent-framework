@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CodeNook v0.11.3 — top-level installer.
+# CodeNook v0.11.4 — top-level installer.
 #
 # Usage:
 #   bash install.sh                       # install into $PWD
@@ -29,7 +29,7 @@
 
 set -euo pipefail
 
-VERSION="0.11.3"
+VERSION="0.11.4"
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_PLUGIN="development"
 
@@ -222,6 +222,7 @@ orch.update_state_json(
 PY
 else
   set +e
+  CN_CORE_VERSION="$VERSION" \
   "$KERNEL_INSTALL" --src "$PLUGIN_SRC" --workspace "$WORKSPACE" $DRY_RUN $UPGRADE
   rc=$?
   set -e
@@ -279,7 +280,11 @@ for f in task-state.schema.json hitl-entry.schema.json queue-entry.schema.json \
   [ -f "$SCHEMAS_SRC/$f" ] && cp -f "$SCHEMAS_SRC/$f" "$WORKSPACE/.codenook/schemas/$f"
 done
 [ -f "$TPL_DIR/state.example.md" ] && \
-  cp -f "$TPL_DIR/state.example.md" "$WORKSPACE/.codenook/state.example.md"
+  cp -f "$TPL_DIR/state.example.md" "$WORKSPACE/.codenook/schemas/state.example.md"
+# E2E-P-006: legacy location had state.example.md at .codenook/ root.
+# Remove the stale copy if it exists from a previous install.
+[ -f "$WORKSPACE/.codenook/state.example.md" ] && \
+  rm -f "$WORKSPACE/.codenook/state.example.md" || true
 
 # Memory skeleton (idempotent — never overwrite existing files).
 MEM_DIR="$WORKSPACE/.codenook/memory"
@@ -298,6 +303,14 @@ cp -f "$TPL_DIR/codenook-wrapper.sh" "$BIN_DIR/codenook"
 chmod +x "$BIN_DIR/codenook"
 
 info "Seeded .codenook/{schemas,memory,bin/codenook}"
+
+# E2E-P-001: assert state.json.kernel_version matches the installer VERSION.
+ACTUAL_KV="$(python3 -c "import json; print(json.load(open('$WORKSPACE/.codenook/state.json')).get('kernel_version',''))" 2>/dev/null || echo '')"
+if [ "$ACTUAL_KV" != "$VERSION" ]; then
+  err "post-install assertion failed: state.json.kernel_version='$ACTUAL_KV' != VERSION='$VERSION'"
+  err "  (this indicates the inner skills/codenook-core/VERSION drifted from the root VERSION)"
+  exit 1
+fi
 
 echo ""
 echo "  Quick start:"

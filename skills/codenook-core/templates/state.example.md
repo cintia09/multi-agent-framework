@@ -1,8 +1,9 @@
 # CodeNook task state.json — annotated reference
 #
-# This file is shipped to .codenook/state.example.md by `bash install.sh`
-# (E2E-003). Seed a real task state.json by copying the JSON block below
-# into `.codenook/tasks/T-XXX/state.json` and editing values.
+# This file is shipped to .codenook/schemas/state.example.md by
+# `bash install.sh` (E2E-P-006). Seed a real task state.json by copying
+# the JSON block below into `.codenook/tasks/T-XXX/state.json` and
+# editing values.
 #
 # Authoritative schema: `.codenook/schemas/task-state.schema.json`.
 #
