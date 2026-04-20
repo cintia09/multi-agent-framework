@@ -76,9 +76,15 @@ EOF
 
   local i=0 status_code finished=0
   for i in $(seq 1 50); do
+    set +e
     out=$("$TICK_SH" --task T-001 --workspace "$ws" --json)
     status_code=$?
-    [ "$status_code" -eq 0 ] || { echo "tick failed (i=$i): $out" >&2; return 1; }
+    set -e
+    # E2E-P-009: contract is 0=advanced/done, 2=entry-q, 3=hitl, 1=error.
+    case "$status_code" in
+      0|3) : ;;
+      *) echo "tick failed (i=$i, rc=$status_code): $out" >&2; return 1 ;;
+    esac
 
     tick_status=$(echo "$out" | python3 -c 'import sys,json;print(json.load(sys.stdin)["status"])')
 

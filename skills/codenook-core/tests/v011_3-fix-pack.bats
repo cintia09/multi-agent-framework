@@ -43,7 +43,7 @@ setup() {
 }
 
 @test "[v0.11.3] E2E-001 codenook task new creates task and returns ID" {
-  run "$ws/.codenook/bin/codenook" task new --title "Hello"
+  run "$ws/.codenook/bin/codenook" task new --title "Hello" --dual-mode serial
   [ "$status" -eq 0 ] || { echo "$output"; return 1; }
   tid="$(echo "$output" | tr -d '[:space:]')"
   [[ "$tid" =~ ^T-[0-9]+$ ]]
@@ -62,13 +62,14 @@ assert d['status']=='in_progress'
   for f in task-state.schema.json installed.schema.json hitl-entry.schema.json queue-entry.schema.json; do
     [ -f "$ws/.codenook/schemas/$f" ] || { echo "missing: $f"; return 1; }
   done
-  [ -f "$ws/.codenook/state.example.md" ]
+  # E2E-P-006: state.example.md now lives under .codenook/schemas/
+  [ -f "$ws/.codenook/schemas/state.example.md" ]
 }
 
 # ── E2E-008 ──────────────────────────────────────────────────────────────────
 @test "[v0.11.3] E2E-008 codenook chain link round-trip sets parent_id + chain_root" {
-  child="$("$ws/.codenook/bin/codenook" task new --title "Child")"
-  parent="$("$ws/.codenook/bin/codenook" task new --title "Parent")"
+  child="$("$ws/.codenook/bin/codenook" task new --title "Child" --dual-mode serial)"
+  parent="$("$ws/.codenook/bin/codenook" task new --title "Parent" --dual-mode serial)"
   run "$ws/.codenook/bin/codenook" chain link --child "$child" --parent "$parent"
   [ "$status" -eq 0 ] || { echo "$output"; return 1; }
   python3 -c "

@@ -150,9 +150,9 @@ open(p,'w').write(yaml.safe_dump(d, sort_keys=False))
   # Write clarifier output verdict:ok
   write_clarifier_output "$ws" "T-800"
 
-  # Second tick: hits HITL gate → status=waiting + entry written
+  # Second tick: hits HITL gate → status=waiting + entry written (E2E-P-009: exit 3)
   run bash -c "\"$TICK_SH\" --task T-800 --workspace \"$ws\" --json"
-  [ "$status" -eq 0 ]
+  [ "$status" -eq 3 ]
   jq -e '.status=="waiting"' "$ws/.codenook/tasks/T-800/state.json" >/dev/null
   [ -f "$ws/.codenook/hitl-queue/T-800-design_signoff.json" ]
   jq -e '.verdict_at_gate=="ok"' \
@@ -179,7 +179,7 @@ open(p,'w').write(yaml.safe_dump(d, sort_keys=False))
   [ "$status" -eq 0 ]
   write_clarifier_output "$ws" "T-801"
   run bash -c "\"$TICK_SH\" --task T-801 --workspace \"$ws\" --json"
-  [ "$status" -eq 0 ]
+  [ "$status" -eq 3 ]
 
   run bash -c "\"$HITL_SH_E2E\" decide --id T-801-design_signoff --decision reject --reviewer bob --workspace \"$ws\""
   [ "$status" -eq 0 ]
@@ -198,7 +198,7 @@ open(p,'w').write(yaml.safe_dump(d, sort_keys=False))
   [ "$status" -eq 0 ]
   write_clarifier_output "$ws" "T-802"
   run bash -c "\"$TICK_SH\" --task T-802 --workspace \"$ws\" --json"
-  [ "$status" -eq 0 ]
+  [ "$status" -eq 3 ]
   iter_before=$(jq -r '.iteration' "$ws/.codenook/tasks/T-802/state.json")
 
   run bash -c "\"$HITL_SH_E2E\" decide --id T-802-design_signoff --decision needs_changes --reviewer carol --workspace \"$ws\""

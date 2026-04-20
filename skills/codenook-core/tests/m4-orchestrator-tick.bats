@@ -131,7 +131,7 @@ EOF
   write_output "$ws" "T-105" "outputs/phase-1-clarifier.md" "ok"
 
   run bash -c "\"$TICK_SH\" --task T-105 --workspace \"$ws\" --json"
-  [ "$status" -eq 0 ]
+  [ "$status" -eq 3 ]
   echo "$output" | jq -e '.status=="waiting"' >/dev/null
   [ -f "$ws/.codenook/hitl-queue/T-105-design_signoff.json" ]
   jq -e '.gate=="design_signoff" and .decision==null' \
@@ -169,7 +169,7 @@ clarify:
 EOF
   mk_state "$ws" "T-108"
   run bash -c "\"$TICK_SH\" --task T-108 --workspace \"$ws\" --json"
-  [ "$status" -eq 1 ]
+  [ "$status" -eq 2 ]
   echo "$output" | jq -e '.status=="blocked"' >/dev/null
   echo "$output" | jq -e '.message_for_user|test("target_dir")' >/dev/null
 }
