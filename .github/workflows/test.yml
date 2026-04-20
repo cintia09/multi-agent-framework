@@ -28,10 +28,9 @@ jobs:
           test -f skills/codenook-core/VERSION
           test -d skills/codenook-core/skills/builtin
           test -x skills/codenook-core/skills/builtin/init/init.sh
-          test -x skills/codenook-core/skills/builtin/router-agent/spawn.sh
           test -x skills/codenook-core/skills/builtin/orchestrator-tick/tick.sh
           test -x skills/codenook-core/skills/builtin/hitl-adapter/terminal.sh
-          test -x skills/codenook-core/templates/codenook-wrapper.sh
+          test -f skills/codenook-core/templates/codenook-bin
           echo "✅ Kernel structure intact"
 
       - name: Shell syntax check (builtin scripts)
@@ -57,22 +56,21 @@ jobs:
           "
           echo "✅ All Python modules parse"
 
-      - name: Install (dry run) — top-level installer
-        run: |
-          mkdir -p /tmp/ws-dry
-          bash install.sh --dry-run /tmp/ws-dry || true
-          echo "✅ install.sh --dry-run completed"
-
       - name: Install (full) into temp workspace + verify self-contained
         run: |
-          mkdir -p /tmp/ws-full
-          bash install.sh /tmp/ws-full
+          python3 install.py --target /tmp/ws-full --plugin development --yes
           test -f /tmp/ws-full/.codenook/state.json
           test -d /tmp/ws-full/.codenook/codenook-core/skills/builtin
           test -x /tmp/ws-full/.codenook/bin/codenook
+          test -f /tmp/ws-full/CLAUDE.md
           KDIR=$(python3 -c "import json; print(json.load(open('/tmp/ws-full/.codenook/state.json'))['kernel_dir'])")
           echo "kernel_dir = $KDIR"
           case "$KDIR" in
-            /tmp/ws-full/.codenook/codenook-core/*) echo "✅ kernel_dir is workspace-local" ;;
+            /tmp/ws-full/.codenook/codenook-core*) echo "✅ kernel_dir is workspace-local" ;;
             *) echo "❌ kernel_dir is NOT workspace-local: $KDIR"; exit 1 ;;
           esac
+
+      - name: Preflight on installed workspace
+        run: |
+          /tmp/ws-full/.codenook/bin/codenook preflight --workspace /tmp/ws-full
+          echo "✅ preflight passed"
