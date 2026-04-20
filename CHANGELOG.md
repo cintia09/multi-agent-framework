@@ -2,6 +2,65 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.4] - 2026-04-20 · Parallel-tasks fix-pack (E2E round 2)
+
+Round-2 follow-up to the parallel-tasks E2E report
+(`docs/e2e-report-v0.11.3-parallel.md`): all 9 findings closed
+(0 CRITICAL, 3 HIGH, 3 MEDIUM, 3 LOW). Bats grows 895 → 914; pytest
+21 → 32. New tick exit-code contract (0/2/3/1) is now documented and
+enforced.
+
+### Fixed
+
+- **E2E-P-001 (HIGH)** — Fresh install now stamps `state.json.kernel_version`
+  from the root `VERSION` file (was hard-coded `0.5.0-m5.1`). Outer
+  `install.sh` exports `CN_CORE_VERSION` to the kernel installer, and a
+  post-install assertion aborts with rc=1 if the stamped value drifts
+  from `VERSION`.
+- **E2E-P-002 (HIGH)** — `codenook task new` without `--dual-mode` now
+  surfaces an entry-question JSON envelope and exits 2 instead of
+  silently writing `dual_mode: "serial"`. New `--accept-defaults` opts
+  back into the previous behavior; `--dual-mode parallel|serial` is
+  honored explicitly.
+- **E2E-P-003 (HIGH)** — Knowledge-extractor now produces ≥1 entry per
+  task by falling back to the role's `summary` + body when no explicit
+  `extract:` frontmatter block is provided. The pre-existing
+  `extract:` path remains the preferred channel.
+- **E2E-P-004 (MEDIUM)** — `claude_md_linter` learned a per-token
+  inside-marker allowlist for legitimate kernel references
+  (`development`, `plugins/development`, `codenook-core`, `task new`,
+  `router`, `tick`, `decide`, `chain link`). Fresh-install CLAUDE.md
+  now passes `--marker-only` with zero errors.
+- **E2E-P-005 (MEDIUM)** — `codenook task new` learned `--target-dir`
+  (defaulting to `src/`); when the implement phase still finds
+  `target_dir` missing, the tick now pins `state.phase` to the target
+  phase and sets `status=blocked` so the next tick does NOT re-dispatch
+  the prior role (the v0.11.3 papercut). New `codenook task set`
+  subcommand documents the recovery path.
+- **E2E-P-006 (MEDIUM)** — `state.example.md` moved from `.codenook/`
+  to `.codenook/schemas/`, matching the bootloader description and the
+  rest of the schema neighborhood. Installer cleans up the legacy copy.
+- **E2E-P-007 (LOW)** — `dispatch-audit` and `hitl-adapter` now tee
+  events into `.codenook/tasks/<task>/audit.jsonl` in addition to the
+  global history files, enabling per-task forensics.
+- **E2E-P-008 (LOW)** — `codenook task new --priority P0|P1|P2|P3`
+  flag is now implemented (defaults to `P2`); persisted to
+  `state.json.priority` and validated by the task-state schema.
+- **E2E-P-009 (LOW)** — `tick` exit-code contract documented and
+  enforced: `0` advanced/done/benign-waiting, `2` entry-question pending,
+  `3` HITL pending, `1` actual error.
+
+### Tests
+
+- 9 new bats files (install kernel-stamp, idempotent stamp, dual-mode
+  entry-question, target_dir entry-question, full-walk lifecycle,
+  post-install linter clean, task-set subcommand, per-task audit,
+  priority flag).
+- 2 new pytest modules (tick exit-code contract table-test, extractor
+  real-role-output integration).
+- Existing M4 HITL DoD + M6/M7 e2e loops updated to the new tick
+  exit-code contract.
+
 ## [0.11.3] - 2026-04-20 · Usability fix-pack (E2E round 1)
 
 Round-1 follow-up to the v0.11.2 end-to-end report
