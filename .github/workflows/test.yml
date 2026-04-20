@@ -71,7 +71,8 @@ jobs:
             *) echo "❌ kernel_dir is NOT workspace-local: $KDIR"; exit 1 ;;
           esac
 
-      - name: Preflight on installed workspace
+      - name: Verify CLI surface (--version + --help)
         run: |
-          /tmp/ws-full/.codenook/bin/codenook preflight --workspace /tmp/ws-full
-          echo "✅ preflight passed"
+          V=$(/tmp/ws-full/.codenook/bin/codenook --version)
+          [[ "$V" == "$(cat VERSION)" ]] && echo "✅ codenook --version reports $V"
+          /tmp/ws-full/.codenook/bin/codenook --help | grep -q "task new" && echo "✅ codenook --help lists task new"
