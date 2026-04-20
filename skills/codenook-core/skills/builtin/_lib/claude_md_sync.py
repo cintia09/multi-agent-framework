@@ -182,7 +182,8 @@ for both:
 
 1. **Read `system_prompt_path`** (when present, role profile) and
    **`prompt_path`** (always present, the per-call instructions).
-2. **Dispatch a sub-agent** via your host's sub-agent / Task facility.
+2. **Dispatch a sub-agent** via your host's sub-agent / Task facility,
+   *except* when `role == "clarifier"` — see special case below.
    Use `system_prompt_path`'s contents as the system prompt and
    `prompt_path`'s contents as the user message. The sub-agent must
    write its complete response to the file at `reply_path`
@@ -191,9 +192,30 @@ for both:
    and either advances to the next phase (returning a new envelope)
    or reports `done` / `blocked`.
 
-If your host has no sub-agent facility, you may process the prompt
-in your own context, but you **must** write the response to
-`reply_path` before re-ticking — `tick.sh` only consults the file.
+**Special case — `role == "clarifier"` runs INLINE:** clarify is
+fundamentally "conductor talks to the user to extract requirements".
+The conductor (you) is already in dialog with the user, so spawning
+a fresh sub-agent (new context window, role/knowledge re-load,
+extra LLM round-trip — typically 30-60s) is wasteful. For clarifier
+envelopes:
+
+  a. Read `system_prompt_path` (clarifier role) and `prompt_path`
+     (per-call instructions) yourself.
+  b. Conduct the Q&A with the user inline, in this session, using
+     `ask_user` for each question; iterate until clarifier criteria
+     are met.
+  c. Write the final clarifier output (frontmatter + body, exactly
+     as a sub-agent would have produced) to `reply_path`.
+  d. Call `tick` again to advance the phase.
+
+Do **not** dispatch a sub-agent for clarifier. Other phase roles
+(designer, planner, implementer, tester, acceptor, reviewer,
+validator) continue to dispatch as in step 2 — they do real
+phase work that benefits from a dedicated context window.
+
+If your host has no sub-agent facility, you may process *any*
+prompt inline using the same write-to-`reply_path`-then-tick
+pattern.
 
 When `tick --json` returns **without** an `envelope` field, just
 inspect `status`:
@@ -244,6 +266,11 @@ as a fallback — use the `.cmd` wrapper instead.**
 - MUST NOT spawn phase agents (designer / implementer / tester /
   reviewer / acceptor / validator) directly. That's `codenook tick`'s
   job (which fronts `tick.sh`).
+- MUST run the `clarifier` phase **inline** in the conductor session
+  (read role profile + per-call prompt yourself, drive the Q&A with
+  the user, write the reply file, then call `tick`). Do **not**
+  dispatch a sub-agent for clarifier — that defeats the latency
+  optimisation introduced in v0.13.22.
 - MUST NOT interpret, paraphrase, or summarise `router-reply.md`, the
   HITL `prompt` field, or per-phase outputs. Relay verbatim.
 - MUST end every reply by asking the user what their next step is

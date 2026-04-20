@@ -1,3 +1,17 @@
+## v0.13.22 (2026-04-20)
+
+### Changed
+- Bootloader (`CLAUDE.md`): clarifier phase now runs **inline in
+  the conductor** instead of being dispatched to a `general-purpose`
+  sub-agent. Saves ~30-60s per clarify round (no fresh context
+  window, no role/knowledge re-load, no extra LLM round-trip).
+  Mirrors the v0.13.19 router-agent demotion: any phase that is
+  fundamentally "conductor talks to the user" belongs in the
+  conductor itself.
+- Hard rules tightened: conductor MUST run clarifier inline; MUST
+  NOT spawn a sub-agent for it. Other phase roles (designer,
+  planner, implementer, tester, acceptor, reviewer, validator)
+  unchanged  still dispatched via `codenook tick`.
 ## v0.13.21 (2026-04-20)
 
 ### Added
@@ -2597,4 +2611,5 @@ Split the 364-line `agent-post-tool-use.sh` monolith into a clean 79-line main h
 - Violation response template: shows role, blocked action, and switch suggestion
 - agent-init Step 7a: CLAUDE.md template includes enforcement rules
 - Works in both Claude Code (hook-enforced) and Copilot CLI (self-check enforced)
+
 
