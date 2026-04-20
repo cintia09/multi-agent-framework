@@ -246,6 +246,39 @@ def append_dispatch_log(workspace: Path, role: str, payload: str) -> None:
         )
 
 
+def _render_phase_prompt(workspace: Path, state: dict, phase: dict) -> str | None:
+    """Read the phase manifest template and substitute {{TASK_CONTEXT}} (M10+).
+
+    Returns the rendered text, or None if no template is found.
+    Best-effort; never raises.
+    """
+    try:
+        plugin = state.get("plugin", "")
+        pid = phase.get("id", "")
+        role = phase.get("role", "")
+        template_path = (
+            workspace / ".codenook" / "plugins" / plugin
+            / "manifest-templates" / f"phase-{pid}-{role}.md"
+        )
+        if not template_path.is_file():
+            return None
+        template = template_path.read_text(encoding="utf-8")
+        task_id = state.get("task_id", "")
+        task_context = ""
+        try:
+            _lib = Path(__file__).resolve().parent.parent / "_lib"
+            import sys as _sys
+            _sys.path.insert(0, str(_lib))
+            import memory_layer as _ml
+            task_context = _ml.build_task_context(workspace, task_id)
+        except Exception:
+            pass
+        rendered = template.replace("{{TASK_CONTEXT}}", task_context)
+        return rendered
+    except Exception:
+        return None
+
+
 def dispatch_agent(workspace: Path, state: dict, phase: dict, n: int = 1) -> str:
     """Stub: write marker file with manifest + return deterministic agent_id.
     Real Task() invocation is M5+ kernel work."""
@@ -258,6 +291,15 @@ def dispatch_agent(workspace: Path, state: dict, phase: dict, n: int = 1) -> str
     )
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text(render_manifest(state, phase) + "\n", encoding="utf-8")
+    # M10+ — write rendered phase prompt when a manifest template exists.
+    rendered = _render_phase_prompt(workspace, state, phase)
+    if rendered is not None:
+        prompt_dir = _assert_under(root / "prompts", root)
+        prompt_dir.mkdir(parents=True, exist_ok=True)
+        prompt_file = _assert_under(
+            root / "prompts" / f"phase-{pid}-{role}.md", root
+        )
+        prompt_file.write_text(rendered, encoding="utf-8")
     return agent_id
 
 

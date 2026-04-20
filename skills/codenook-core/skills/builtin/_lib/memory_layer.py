@@ -950,3 +950,422 @@ def scan_memory(workspace_root: Path | str) -> dict[str, Any]:
     except (MemoryLayoutError, ConfigSchemaError):
         idx["config"] = []
     return idx
+
+
+# ─────────────────────────── task-extracted bucket (routing feature) ──────
+
+
+def task_extracted_root(workspace_root: Path | str, task_id: str) -> Path:
+    """Return the per-task extracted artefact root directory.
+
+    Layout::
+
+        <workspace>/.codenook/tasks/<task_id>/extracted/
+          ├── knowledge/<topic>.md
+          ├── skills/<name>/SKILL.md
+          └── config.yaml
+    """
+    return Path(workspace_root) / CODENOOK_DIRNAME / "tasks" / task_id / "extracted"
+
+
+def _task_knowledge_dir(ws: Path | str, task_id: str) -> Path:
+    return task_extracted_root(ws, task_id) / "knowledge"
+
+
+def _task_skills_dir(ws: Path | str, task_id: str) -> Path:
+    return task_extracted_root(ws, task_id) / "skills"
+
+
+def _task_config_path(ws: Path | str, task_id: str) -> Path:
+    return task_extracted_root(ws, task_id) / "config.yaml"
+
+
+def has_task_extracted(workspace_root: Path | str, task_id: str) -> bool:
+    """True when the per-task extracted skeleton exists."""
+    root = task_extracted_root(workspace_root, task_id)
+    return root.is_dir() and (_task_config_path(workspace_root, task_id)).exists()
+
+
+def init_task_extracted_skeleton(workspace_root: Path | str, task_id: str) -> None:
+    """Create the empty per-task extracted skeleton."""
+    root = task_extracted_root(workspace_root, task_id)
+    for sub in (
+        root,
+        _task_knowledge_dir(workspace_root, task_id),
+        _task_skills_dir(workspace_root, task_id),
+    ):
+        sub.mkdir(parents=True, exist_ok=True)
+    cfg = _task_config_path(workspace_root, task_id)
+    if not cfg.exists():
+        cfg.write_text(_EMPTY_CONFIG, encoding="utf-8")
+
+
+def _task_knowledge_path(ws: Path | str, task_id: str, topic: str) -> Path:
+    _validate_topic(topic)
+    return _task_knowledge_dir(ws, task_id) / f"{topic}.md"
+
+
+def _task_skill_md(ws: Path | str, task_id: str, name: str) -> Path:
+    if "/" in name or "\\" in name:
+        raise ValueError(f"skill name must be flat: {name!r}")
+    return _task_skills_dir(ws, task_id) / name / "SKILL.md"
+
+
+def scan_task_knowledge(workspace_root: Path | str, task_id: str) -> list[dict[str, Any]]:
+    """Return frontmatter metadata for per-task extracted knowledge entries."""
+    k_dir = _task_knowledge_dir(workspace_root, task_id)
+    if not k_dir.is_dir():
+        return []
+    out: list[dict[str, Any]] = []
+    for p in sorted(k_dir.glob("*.md")):
+        if p.name.startswith("."):
+            continue
+        try:
+            text = p.read_text(encoding="utf-8")
+            fm, _ = _parse_frontmatter_doc(text)
+        except OSError:
+            fm = {}
+        meta = {"path": str(p)}
+        meta.update(fm)
+        out.append(meta)
+    return out
+
+
+def scan_task_skills(workspace_root: Path | str, task_id: str) -> list[dict[str, Any]]:
+    """Return frontmatter metadata for per-task extracted skill entries."""
+    s_dir = _task_skills_dir(workspace_root, task_id)
+    if not s_dir.is_dir():
+        return []
+    out: list[dict[str, Any]] = []
+    for sdir in sorted(s_dir.iterdir()):
+        if sdir.name.startswith(".") or not sdir.is_dir():
+            continue
+        skill_md = sdir / "SKILL.md"
+        if not skill_md.is_file():
+            continue
+        try:
+            text = skill_md.read_text(encoding="utf-8")
+            fm, _ = _parse_frontmatter_doc(text)
+        except OSError:
+            fm = {}
+        meta = {"path": str(skill_md), "name": sdir.name}
+        meta.update(fm)
+        out.append(meta)
+    return out
+
+
+def read_task_config_entries(workspace_root: Path | str, task_id: str) -> list[dict[str, Any]]:
+    """Return entries[] from the per-task config.yaml."""
+    p = _task_config_path(workspace_root, task_id)
+    if not p.is_file():
+        return []
+    raw = p.read_text(encoding="utf-8")
+    data = yaml.safe_load(raw) or {}
+    if not isinstance(data, dict):
+        return []
+    entries = data.get("entries") or []
+    if not isinstance(entries, list):
+        return []
+    seen: set[str] = set()
+    for e in entries:
+        if not isinstance(e, dict) or "key" not in e:
+            raise ConfigSchemaError(f"malformed task config entry: {e!r}")
+        k = e["key"]
+        if k in seen:
+            raise ConfigSchemaError(f"duplicate key in task config.yaml: {k!r}")
+        seen.add(k)
+    return list(entries)
+
+
+def has_hash_in_task(
+    workspace_root: Path | str, task_id: str, kind: str, dedup_key: str
+) -> bool:
+    """True iff *dedup_key* already exists in the per-task extracted bucket."""
+    if kind == "knowledge":
+        metas = scan_task_knowledge(workspace_root, task_id)
+    elif kind == "skill":
+        metas = scan_task_skills(workspace_root, task_id)
+    else:
+        return False
+    return any(m.get("dedup_hash") == dedup_key for m in metas)
+
+
+def find_similar_in_task(
+    workspace_root: Path | str,
+    task_id: str,
+    kind: Literal["knowledge", "skill"],
+    title: str,
+    tags: list[str] | None = None,
+    *,
+    tag_overlap_threshold: float = 0.5,
+    title_cosine_threshold: float = 0.7,
+) -> list[dict[str, Any]]:
+    """Return similar entries within the per-task extracted bucket."""
+    cand_tags = set(tags or [])
+    cand_title_tokens = _title_token_set(title)
+    candidates = (
+        scan_task_knowledge(workspace_root, task_id)
+        if kind == "knowledge"
+        else scan_task_skills(workspace_root, task_id)
+    )
+    out: list[dict[str, Any]] = []
+    for meta in candidates:
+        existing_tags = set(meta.get("tags") or [])
+        existing_title = meta.get("title") or meta.get("name") or ""
+        existing_tokens = _title_token_set(existing_title)
+        tag_overlap = 0.0
+        if cand_tags and existing_tags:
+            denom = max(len(cand_tags), len(existing_tags))
+            tag_overlap = len(cand_tags & existing_tags) / denom if denom else 0.0
+        title_overlap = 0.0
+        if cand_title_tokens and existing_tokens:
+            denom = max(len(cand_title_tokens), len(existing_tokens))
+            title_overlap = (
+                len(cand_title_tokens & existing_tokens) / denom if denom else 0.0
+            )
+        if (
+            tag_overlap >= tag_overlap_threshold
+            or title_overlap >= title_cosine_threshold
+        ):
+            out.append(
+                {
+                    "path": meta.get("path"),
+                    "topic": meta.get("topic"),
+                    "name": meta.get("name"),
+                    "title": existing_title,
+                    "tags": list(existing_tags),
+                    "tag_overlap": tag_overlap,
+                    "title_overlap": title_overlap,
+                    "dedup_hash": meta.get("dedup_hash"),
+                }
+            )
+    return out
+
+
+def write_knowledge_to_task(
+    workspace_root: Path | str,
+    task_id: str,
+    *,
+    topic: str,
+    summary: str = "",
+    tags: list[str] | None = None,
+    body: str = "",
+    frontmatter: dict[str, Any] | None = None,
+    status: str = "candidate",
+    created_from_task: str = "",
+) -> Path:
+    """Write a knowledge entry to the per-task extracted bucket.
+
+    Mirrors ``write_knowledge`` but targets the task-extracted path.
+    Does NOT run the plugin-readonly guard (task dirs are always writable).
+    """
+    if not has_task_extracted(workspace_root, task_id):
+        init_task_extracted_skeleton(workspace_root, task_id)
+    fm = dict(frontmatter) if frontmatter else {}
+    fm.setdefault("topic", topic)
+    if summary or "summary" not in fm:
+        fm["summary"] = summary or fm.get("summary", "")
+    if tags is not None or "tags" not in fm:
+        fm["tags"] = list(tags) if tags is not None else fm.get("tags", [])
+    fm.setdefault("status", status)
+    fm.setdefault("created_from_task", created_from_task or task_id)
+    fm.setdefault("created_at", _now_iso())
+    fm["dedup_hash"] = memory_index.get_hash(body)
+    _validate_frontmatter(fm)
+    target = _task_knowledge_path(workspace_root, task_id, topic)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd_int, tmp = tempfile.mkstemp(dir=str(target.parent), prefix=".tmp.", suffix=".tmp")
+    try:
+        with os.fdopen(fd_int, "w", encoding="utf-8") as f:
+            f.write(_render_frontmatter_doc(fm, body))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, target)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+    return target
+
+
+def write_skill_to_task(
+    workspace_root: Path | str,
+    task_id: str,
+    *,
+    name: str,
+    frontmatter: dict[str, Any],
+    body: str,
+    status: str = "candidate",
+    created_from_task: str = "",
+) -> Path:
+    """Write a skill entry to the per-task extracted bucket."""
+    if not has_task_extracted(workspace_root, task_id):
+        init_task_extracted_skeleton(workspace_root, task_id)
+    fm = dict(frontmatter)
+    fm.setdefault("name", name)
+    fm.setdefault("status", status)
+    fm.setdefault("created_from_task", created_from_task or task_id)
+    fm.setdefault("created_at", _now_iso())
+    fm["dedup_hash"] = memory_index.get_hash(body)
+    target = _task_skill_md(workspace_root, task_id, name)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd_int, tmp = tempfile.mkstemp(dir=str(target.parent), prefix=".tmp.", suffix=".tmp")
+    try:
+        with os.fdopen(fd_int, "w", encoding="utf-8") as f:
+            f.write(_render_frontmatter_doc(fm, body))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, target)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+    return target
+
+
+def upsert_config_to_task(
+    workspace_root: Path | str,
+    task_id: str,
+    *,
+    entry: dict[str, Any],
+    rationale: str = "",
+) -> dict[str, Any]:
+    """Insert or merge a config entry into the per-task extracted bucket."""
+    if "key" not in entry:
+        raise ValueError("entry.key is required")
+    if not has_task_extracted(workspace_root, task_id):
+        init_task_extracted_skeleton(workspace_root, task_id)
+    cfg_path = _task_config_path(workspace_root, task_id)
+    lock_path = cfg_path.with_suffix(cfg_path.suffix + ".lock")
+    fd_lock = _flock_acquire(lock_path)
+    try:
+        try:
+            raw = cfg_path.read_text(encoding="utf-8")
+            data = yaml.safe_load(raw) or {}
+        except OSError:
+            data = {}
+        if not isinstance(data, dict):
+            data = {}
+        data.setdefault("version", 1)
+        data.setdefault("entries", [])
+        out_entries: list[dict[str, Any]] = []
+        merged = False
+        for e in data["entries"]:
+            if e.get("key") == entry["key"]:
+                if merged:
+                    raise ConfigSchemaError(
+                        f"duplicate key in task config: {entry['key']!r}"
+                    )
+                e = {**e, **entry, "last_used_at": _now_iso()}
+                merged = True
+            out_entries.append(e)
+        if not merged:
+            new_entry = {
+                "applies_when": "always",
+                "summary": "",
+                "status": "candidate",
+                "created_from_task": task_id,
+                "created_at": _now_iso(),
+                "last_used_at": None,
+                **entry,
+            }
+            out_entries.append(new_entry)
+        data["entries"] = out_entries
+        rendered = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
+        fd_int, tmp = tempfile.mkstemp(
+            dir=str(cfg_path.parent), prefix=".tmp.", suffix=".tmp"
+        )
+        try:
+            with os.fdopen(fd_int, "w", encoding="utf-8") as f:
+                f.write(rendered)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, cfg_path)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
+    finally:
+        _flock_release(fd_lock)
+        try:
+            lock_path.unlink()
+        except OSError:
+            pass
+    return next(e for e in out_entries if e.get("key") == entry["key"])
+
+
+def build_task_context(workspace_root: Path | str, task_id: str) -> str:
+    """Build the ``{{TASK_CONTEXT}}`` prompt slot content.
+
+    Scans ``tasks/<task_id>/extracted/`` and returns a markdown section
+    listing every artefact found.  Returns an empty string when the
+    directory is absent or empty so templates that include the slot do
+    not emit a spurious header.
+    """
+    extracted_dir = task_extracted_root(workspace_root, task_id)
+    if not extracted_dir.is_dir():
+        return ""
+
+    lines: list[str] = []
+
+    k_dir = extracted_dir / "knowledge"
+    if k_dir.is_dir():
+        for p in sorted(k_dir.glob("*.md")):
+            if p.name.startswith("."):
+                continue
+            try:
+                text = p.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            fm, body = _parse_frontmatter_doc(text)
+            desc = str(fm.get("summary") or "")
+            if not desc:
+                for line in (body or "").splitlines():
+                    if line.strip():
+                        desc = line.strip()[:80]
+                        break
+            lines.append(f"- knowledge/{p.name}  — {desc}")
+
+    s_dir = extracted_dir / "skills"
+    if s_dir.is_dir():
+        for sdir in sorted(s_dir.iterdir()):
+            if sdir.name.startswith(".") or not sdir.is_dir():
+                continue
+            skill_md = sdir / "SKILL.md"
+            if not skill_md.is_file():
+                continue
+            try:
+                text = skill_md.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            fm, body = _parse_frontmatter_doc(text)
+            desc = str(fm.get("summary") or "")
+            if not desc:
+                for line in (body or "").splitlines():
+                    if line.strip():
+                        desc = line.strip()[:80]
+                        break
+            lines.append(f"- skills/{sdir.name}/SKILL.md — {desc}")
+
+    cfg_path = extracted_dir / "config.yaml"
+    if cfg_path.is_file():
+        try:
+            data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+            for e in (data.get("entries") or [])[:5]:
+                if isinstance(e, dict) and "key" in e:
+                    lines.append(
+                        f"- config: {e['key']}={e.get('value')!r}"
+                    )
+        except Exception:
+            pass
+
+    if not lines:
+        return ""
+
+    return "## Task-extracted context\n" + "\n".join(lines) + "\n"

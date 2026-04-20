@@ -54,6 +54,8 @@ transition (per `.codenook/plugins/development/transitions.yaml`).
 
 ## Knowledge / skills
 
+{{TASK_CONTEXT}}
+
 - Plugin-shipped knowledge: `.codenook/plugins/development/knowledge/`.
 - Plugin-shipped skills:    `.codenook/plugins/development/skills/`.
 - Workspace-wide:           `.codenook/memory/knowledge/` and

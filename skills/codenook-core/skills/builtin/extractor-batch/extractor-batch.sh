@@ -67,6 +67,19 @@ KEY="$(sha "${TASK_ID}|${PHASE}|${REASON}")"
 
 log_event() {
   local event="$1" name="${2:-}"
+  if [ "$event" = "phase_complete" ] && [ -n "${_ROUTE_LOG_EXTRA:-}" ] && [ -f "$_ROUTE_LOG_EXTRA" ]; then
+    local _route_json
+    _route_json=$(cat "$_ROUTE_LOG_EXTRA" 2>/dev/null || echo '{}')
+    jq -cn \
+      --arg ts "$(ts)" --arg task "$TASK_ID" --arg phase "$PHASE" \
+      --arg reason "$REASON" --arg event "$event" --arg name "$name" \
+      --arg key "$KEY" \
+      --argjson route "$_route_json" \
+      '{ts:$ts, task_id:$task, phase:$phase, reason:$reason, event:$event,
+        name:($name | select(. != "")), key:$key, route:$route}
+       | with_entries(select(.value != null))' >> "$LOG"
+    return 0
+  fi
   jq -cn \
     --arg ts "$(ts)" --arg task "$TASK_ID" --arg phase "$PHASE" \
     --arg reason "$REASON" --arg event "$event" --arg name "$name" \
@@ -83,6 +96,41 @@ if [ -f "$TRIGGER_KEYS" ] && grep -qxF "$KEY" "$TRIGGER_KEYS"; then
   exit 0
 fi
 printf '%s\n' "$KEY" >> "$TRIGGER_KEYS"
+
+# ── Route classification (M10: task-relevance routing) ────────────────────
+# One combined LLM call BEFORE dispatching extractors.  Best-effort; on any
+# failure ROUTE_FALLBACK stays "true" and all extractors fall back to
+# writing to memory/ (cross_task behaviour, same as the pre-routing default).
+ROUTE_KNOWLEDGE="cross_task"
+ROUTE_SKILL="cross_task"
+ROUTE_CONFIG="cross_task"
+ROUTE_FALLBACK="true"
+
+_ROUTER_PY="$(cd "$(dirname "$0")/../_lib" && pwd)/extraction_router.py"
+if [ -f "$_ROUTER_PY" ]; then
+  _ROUTE_JSON=$(PYTHONPATH="$(dirname "$_ROUTER_PY")" python3 "$_ROUTER_PY" \
+    --task-id "$TASK_ID" --workspace "$WORKSPACE" \
+    --phase "$PHASE" --reason "$REASON" 2>/dev/null || echo '{}')
+  _PARSED=$(echo "$_ROUTE_JSON" | jq -e \
+    '{knowledge:.knowledge,skill:.skill,config:.config,route_fallback:.route_fallback}' \
+    2>/dev/null || echo '{}')
+  if [ "$(echo "$_PARSED" | jq -r '.knowledge // "cross_task"')" != "null" ]; then
+    ROUTE_KNOWLEDGE=$(echo "$_PARSED" | jq -r '.knowledge // "cross_task"')
+    ROUTE_SKILL=$(echo "$_PARSED" | jq -r '.skill // "cross_task"')
+    ROUTE_CONFIG=$(echo "$_PARSED" | jq -r '.config // "cross_task"')
+    ROUTE_FALLBACK=$(echo "$_PARSED" | jq -r 'if .route_fallback == null then true else .route_fallback end')
+  fi
+fi
+
+# Log routing decision alongside the phase_complete event (written later).
+_ROUTE_LOG_EXTRA="$HISTORY_DIR/.route-${KEY}.json"
+jq -cn \
+  --arg knowledge "$ROUTE_KNOWLEDGE" \
+  --arg skill "$ROUTE_SKILL" \
+  --arg config "$ROUTE_CONFIG" \
+  --argjson fallback "$ROUTE_FALLBACK" \
+  '{knowledge:$knowledge,skill:$skill,config:$config,route_fallback:$fallback}' \
+  > "$_ROUTE_LOG_EXTRA" 2>/dev/null || true
 
 LOOKUP_ROOT="${CN_EXTRACTOR_LOOKUP_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 
@@ -128,7 +176,10 @@ dispatch_one() {
   # E2E-015: dedup err lines so repeated runs don't unbounded-grow the file.
   local err_log="$HISTORY_DIR/.extractor-${name}.err"
   local err_tmp="$HISTORY_DIR/.extractor-${name}.err.tmp.$$"
-  nohup "$script" --task-id "$TASK_ID" --workspace "$WORKSPACE" \
+  nohup env CN_EXTRACTION_ROUTE_KNOWLEDGE="$ROUTE_KNOWLEDGE" \
+            CN_EXTRACTION_ROUTE_SKILL="$ROUTE_SKILL" \
+            CN_EXTRACTION_ROUTE_CONFIG="$ROUTE_CONFIG" \
+      "$script" --task-id "$TASK_ID" --workspace "$WORKSPACE" \
         --phase "$PHASE" --reason "$REASON" \
         </dev/null >>"$err_tmp" 2>&1 &
   disown $! 2>/dev/null || true

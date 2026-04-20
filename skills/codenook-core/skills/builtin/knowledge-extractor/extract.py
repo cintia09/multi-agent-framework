@@ -265,13 +265,22 @@ def _density(cand: dict, existing_tag_universe: set[str]) -> float:
 
 
 def _rank_and_cap(
-    candidates: list[dict], workspace: Path
+    candidates: list[dict],
+    workspace: Path,
+    task_id: str = "",
+    route: str = "cross_task",
 ) -> tuple[list[dict], list[dict]]:
     universe: set[str] = set()
-    for meta in ml.scan_knowledge(workspace):
-        for t in meta.get("tags") or []:
-            if isinstance(t, str):
-                universe.add(t)
+    if route == "task_specific" and task_id:
+        for meta in ml.scan_task_knowledge(workspace, task_id):
+            for t in meta.get("tags") or []:
+                if isinstance(t, str):
+                    universe.add(t)
+    else:
+        for meta in ml.scan_knowledge(workspace):
+            for t in meta.get("tags") or []:
+                if isinstance(t, str):
+                    universe.add(t)
     scored = [(idx, _density(c, universe), c) for idx, c in enumerate(candidates)]
     scored.sort(key=lambda x: (-x[1], x[0]))
     kept = [c for _, _, c in scored[:PER_TASK_CAP]]
@@ -314,9 +323,10 @@ def _normalize_candidate(cand: dict) -> tuple[dict, bool]:
 
 
 def _process_candidate(
-    workspace: Path, task_id: str, cand: dict
+    workspace: Path, task_id: str, cand: dict, route: str = "cross_task"
 ) -> tuple[str, str, str | None]:
     """Process one candidate. Returns (outcome, verdict, written_or_target_path)."""
+    is_task_route = route == "task_specific"
     body = cand["body"]
     topic = cand["topic"]
     title = cand["title"]
@@ -335,16 +345,25 @@ def _process_candidate(
             reason=f"secret-scanner:{rule_id}",
             source_task=task_id,
             candidate_hash=memory_index.get_hash(_redact(body)),
+            extra={"route": route},
         )
         raise _SecretBlocked(rule_id or "unknown")
 
     candidate_hash = memory_index.get_hash(body)
 
     # Step 2: hash dedup — short-circuit before any LLM judge call.
-    if ml.has_hash(workspace, "knowledge", candidate_hash):
-        # Find which existing path matches (best-effort for the audit record).
+    if is_task_route:
+        exists = ml.has_hash_in_task(workspace, task_id, "knowledge", candidate_hash)
+    else:
+        exists = ml.has_hash(workspace, "knowledge", candidate_hash)
+    if exists:
         existing_path = None
-        for meta in ml.scan_knowledge(workspace):
+        scan_iter = (
+            ml.scan_task_knowledge(workspace, task_id)
+            if is_task_route
+            else ml.scan_knowledge(workspace)
+        )
+        for meta in scan_iter:
             if meta.get("dedup_hash") == candidate_hash:
                 existing_path = meta.get("path")
                 break
@@ -356,11 +375,15 @@ def _process_candidate(
             source_task=task_id,
             candidate_hash=candidate_hash,
             existing_path=existing_path,
+            extra={"route": route, "dest_path": existing_path},
         )
         return "dedup", "dedup", existing_path
 
     # Step 3: similarity search.
-    similar = ml.find_similar(workspace, "knowledge", title, tags)
+    if is_task_route:
+        similar = ml.find_similar_in_task(workspace, task_id, "knowledge", title, tags)
+    else:
+        similar = ml.find_similar(workspace, "knowledge", title, tags)
 
     # Step 4: LLM judge (only if similar found).
     if similar:
@@ -385,9 +408,13 @@ def _process_candidate(
     if action == "merge" and existing_path:
         existing_topic = Path(existing_path).stem
 
-        def _mutate(doc: dict) -> dict:
-            fm = dict(doc.get("frontmatter") or {})
-            fm["status"] = fm.get("status", "candidate")
+        if is_task_route:
+            # Read existing, append body, rewrite.
+            try:
+                existing_text = Path(existing_path).read_text(encoding="utf-8")
+                fm, existing_body = ml._parse_frontmatter_doc(existing_text)
+            except Exception:
+                fm, existing_body = {}, ""
             existing_tags = list(fm.get("tags") or [])
             for t in tags:
                 if t not in existing_tags:
@@ -397,12 +424,37 @@ def _process_candidate(
             if task_id and task_id not in related:
                 related.append(task_id)
             fm["related_tasks"] = related
-            new_body = (doc.get("body") or "") + "\n\n" + body
-            return {"frontmatter": fm, "body": new_body[:8192]}
+            new_body = ((existing_body or "") + "\n\n" + body)[:8192]
+            written = ml.write_knowledge_to_task(
+                workspace,
+                task_id,
+                topic=existing_topic,
+                summary=fm.get("summary", summary),
+                tags=fm["tags"],
+                body=new_body,
+                frontmatter=fm,
+                created_from_task=task_id,
+            )
+            existing_path = str(written)
+        else:
+            def _mutate(doc: dict) -> dict:
+                fm = dict(doc.get("frontmatter") or {})
+                fm["status"] = fm.get("status", "candidate")
+                existing_tags = list(fm.get("tags") or [])
+                for t in tags:
+                    if t not in existing_tags:
+                        existing_tags.append(t)
+                fm["tags"] = existing_tags[:MAX_TAGS]
+                related = list(fm.get("related_tasks") or [])
+                if task_id and task_id not in related:
+                    related.append(task_id)
+                fm["related_tasks"] = related
+                new_body = (doc.get("body") or "") + "\n\n" + body
+                return {"frontmatter": fm, "body": new_body[:8192]}
 
-        ml.patch_knowledge(
-            workspace, topic=existing_topic, mutator=_mutate, rationale=rationale
-        )
+            ml.patch_knowledge(
+                workspace, topic=existing_topic, mutator=_mutate, rationale=rationale
+            )
         _audit(
             workspace,
             outcome="merged",
@@ -411,6 +463,7 @@ def _process_candidate(
             source_task=task_id,
             candidate_hash=candidate_hash,
             existing_path=existing_path,
+            extra={"route": route, "dest_path": existing_path},
         )
         return "merged", "merge", existing_path
 
@@ -427,13 +480,26 @@ def _process_candidate(
             "hash": candidate_hash,
             "topic": existing_topic,
         }
-        ml.replace_knowledge(
-            workspace,
-            topic=existing_topic,
-            frontmatter=new_fm,
-            body=body,
-            rationale=rationale,
-        )
+        if is_task_route:
+            written = ml.write_knowledge_to_task(
+                workspace,
+                task_id,
+                topic=existing_topic,
+                summary=summary,
+                tags=tags,
+                body=body,
+                frontmatter=new_fm,
+                created_from_task=task_id,
+            )
+            existing_path = str(written)
+        else:
+            ml.replace_knowledge(
+                workspace,
+                topic=existing_topic,
+                frontmatter=new_fm,
+                body=body,
+                rationale=rationale,
+            )
         _audit(
             workspace,
             outcome="replaced",
@@ -442,38 +508,56 @@ def _process_candidate(
             source_task=task_id,
             candidate_hash=candidate_hash,
             existing_path=existing_path,
+            extra={"route": route, "dest_path": existing_path},
         )
         return "replaced", "replace", existing_path
 
     # action == "create" (or fallback). If a same-named topic already
     # exists, append a unix-ts suffix to keep both copies (FR-LAY-3).
     target_topic = topic
-    target_path = ml._knowledge_path(workspace, target_topic)
+    if is_task_route:
+        target_path = ml._task_knowledge_path(workspace, task_id, target_topic)
+    else:
+        target_path = ml._knowledge_path(workspace, target_topic)
     suffixed = False
     if target_path.exists():
         target_topic = f"{topic}-{int(_dt.datetime.now().timestamp())}"
         target_topic = target_topic[: ml.MAX_TOPIC_CHARS]
         suffixed = True
-    written = ml.write_knowledge(
-        workspace,
-        topic=target_topic,
-        summary=summary,
-        tags=tags,
-        body=body,
-        frontmatter={
-            "title": title,
-            "summary": summary,
-            "tags": tags,
-            "status": "candidate",
-            "source_task": task_id,
-            "created_from_task": task_id,
-            "created_at": _now_iso(),
-            "hash": candidate_hash,
-            "topic": target_topic,
-        },
-        status="candidate",
-        created_from_task=task_id,
-    )
+    new_fm = {
+        "title": title,
+        "summary": summary,
+        "tags": tags,
+        "status": "candidate",
+        "source_task": task_id,
+        "created_from_task": task_id,
+        "created_at": _now_iso(),
+        "hash": candidate_hash,
+        "topic": target_topic,
+    }
+    if is_task_route:
+        written = ml.write_knowledge_to_task(
+            workspace,
+            task_id,
+            topic=target_topic,
+            summary=summary,
+            tags=tags,
+            body=body,
+            frontmatter=new_fm,
+            status="candidate",
+            created_from_task=task_id,
+        )
+    else:
+        written = ml.write_knowledge(
+            workspace,
+            topic=target_topic,
+            summary=summary,
+            tags=tags,
+            body=body,
+            frontmatter=new_fm,
+            status="candidate",
+            created_from_task=task_id,
+        )
     _audit(
         workspace,
         outcome="created",
@@ -482,6 +566,7 @@ def _process_candidate(
         source_task=task_id,
         candidate_hash=candidate_hash,
         existing_path=existing_path,
+        extra={"route": route, "dest_path": str(written)},
     )
     return "created", "create", str(written)
 
@@ -510,6 +595,10 @@ def main(argv: list[str]) -> int:
     phase = args.phase
     reason = args.reason
     input_path = Path(args.input).resolve() if args.input else None
+
+    route = os.environ.get("CN_EXTRACTION_ROUTE_KNOWLEDGE", "cross_task").strip()
+    if route not in ("task_specific", "cross_task"):
+        route = "cross_task"
 
     # Memory skeleton must exist (M9.1 init) — best-effort if missing.
     if not ml.has_memory(workspace):
@@ -611,7 +700,7 @@ def main(argv: list[str]) -> int:
                 )
             normalized.append(n)
 
-        kept, dropped = _rank_and_cap(normalized, workspace)
+        kept, dropped = _rank_and_cap(normalized, workspace, task_id=task_id, route=route)
         if dropped:
             ml.append_audit(
                 workspace,
@@ -626,7 +715,7 @@ def main(argv: list[str]) -> int:
 
         for cand in kept:
             try:
-                _process_candidate(workspace, task_id, cand)
+                _process_candidate(workspace, task_id, cand, route=route)
             except _SecretBlocked:
                 secret_blocked = True
                 # Continue processing other candidates so they still

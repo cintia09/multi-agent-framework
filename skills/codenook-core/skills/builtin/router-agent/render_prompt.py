@@ -226,6 +226,14 @@ def _render_task_chain(workspace: Path, task_id: str, state: dict) -> str:
         return ""
 
 
+def _render_task_context(workspace: Path, task_id: str) -> str:
+    """Render the {{TASK_CONTEXT}} slot using task-extracted artefacts."""
+    try:
+        return ml.build_task_context(workspace, task_id)
+    except Exception:
+        return ""
+
+
 def render_prompt(*, task_id: str, workspace: Path,
                   codenook_root: Path, ctx: dict,
                   user_turn: str,
@@ -262,6 +270,7 @@ def render_prompt(*, task_id: str, workspace: Path,
         "{{ROLES}}": _render_roles_index(roles_by_plugin),
         "{{OVERLAY}}": _render_overlay(overlay),
         "{{TASK_CHAIN}}": _render_task_chain(workspace, task_id, state or {}),
+        "{{TASK_CONTEXT}}": _render_task_context(workspace, task_id),
         "{{MEMORY_INDEX}}": _render_memory_index(memory_matches),
         "{{PARENT_SUGGESTIONS}}": _render_parent_suggestions(
             parent_suggestions or []

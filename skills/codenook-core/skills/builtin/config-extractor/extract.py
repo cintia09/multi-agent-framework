@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import re
 import sys
 import traceback
@@ -276,7 +277,9 @@ def _process_candidate(
     task_id: str,
     cand: dict,
     existing_entries: list[dict],
+    route: str = "cross_task",
 ) -> tuple[str, str]:
+    is_task_route = route == "task_specific"
     key = cand["key"]
     blob = _candidate_text_blob(cand)
 
@@ -291,6 +294,7 @@ def _process_candidate(
             reason=f"secret-scanner:{rule_id}",
             source_task=task_id,
             candidate_hash=_candidate_hash(cand),
+            extra={"route": route},
         )
         raise _SecretBlocked(rule_id or "unknown")
 
@@ -329,22 +333,30 @@ def _process_candidate(
         "created_from_task": task_id,
     }
 
+    def _do_upsert(rationale_str: str) -> None:
+        if is_task_route:
+            ml.upsert_config_to_task(
+                workspace, task_id, entry=entry_payload, rationale=rationale_str
+            )
+        else:
+            ml.upsert_config_entry(
+                workspace, entry=entry_payload, rationale=rationale_str
+            )
+
     if action == "replace":
-        # Replacement still goes through upsert (same-key path overwrites).
-        ml.upsert_config_entry(
-            workspace, entry=entry_payload, rationale=rationale or "replace"
-        )
+        _do_upsert(rationale or "replace")
         outcome, verdict = "replaced", "replace"
     elif action == "merge":
-        ml.upsert_config_entry(
-            workspace, entry=entry_payload, rationale=rationale or "merge"
-        )
+        _do_upsert(rationale or "merge")
         outcome, verdict = "merged", "merge"
     else:  # create (no existing)
-        ml.upsert_config_entry(
-            workspace, entry=entry_payload, rationale=rationale or "create"
-        )
+        _do_upsert(rationale or "create")
         outcome, verdict = "created", "create"
+
+    if is_task_route:
+        dest_path = str(ml._task_config_path(workspace, task_id))
+    else:
+        dest_path = "config.yaml"
 
     _audit(
         workspace,
@@ -353,7 +365,8 @@ def _process_candidate(
         reason=rationale,
         source_task=task_id,
         candidate_hash=cand_hash,
-        existing_path=("config.yaml" if existing is not None else None),
+        existing_path=(dest_path if existing is not None else None),
+        extra={"route": route, "dest_path": dest_path},
     )
     return outcome, verdict
 
@@ -378,6 +391,10 @@ def main(argv: list[str]) -> int:
     phase = args.phase
     reason = args.reason
     input_path = Path(args.input).resolve() if args.input else None
+
+    route = os.environ.get("CN_EXTRACTION_ROUTE_CONFIG", "cross_task").strip()
+    if route not in ("task_specific", "cross_task"):
+        route = "cross_task"
 
     if not ml.has_memory(workspace):
         try:
@@ -417,7 +434,10 @@ def main(argv: list[str]) -> int:
         # Read existing entries early — fails fast on duplicate-key schema
         # violations (TC-M9.5-02) without ever touching the file.
         try:
-            existing_entries = ml.read_config_entries(workspace)
+            if route == "task_specific":
+                existing_entries = ml.read_task_config_entries(workspace, task_id)
+            else:
+                existing_entries = ml.read_config_entries(workspace)
         except Exception as e:
             ml.append_audit(
                 workspace,
@@ -515,11 +535,14 @@ def main(argv: list[str]) -> int:
 
         for cand in kept:
             try:
-                _process_candidate(workspace, task_id, cand, existing_entries)
+                _process_candidate(workspace, task_id, cand, existing_entries, route=route)
                 # Refresh existing_entries view after each upsert so a
                 # later candidate with the same key sees the prior write.
                 try:
-                    existing_entries = ml.read_config_entries(workspace)
+                    if route == "task_specific":
+                        existing_entries = ml.read_task_config_entries(workspace, task_id)
+                    else:
+                        existing_entries = ml.read_config_entries(workspace)
                 except Exception:
                     pass
             except _SecretBlocked:
