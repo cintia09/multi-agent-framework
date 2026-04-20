@@ -1,4 +1,4 @@
-"""Subprocess smoke tests for the v0.14.0 Python CLI + installer.
+"""Subprocess smoke tests for the Python CLI + installer.
 
 These tests build a fresh workspace under ``tmp_path``, run the new
 ``install.py`` against it, then exercise a few representative codenook
@@ -17,6 +17,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 INSTALL_PY = REPO_ROOT / "install.py"
+EXPECTED_VERSION = (REPO_ROOT / "skills" / "codenook-core" / "VERSION").read_text(encoding="utf-8").strip()
 
 
 def _run(cmd: list[str], cwd: Path | None = None,
@@ -64,13 +65,13 @@ def test_install_creates_state_and_bin(installed_workspace: Path) -> None:
     assert (ws / ".codenook" / "codenook-core" / "_lib" / "cli" / "__main__.py").is_file()
     assert _bin(ws).is_file()
     state = json.loads((ws / ".codenook" / "state.json").read_text(encoding="utf-8"))
-    assert state.get("kernel_version") == "0.14.0"
+    assert state.get("kernel_version") == EXPECTED_VERSION
     assert state.get("kernel_dir")
 
 
 def test_version(installed_workspace: Path) -> None:
     cp = _run(_bin_cmd(installed_workspace) + ["--version"])
-    assert cp.stdout.strip() == "0.14.0"
+    assert cp.stdout.strip() == EXPECTED_VERSION
 
 
 def test_help(installed_workspace: Path) -> None:

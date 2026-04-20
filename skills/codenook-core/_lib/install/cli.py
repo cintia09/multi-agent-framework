@@ -20,7 +20,12 @@ from pathlib import Path
 from . import seed_workspace, stage_kernel, stage_plugins
 
 
-VERSION = "0.14.0"
+_HERE = Path(__file__).resolve()
+_KERNEL_ROOT = _HERE.parent.parent.parent  # codenook-core/
+try:
+    VERSION = (_KERNEL_ROOT / "VERSION").read_text(encoding="utf-8").strip()
+except OSError:
+    VERSION = "0.0.0"
 DEFAULT_PLUGIN = "all"
 
 
