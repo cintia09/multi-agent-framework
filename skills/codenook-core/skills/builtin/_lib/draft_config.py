@@ -6,7 +6,7 @@ confirms, at which point `freeze_to_state_json` strips the sentinels
 and reshapes the payload into a state.json seed acceptable to the
 M4 orchestrator-tick state.json schema.
 
-See docs/v6/router-agent-v6.md §4.2 + §8.
+See docs/router-agent.md §4.2 + §8.
 """
 from __future__ import annotations
 

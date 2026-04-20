@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M10.5 — router-agent prompt.md slot ordering (TC-M10.5-01).
-# Spec: docs/v6/task-chains-v6.md §7.1
-# Cases: docs/v6/m10-test-cases.md TC-M10.5-01
+# Spec: docs/task-chains.md §7.1
+# Cases: docs/m10-test-cases.md TC-M10.5-01
 
 load helpers/load
 load helpers/assertions

@@ -3,10 +3,10 @@
 
 Scans the root ``CLAUDE.md`` (or any "main session protocol" doc) for
 domain-aware tokens that would violate the v6 layering principle
-(see ``docs/v6/router-agent-v6.md`` §2). The main session is the
+(see ``docs/router-agent.md`` §2). The main session is the
 **Conductor** — pure protocol + UX, with zero domain awareness.
 
-M9.7 extension (`docs/v6/memory-and-extraction-v6.md` §2.1, §5.4):
+M9.7 extension (`docs/memory-and-extraction.md` §2.1, §5.4):
 
 * **Forbidden write-to-plugins prose** — narrative such as
   ``let me write plugins/foo.yaml`` or ``main session may modify

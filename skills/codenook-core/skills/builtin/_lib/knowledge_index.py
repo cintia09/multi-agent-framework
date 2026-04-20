@@ -3,7 +3,7 @@
 The router-agent uses this module to enumerate ``knowledge/*.md`` files
 shipped with each installed plugin so it can decide which short
 summaries to ground its draft on. Bodies are intentionally NOT read
-here — see ``docs/v6/router-agent-v6.md`` §7 for the per-turn cap on
+here — see ``docs/router-agent.md`` §7 for the per-turn cap on
 full-body fetches.
 
 Public API

@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M9.6 — router-agent memory integration via match_entries_for_task.
-# Spec: docs/v6/memory-and-extraction-v6.md §4.3, §10
-# Cases: docs/v6/m9-test-cases.md TC-M9.6-03, TC-M9.6-06, TC-M9.6-13
+# Spec: docs/memory-and-extraction.md §4.3, §10
+# Cases: docs/m9-test-cases.md TC-M9.6-03, TC-M9.6-06, TC-M9.6-13
 # Locked decision (plan.md #4): router calls Python helper that does
 # deterministic matching on `applies_when` (no LLM inline).
 

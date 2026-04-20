@@ -14,7 +14,7 @@ duration, then either:
 All domain knowledge lives in ``prompt.md`` (the subagent's system
 prompt). This script is deterministic file I/O only.
 
-Path conventions (per docs/v6/architecture-v6.md and tick.sh):
+Path conventions (per docs/architecture.md and tick.sh):
 
     <workspace>/.codenook/tasks/<T-NNN>/      # router state + state.json
     <workspace>/.codenook/plugins/<id>/       # plugin manifests
@@ -213,7 +213,7 @@ def _render_turns(turns: list[dict]) -> str:
 def _render_task_chain(workspace: Path, task_id: str, state: dict) -> str:
     """M10.5 - render the {{TASK_CHAIN}} slot.
 
-    Spec: docs/v6/task-chains-v6.md section 7.2. Returns "" when the task is
+    Spec: docs/task-chains.md section 7.2. Returns "" when the task is
     a chain root (no parent_id) or when state is missing/empty (first
     spawn before state.json exists). Any unhandled cs.summarize error
     is swallowed (cs.summarize itself audits internal failures).

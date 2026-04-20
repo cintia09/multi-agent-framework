@@ -2,6 +2,8 @@
 
 > **状态**：基于已定稿的 `architecture.md`（§1–§12）落地为可运行代码与文件的实现指南。本文档**只讲怎么做**，不复述设计动机；每节末尾以 `→ 设计依据：架构文档 §X.Y` 形式回指。
 >
+> **v0.11.2 落地附注（DR-003）**：本文档中所有 `init.sh --install-plugin` / `--pack-plugin` / 类同子命令均为目标态设计。在 v0.11.2 仅 `--version` / `--help` / `--refresh-models` 已落地（`✅`），其余仍为 `exit 2: TODO` 占位（`🚧 v0.12 计划`）。当前可用的安装路径为顶层 `bash install.sh <workspace_path>`，内部委派 `skills/codenook-core/install.sh` 跑同样的 12 关。
+>
 > **范围约定**：
 > - 单 workspace 模型，所有路径都是 `<workspace>/.codenook/...` 相对路径
 > - 不写时间估计；以"依赖排序"组织 Milestone

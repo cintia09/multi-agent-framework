@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M9.7 — CLAUDE.md linter (memory protocol extensions).
-# Spec: docs/v6/memory-and-extraction-v6.md §2.1, §5.4, §8
-# Cases: docs/v6/m9-test-cases.md TC-M9.7-04, TC-M9.7-05, TC-M9.7-06
+# Spec: docs/memory-and-extraction.md §2.1, §5.4, §8
+# Cases: docs/m9-test-cases.md TC-M9.7-04, TC-M9.7-05, TC-M9.7-06
 
 load helpers/load
 load helpers/assertions

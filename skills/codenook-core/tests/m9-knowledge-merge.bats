@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 # M9.3 — knowledge-extractor patch-or-create decision flow
 # (TC-M9.3-04, 05, 06, 10).
-# Spec: docs/v6/memory-and-extraction-v6.md §6
-# Cases: docs/v6/m9-test-cases.md §M9.3
+# Spec: docs/memory-and-extraction.md §6
+# Cases: docs/m9-test-cases.md §M9.3
 
 load helpers/load
 load helpers/assertions

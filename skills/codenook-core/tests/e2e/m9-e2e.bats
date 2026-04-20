@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M9.8 — End-to-end acceptance for the memory layer + extractor stack.
-# Spec: docs/v6/memory-and-extraction-v6.md §6 (caps/dedup), §11 (router),
-#       docs/v6/m9-test-cases.md §M9.8 (this file is the canonical bats
+# Spec: docs/memory-and-extraction.md §6 (caps/dedup), §11 (router),
+#       docs/m9-test-cases.md §M9.8 (this file is the canonical bats
 #       binding for TC-M9.8-01..04 plus the GC and pre-commit regressions
 #       carried as TC-M9.8-10..12).
 #

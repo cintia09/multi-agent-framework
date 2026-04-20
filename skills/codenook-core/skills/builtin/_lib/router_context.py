@@ -9,7 +9,7 @@ by a markdown chat body of alternating
     ### router (<iso8601>)
     <free-form markdown>
 
-blocks. See docs/v6/router-agent-v6.md §4.1 for the canonical spec.
+blocks. See docs/router-agent.md §4.1 for the canonical spec.
 
 This module is pure-Python (yaml + stdlib only) and re-uses
 `atomic.py` for crash-safe writes. It deliberately does NOT import the

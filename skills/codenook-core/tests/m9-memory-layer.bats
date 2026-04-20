@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M9.1 — Memory layout primitives (TC-M9.1-01..07, 09, 10).
-# Spec: docs/v6/memory-and-extraction-v6.md §10
-# Cases: docs/v6/m9-test-cases.md §M9.1
+# Spec: docs/memory-and-extraction.md §10
+# Cases: docs/m9-test-cases.md §M9.1
 
 load helpers/load
 load helpers/assertions

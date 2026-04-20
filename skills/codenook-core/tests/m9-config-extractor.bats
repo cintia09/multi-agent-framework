@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M9.5 — config-extractor (TC-M9.5-01..07).
-# Spec: docs/v6/memory-and-extraction-v6.md §4 + FR-EXT-C / FR-LAY-6
-# Cases: docs/v6/m9-test-cases.md §M9.5
+# Spec: docs/memory-and-extraction.md §4 + FR-EXT-C / FR-LAY-6
+# Cases: docs/m9-test-cases.md §M9.5
 
 load helpers/load
 load helpers/assertions

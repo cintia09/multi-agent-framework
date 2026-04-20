@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M10.3 — router-agent spawn parent-UX hook (TC-M10.3-01..05).
-# Spec: docs/v6/task-chains-v6.md §3.1 §3.2 §5
-# Cases: docs/v6/m10-test-cases.md §M10.3
+# Spec: docs/task-chains.md §3.1 §3.2 §5
+# Cases: docs/m10-test-cases.md §M10.3
 
 load helpers/load
 load helpers/assertions

@@ -43,19 +43,32 @@ called once per phase).
 
 ## 2. Workspace setup
 
+> **Status note (v0.11.2 — DR-003):** the `init.sh` subcommands shown
+> below describe the *target* M5+ pipeline. In v0.11.2 only
+> `init.sh --version`, `--help`, and `--refresh-models` are live; `init.sh`
+> with no args, `--install-plugin`, `--uninstall-plugin`,
+> `--scaffold-plugin`, `--pack-plugin`, and `--upgrade-core` are 🚧
+> planned for v0.12 (they currently `exit 2: TODO`). The supported install
+> path today is `bash install.sh <workspace_path>` (top-level wrapper,
+> see README §Quick Start) which delegates to the kernel
+> `skills/codenook-core/install.sh` and runs the same 12 gates.
+
 ### 2.1 Seed
 
 ```bash
-init.sh
+init.sh                              # 🚧 planned for v0.12
+bash install.sh <workspace_path>     # ✅ live alternative
 ```
 
 Creates `.codenook/` with an empty `tasks/`, an empty `memory/`, a default
-`config.yaml`, and a `state.json` skeleton. No plugin is installed yet.
+`config.yaml`, and a `state.json` skeleton.
 
 ### 2.2 Plugin install (12 gates)
 
 ```bash
-init.sh --install-plugin <path|url>
+init.sh --install-plugin <path|url>                         # 🚧 planned for v0.12
+bash skills/codenook-core/install.sh \
+     --src <path|url> --workspace <ws>                      # ✅ live alternative
 ```
 
 The `install-orchestrator` skill runs gates G01–G12 against the staged tarball

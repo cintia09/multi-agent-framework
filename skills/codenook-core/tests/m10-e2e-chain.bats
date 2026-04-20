@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M10.7 — End-to-end task-chain integration TC.
-# Spec: docs/v6/task-chains-v6.md §3 §4 §7 §8 §9
-# Cases: docs/v6/m10-test-cases.md §M10.7 (e2e)
+# Spec: docs/task-chains.md §3 §4 §7 §8 §9
+# Cases: docs/m10-test-cases.md §M10.7 (e2e)
 #
 # Single comprehensive scenario: scaffold a workspace via the init
 # skill, build a 5-deep linear chain (T-005 → T-004 → T-003 → T-002 →

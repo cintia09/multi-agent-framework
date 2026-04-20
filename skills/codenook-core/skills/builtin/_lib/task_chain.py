@@ -1,6 +1,6 @@
 """task_chain — M10.1 chain primitives.
 
-Implements ``docs/v6/task-chains-v6.md`` §3 lifecycle and §4 interface for
+Implements ``docs/task-chains.md`` §3 lifecycle and §4 interface for
 parent/child task linking. Persistence target is each task's
 ``state.json`` (validated against ``schemas/task-state.schema.json``);
 chain_root is cached per task and a workspace-wide
@@ -132,7 +132,7 @@ def _write_state_json(workspace: Path | str, task_id: str, state: dict) -> None:
 
 # ─────────────────────────────────────────────────────────── snapshot ops
 #
-# Schema v2 (docs/v6/task-chains-v6.md §8.2)::
+# Schema v2 (docs/task-chains.md §8.2)::
 #
 #   {
 #     "schema_version": 1,

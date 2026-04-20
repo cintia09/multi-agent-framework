@@ -68,7 +68,7 @@ The kernel knows nothing about software engineering. It contains:
 | Config & models | `config-resolve`, `config-validate`, `config-mutator`, `model-probe`, `secrets-resolve`, `task-config-set`, `preflight` |
 | Helpers (`_lib/`) | `task_chain`, `parent_suggester`, `chain_summarize`, `memory_layer`, `memory_index`, `llm_call`, `render_prompt`, `token_estimate`, `workspace_overlay`, `claude_md_linter`, `plugin_readonly`, `secret_scan` |
 
-Entry points: `init.sh` (workspace seed + plugin manager) and `install.sh` (12-gate plugin installer).
+Entry points: `init.sh` (workspace seed + plugin manager — see status table in §Quick Start) and `install.sh` (top-level install/upgrade wrapper around the 12-gate kernel installer; accepts a positional `<workspace_path>`).
 
 ### Layer 2 — `plugins/development/` (the domain pipeline)
 
@@ -108,25 +108,47 @@ A workspace's `.codenook/` directory is the only place the kernel writes:
 
 ### 1. Install
 
-```bash
-curl -sL https://raw.githubusercontent.com/cintia09/CodeNook/main/install.sh | bash
-```
-
-The installer detects Claude Code and/or Copilot CLI and copies the kernel into the appropriate skills directory. The development plugin is then installed per-workspace via `init.sh`.
-
-### 2. Seed a workspace
-
-From any project root:
+Clone the repo and run the top-level installer against a workspace:
 
 ```bash
-cd ~/code/my-project
-~/.claude/skills/codenook-core/init.sh                       # creates .codenook/
-~/.claude/skills/codenook-core/init.sh --refresh-models      # probe model catalog
-~/.claude/skills/codenook-core/init.sh \
-    --install-plugin ~/.claude/skills/codenook-core/dist/development-*.tar.gz
+git clone https://github.com/cintia09/CodeNook.git
+cd CodeNook
+bash install.sh <workspace_path>          # install development plugin
+bash install.sh --dry-run <workspace>     # gates only, no commit
+bash install.sh --upgrade <workspace>     # re-install / version bump
+bash install.sh --check <workspace>       # report install state
 ```
 
-This runs the 12-gate install pipeline (`install-orchestrator`) and atomically commits the staged plugin tree into `.codenook/plugins/development/`.
+The top-level `install.sh` (v0.11.2):
+
+* Runs the kernel installer (`skills/codenook-core/install.sh`) and stages the plugin into `<workspace>/.codenook/plugins/<id>/` (atomic commit on green G01–G12).
+* Idempotently augments the workspace `CLAUDE.md` with a clearly delimited `<!-- codenook:begin --> ... <!-- codenook:end -->` bootloader block (re-runs replace the block in place; user content outside the markers is never touched).
+
+### 2. (Optional) Manage plugins from inside a workspace
+
+The kernel ships an `init.sh` wrapper for plugin management subcommands. **In v0.11.2 most subcommands are still planned for v0.12** — only the meta and refresh commands are live:
+
+| Subcommand | Status |
+|---|---|
+| `init.sh --version` | ✅ live |
+| `init.sh --help` | ✅ live |
+| `init.sh --refresh-models` | ✅ live (re-probes model catalog into `.codenook/state.json`) |
+| `init.sh` (no args, seed CWD) | 🚧 planned for v0.12 — use `bash install.sh <ws>` |
+| `init.sh --install-plugin <path>` | 🚧 planned for v0.12 — use `bash skills/codenook-core/install.sh --src <path> --workspace <ws>` |
+| `init.sh --uninstall-plugin <name>` | 🚧 planned for v0.12 |
+| `init.sh --scaffold-plugin <name>` | 🚧 planned for v0.12 |
+| `init.sh --pack-plugin <dir>` | 🚧 planned for v0.12 |
+| `init.sh --upgrade-core` | 🚧 planned for v0.12 |
+
+To install another plugin into a workspace today, call the kernel installer directly:
+
+```bash
+bash skills/codenook-core/install.sh \
+     --src plugins/writing \
+     --workspace ~/code/my-project
+```
+
+This runs the 12-gate install pipeline (`install-orchestrator`) and atomically commits the staged plugin tree into `.codenook/plugins/<id>/`.
 
 ### 3. Start a turn
 

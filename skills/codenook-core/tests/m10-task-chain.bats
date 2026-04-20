@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M10.1 — _lib/task_chain.py primitives (TC-M10.1-01..12).
-# Spec: docs/v6/task-chains-v6.md §2 §3 §4 §8 §9
-# Cases: docs/v6/m10-test-cases.md §M10.1
+# Spec: docs/task-chains.md §2 §3 §4 §8 §9
+# Cases: docs/m10-test-cases.md §M10.1
 
 load helpers/load
 load helpers/assertions

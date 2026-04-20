@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # M9.3 — _lib/llm_call.py wrapper.
-# Spec: docs/v6/memory-and-extraction-v6.md §6 (decision LLM)
+# Spec: docs/memory-and-extraction.md §6 (decision LLM)
 # Plan: post-decision #3 (mock-first wrapper, env-gated real backend)
 
 load helpers/load

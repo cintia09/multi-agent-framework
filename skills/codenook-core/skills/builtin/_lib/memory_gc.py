@@ -2,7 +2,7 @@
 """Memory garbage collector CLI (M9.8 — locked decision #5).
 
 Enforces the per-task caps from
-``docs/v6/memory-and-extraction-v6.md`` §6 / §7 across the whole
+``docs/memory-and-extraction.md`` §6 / §7 across the whole
 workspace memory layer:
 
 * ``knowledge`` — at most **3** entries per ``created_from_task``
@@ -214,7 +214,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="memory_gc",
         description=(
             "Prune workspace memory entries that exceed the per-task "
-            "caps from docs/v6/memory-and-extraction-v6.md §6/§7."
+            "caps from docs/memory-and-extraction.md §6/§7."
         ),
     )
     p.add_argument("--workspace", required=True, help="workspace root containing .codenook/memory/")

@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M9.3 — knowledge-extractor (TC-M9.3-01..03, 07..13).
-# Spec: docs/v6/memory-and-extraction-v6.md §3.1 §6 §7 §9
-# Cases: docs/v6/m9-test-cases.md §M9.3
+# Spec: docs/memory-and-extraction.md §3.1 §6 §7 §9
+# Cases: docs/m9-test-cases.md §M9.3
 
 load helpers/load
 load helpers/assertions

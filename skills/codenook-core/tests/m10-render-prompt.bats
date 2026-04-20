@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M10.5 — render_prompt.py wires {{TASK_CHAIN}} slot to chain_summarize.
-# Spec: docs/v6/task-chains-v6.md §7.2
-# Cases: docs/v6/m10-test-cases.md TC-M10.5-02..06
+# Spec: docs/task-chains.md §7.2
+# Cases: docs/m10-test-cases.md TC-M10.5-02..06
 
 load helpers/load
 load helpers/assertions

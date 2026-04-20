@@ -10,7 +10,7 @@ Layout (created by the ``init`` builtin skill):
       ├── history/extraction-log.jsonl
       └── .index-snapshot.json     # mtime cache (gitignored)
 
-Public API (locked, see docs/v6/memory-and-extraction-v6.md §10):
+Public API (locked, see docs/memory-and-extraction.md §10):
 
     init_memory_skeleton, scan_memory,
     scan_knowledge, read_knowledge, write_knowledge, patch_knowledge,

@@ -1,6 +1,6 @@
 """parent_suggester — M10.2 token-set Jaccard candidate ranker.
 
-Implements ``docs/v6/task-chains-v6.md`` §5: a zero-dependency,
+Implements ``docs/task-chains.md`` §5: a zero-dependency,
 pure-Python similarity scorer that surfaces likely parent tasks for a
 new (about-to-spawn) task. The router-agent's "parent preflight" UX
 (M10.3) renders the returned suggestions for user confirmation.

@@ -15,7 +15,7 @@ The single exception is malformed YAML in config.yaml, which raises
 ValueError with the offending path so the router-agent can surface
 the problem to the user.
 
-See docs/v6/router-agent-v6.md §7 (knowledge access) and the M8 plan
+See docs/router-agent.md §7 (knowledge access) and the M8 plan
 "Design patch — multi-plugin + workspace-overlay" section.
 """
 from __future__ import annotations

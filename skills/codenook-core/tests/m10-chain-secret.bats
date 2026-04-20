@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M10.4 — secret-scan + redact + audit (TC-M10.4-05).
-# Spec: docs/v6/task-chains-v6.md §6.8 §9.2
-# Cases: docs/v6/m10-test-cases.md §M10.4 TC-M10.4-05
+# Spec: docs/task-chains.md §6.8 §9.2
+# Cases: docs/m10-test-cases.md §M10.4 TC-M10.4-05
 
 load helpers/load
 load helpers/assertions

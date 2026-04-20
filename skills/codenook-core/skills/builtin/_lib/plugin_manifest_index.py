@@ -6,7 +6,7 @@ the workspace without forcing the main session to read any domain file.
 Manifest filename
 -----------------
 The canonical M2/M6 plugin manifest is ``plugins/<id>/plugin.yaml`` (see
-``docs/v6/router-agent-v6.md`` §2 and §5). This module scans for that
+``docs/router-agent.md`` §2 and §5). This module scans for that
 file. The earlier M8 spec draft referenced ``manifest.yaml``; the
 filename was finalised to ``plugin.yaml`` before M6 shipped.
 

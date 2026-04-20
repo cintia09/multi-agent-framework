@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M10.2 — _lib/parent_suggester.py token-set Jaccard ranker (TC-M10.2-01..06).
-# Spec: docs/v6/task-chains-v6.md §5
-# Cases: docs/v6/m10-test-cases.md §M10.2
+# Spec: docs/task-chains.md §5
+# Cases: docs/m10-test-cases.md §M10.2
 
 load helpers/load
 load helpers/assertions

@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M10.6 — snapshot v2 schema + audit 6+4 + perf budgets (TC-M10.6-01..05).
-# Spec: docs/v6/task-chains-v6.md §8 §9
-# Cases: docs/v6/m10-test-cases.md §M10.6
+# Spec: docs/task-chains.md §8 §9
+# Cases: docs/m10-test-cases.md §M10.6
 #
 # Perf cases (TC-M10.6-02, TC-M10.6-03) honour CN_SKIP_PERF=1 to allow
 # CI lanes to opt out without code changes. Default behaviour is to run

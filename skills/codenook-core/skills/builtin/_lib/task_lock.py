@@ -1,7 +1,7 @@
 """Per-task fcntl lock for tasks/<tid>/router.lock.
 
-Pinned per docs/v6/architecture-v6.md decision #50 and
-docs/v6/router-agent-v6.md §6:
+Pinned per docs/architecture.md decision #50 and
+docs/router-agent.md §6:
 
   * exclusive ``fcntl.flock(LOCK_EX | LOCK_NB)`` on
     ``tasks/<tid>/router.lock``

@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M9.4 — skill-extractor (TC-M9.4-01..07).
-# Spec: docs/v6/memory-and-extraction-v6.md §6 + FR-EXT-S
-# Cases: docs/v6/m9-test-cases.md §M9.4
+# Spec: docs/memory-and-extraction.md §6 + FR-EXT-S
+# Cases: docs/m9-test-cases.md §M9.4
 
 load helpers/load
 load helpers/assertions

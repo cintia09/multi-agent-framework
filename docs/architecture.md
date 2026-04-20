@@ -1,6 +1,8 @@
 # CodeNook — 插件架构
 
 > **历史说明**：本文档在设计阶段被内部称为 "v6 设计草案"；该设计已实现于 v0.11.0（`skills/codenook-core/` + `plugins/`），文档保留为设计共识与决策档案。v5 单体 POC 已于 v0.11.1 从仓库移除（见顶层 CHANGELOG）；本节及 §9 的迁移描述仅作历史记录。
+>
+> **v0.11.2 状态附注（DR-003）**：本文档中所有 `init.sh --install-plugin` / `--pack-plugin` / `--scaffold-plugin` / `--upgrade-core` 等子命令均为**目标态设计**。截至 v0.11.2，`skills/codenook-core/init.sh` 仅 `--version`、`--help`、`--refresh-models` 三项已落地（`✅ live`），其余子命令保留 `exit 2: TODO` 占位（`🚧 planned for v0.12`）。当前可用的安装路径为顶层 `bash install.sh <workspace_path>`（见 README §Quick Start），其内部委派 `skills/codenook-core/install.sh` 执行同样的 12 个安装关卡。
 
 ## 1. v5 的问题
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M9.2 — orchestrator-tick after_phase hook (TC-M9.2-01, 02, 05, 07, 08).
-# Spec: docs/v6/memory-and-extraction-v6.md §5 / §10
-# Cases: docs/v6/m9-test-cases.md §M9.2
+# Spec: docs/memory-and-extraction.md §5 / §10
+# Cases: docs/m9-test-cases.md §M9.2
 
 load helpers/load
 load helpers/assertions

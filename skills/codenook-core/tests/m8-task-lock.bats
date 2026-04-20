@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # M8.4 Unit 1 - per-task fcntl lock (task_lock.py).
-# Covers happy path + concurrency cases per docs/v6/router-agent-v6.md S6.
+# Covers happy path + concurrency cases per docs/router-agent.md S6.
 
 load helpers/load
 load helpers/assertions

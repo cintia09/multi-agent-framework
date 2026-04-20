@@ -7,7 +7,7 @@ Public API::
 
     summarize(workspace, task_id, *, max_tokens=8192, llm_mode=None) -> str
 
-Behaviour summary (spec §6 of docs/v6/task-chains-v6.md):
+Behaviour summary (spec §6 of docs/task-chains.md):
 
 * Walks ancestors via ``task_chain.walk_ancestors`` and drops self.
 * No ancestors → returns ``""``.
@@ -40,7 +40,7 @@ import task_chain  # noqa: E402
 import token_estimate  # noqa: E402
 from llm_call import call_llm  # noqa: E402
 
-# ---- spec constants (docs/v6/task-chains-v6.md §6 / §11) ---------------
+# ---- spec constants (docs/task-chains.md §6 / §11) ---------------
 _BRIEF_BYTES = 1024
 _DOC_BYTES = 4096
 _ARTIFACT_CAP = 20

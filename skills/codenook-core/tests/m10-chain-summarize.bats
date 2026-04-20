@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # M10.4 — _lib/chain_summarize.py two-pass LLM compression (TC-M10.4-01..04, 06..08).
-# Spec: docs/v6/task-chains-v6.md §6 §9
-# Cases: docs/v6/m10-test-cases.md §M10.4
+# Spec: docs/task-chains.md §6 §9
+# Cases: docs/m10-test-cases.md §M10.4
 
 load helpers/load
 load helpers/assertions
