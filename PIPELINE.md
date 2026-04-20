@@ -1,6 +1,6 @@
-# CodeNook Pipeline — v0.13 Runtime Reference
+# CodeNook Pipeline — v0.14 Runtime Reference
 
-This document describes the end-to-end runtime of CodeNook v0.13.2: how a user
+This document describes the end-to-end runtime of CodeNook v0.14.0: how a user
 turn becomes a task, how a task advances through phases, how memory accumulates,
 and how task chains stitch follow-up work back to its ancestors.
 
@@ -15,7 +15,7 @@ plugin is `plugins/development/`. Everything else is per-workspace state under
 ```
 ┌─ workspace ───────────────────────────────────────────────────────────────┐
 │                                                                          │
-│   init.sh                init.sh --install-plugin                        │
+│   python install.py        python install.py --plugin <id> --upgrade       │
 │      │                            │                                      │
 │      ▼                            ▼                                      │
 │   .codenook/ seeded   →   .codenook/plugins/<p>/  (atomic, read-only)    │
@@ -43,32 +43,34 @@ called once per phase).
 
 ## 2. Workspace setup
 
-> **Status note (v0.13.2 — DR-003):** the `init.sh` subcommands shown
-> below describe the *target* M5+ pipeline. In v0.13.2 only
-> `init.sh --version`, `--help`, and `--refresh-models` are live; `init.sh`
-> with no args, `--install-plugin`, `--uninstall-plugin`,
-> `--scaffold-plugin`, `--pack-plugin`, and `--upgrade-core` are 🚧
-> planned for v0.12 (they currently `exit 2: TODO`). The supported install
-> path today is `bash install.sh <workspace_path>` (top-level wrapper,
-> see README §Quick Start) which delegates to the kernel
-> `skills/codenook-core/install.sh` and runs the same 12 gates.
+> **Status note (v0.14.0):** workspace seed and plugin install are both
+> driven by the top-level Python installer `python install.py
+> [--target <ws>] [--upgrade] [--plugin <id|all>] [--dry-run] [--check]
+> [--no-claude-md] [--yes]`. The legacy bash entry points (`install.sh`,
+> kernel `skills/codenook-core/install.sh`) are gone; they ship one more
+> release as `install.sh.legacy` for fallback only. Inside an installed
+> workspace, the `.codenook/bin/codenook` Python shim exposes the
+> `task / router / tick / hitl / decide / status / chain` subcommand
+> surface; the previously-planned `init.sh --*` plugin-management
+> subcommands are obsolete — re-run `install.py --upgrade --plugin <id>`
+> from the source repo to add or bump a plugin in an existing workspace.
 
 ### 2.1 Seed
 
 ```bash
-init.sh                              # 🚧 planned for v0.12
-bash install.sh <workspace_path>     # ✅ live alternative
+python install.py --target <workspace_path>            # ✅ install all plugins (development, generic, writing)
+python install.py --target <ws> --plugin development   # ✅ install one plugin
 ```
 
 Creates `.codenook/` with an empty `tasks/`, an empty `memory/`, a default
-`config.yaml`, and a `state.json` skeleton.
+`config.yaml`, a `state.json` skeleton, a `schemas/` overlay, and the
+`bin/codenook(.cmd)` Python shims.
 
 ### 2.2 Plugin install (12 gates)
 
 ```bash
-init.sh --install-plugin <path|url>                         # 🚧 planned for v0.12
-bash skills/codenook-core/install.sh \
-     --src <path|url> --workspace <ws>                      # ✅ live alternative
+python install.py --target <ws> --plugin <id> --upgrade   # ✅ install/bump one plugin
+python install.py --target <ws> --upgrade                 # ✅ install/bump all bundled plugins
 ```
 
 The `install-orchestrator` skill runs gates G01–G12 against the staged tarball
@@ -288,7 +290,7 @@ python3 skills/codenook-core/_lib/secret_scan.py <changed-files>
 # 5. Greenfield grep on user-facing docs (legacy version phrasing must be empty)
 #    Pattern enforced by CI; expected output: GREENFIELD CLEAN
 bash skills/codenook-core/tests/greenfield-docs.sh \
-    README.md PIPELINE.md docs/README.md blog/vibe-coding-and-multi-agent.md
+    README.md PIPELINE.md docs/README.md docs/vibe-coding-and-multi-agent.md
 ```
 
 CI fails on any non-zero exit.
@@ -308,4 +310,4 @@ CI fails on any non-zero exit.
 
 ---
 
-*Generated for CodeNook v0.13.2 — kernel + plugin runtime reference.*
+*Generated for CodeNook v0.14.0 — kernel + plugin runtime reference.*
