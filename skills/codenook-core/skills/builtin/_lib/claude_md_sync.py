@@ -73,11 +73,47 @@ are expected on `PATH` already.
 The wrapper allocates the next `T-NNN` for you. **Do not** scan
 `.codenook/tasks/` and increment ids by hand.
 
-```bash
-# 1. Create task scaffold (returns the new T-NNN on stdout)
-<codenook> task new --title "<short title>" --accept-defaults
+The default flow is **just two calls** — create the task, then drive
+the tick loop. The router-agent dialog is **optional** and only
+useful when there are multiple installed plugins to choose between
+or you genuinely need an LLM-mediated drafting conversation. For
+single-plugin workspaces, skip it.
 
-# 2. Hand the user's request to router-agent
+```bash
+# 1. Create the task. --summary carries the user's request verbatim;
+#    --accept-defaults fills dual_mode/priority/target_dir with sane
+#    defaults so no entry-question gate fires. Returns the new T-NNN
+#    on stdout.
+<codenook> task new --title "<short title>" \
+                    --summary "<verbatim user request>" \
+                    --accept-defaults
+
+# 2. Drive the tick loop. Each call advances at most one phase and
+#    returns a JSON envelope with the new status.
+<codenook> tick --task <T-NNN> --json
+```
+
+Loop step 2 on `status: advanced`. Stop on `done` / `blocked` and
+report verbatim. On `waiting`, scan `.codenook/hitl-queue/*.json`
+for entries with `decision == null`, relay each `prompt` field
+verbatim to the user, capture the answer, then:
+
+```bash
+<codenook> decide --task <T-NNN> --phase <phase> \
+                  --decision <approve|reject|needs_changes> \
+                  [--comment "..."]
+```
+
+Resume the tick loop when all gates resolve.
+
+### Optional: router-agent drafting dialog (advanced)
+
+Only invoke `router` when you actually need an LLM-mediated drafting
+conversation — e.g. multiple installed plugins to disambiguate, or
+the user wants to iterate on scope before committing. Skip it for the
+common case (one plugin, clear request).
+
+```bash
 <codenook> router --task <T-NNN> --user-turn "<verbatim user text>"
 ```
 
@@ -113,43 +149,8 @@ in your own context, but you **must** still write the response to
 > shell out to the `claude` CLI). Off by default — interactive
 > conductors should drive the dispatch themselves per the steps above.
 
-### On user follow-ups during the drafting dialog
-
-Each follow-up is another `router` call with the user's exact words.
-The same JSON envelope → dispatch → relay loop applies:
-
-```bash
-<codenook> router --task <T-NNN> --user-turn "<verbatim user reply>"
-```
-
-### On user confirmation ("go" / "confirm" / "approve")
-
-The router-agent reply itself signals when confirmation is awaited
-(see `awaiting: confirmation` in its frontmatter). Pass the user's
-confirmation through as a normal `--user-turn`:
-
-```bash
-<codenook> router --task <T-NNN> --user-turn "go"
-```
-
-When the router replies with handoff (its body will say so), drive
-the tick loop:
-
-```bash
-<codenook> tick --task <T-NNN> --json
-```
-
-Read `status` from the JSON. Loop on `advanced`. Stop on `done` /
-`blocked` and report verbatim. On `waiting`, scan
-`.codenook/hitl-queue/*.json` for entries with `decision == null`,
-relay each `prompt` field verbatim to the user, capture the answer,
-then:
-
-```bash
-<codenook> decide --task <T-NNN> --phase <phase> --decision <approve|reject|needs_changes> [--comment "..."]
-```
-
-Resume the tick loop when all gates resolve.
+When the router-agent reply signals handoff, return to the tick loop
+above (`<codenook> tick --task <T-NNN> --json`) — same loop semantics.
 
 ### Direct kernel-script form (advanced, bash environments only)
 

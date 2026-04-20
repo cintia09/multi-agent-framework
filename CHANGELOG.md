@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.13] - Bootloader: router-agent demoted to optional; default flow is task new → tick
+
+### Changed
+
+- **`_lib/claude_md_sync.py` `render_block`** — restructured the
+  bootloader so the **default** task-start flow is just two calls:
+  `<codenook> task new --title --summary --accept-defaults` followed
+  by `<codenook> tick --task T-NNN --json`. The router-agent dialog
+  is moved to a separate **"Optional: router-agent drafting dialog
+  (advanced)"** section and called out as only useful when there are
+  multiple installed plugins to disambiguate or the user wants
+  iterative drafting.
+
+  Rationale: in single-plugin workspaces (the common case)
+  router-agent is pure ceremony. `tick.sh` reads only `state.json`,
+  which `task new --accept-defaults` already populates fully. Verified
+  end-to-end: `task new` → `tick` advances cleanly to the clarifier
+  phase without router ever being invoked.
+
+  Also dropped the redundant *On user confirmation* section — the
+  tick-loop instructions live next to `task new` now.
+
 ## [0.13.12] - cmd_router: stop hijacking the LLM round-trip; teach JSON envelope dispatch
 
 ### Fixed
