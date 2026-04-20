@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.10] - Bootloader: shell-agnostic examples (fix Linux regression)
+
+### Fixed
+
+- **`_lib/claude_md_sync.py` `render_block`** — v0.13.9 hard-coded
+  PowerShell-style invocation (`.codenook\bin\codenook.cmd`,
+  ```powershell``` fences, backslash paths) into every code example.
+  This regressed Linux/macOS hosted-LLM sessions: bash treats `\` as
+  an escape character, the `.cmd` file doesn't exist in POSIX
+  installs, and shells skip ```powershell``` fences. Replaced all
+  examples with a `<codenook>` placeholder, defined once in a
+  per-shell mapping table:
+    - bash/zsh/sh → `.codenook/bin/codenook`
+    - PowerShell/cmd → `.codenook\bin\codenook.cmd`
+  Code fences are now plain ```bash``` everywhere.
+
 ## [0.13.9] - Bootloader: prefer .cmd wrapper, drop raw bash invocations
 
 ### Changed

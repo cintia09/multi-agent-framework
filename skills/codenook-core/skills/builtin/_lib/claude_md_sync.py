@@ -54,26 +54,31 @@ and `python3` to be on `PATH`, which is often **not** the case in a
 Windows hosted-LLM session (Copilot CLI, Cursor, etc.). The wrapper
 auto-discovers Git-for-Windows bash and a working python3 for you.
 
-| Host shell        | How to invoke                                       |
-|-------------------|-----------------------------------------------------|
-| PowerShell / cmd  | `.codenook\\bin\\codenook.cmd <subcmd> ...`           |
-| bash / zsh / sh   | `.codenook/bin/codenook <subcmd> ...`               |
+**Per-shell invocation form** (replace `<codenook>` in every example
+below with the form for your host shell):
 
-Do **not** spend time hunting for `bash.exe` or installing python — if
-the wrapper can't find them it will print a clear error pointing to the
-fix. Just call the wrapper and surface its output.
+| Host shell        | `<codenook>` expands to                |
+|-------------------|----------------------------------------|
+| bash / zsh / sh   | `.codenook/bin/codenook`               |
+| PowerShell / cmd  | `.codenook\\bin\\codenook.cmd`           |
+
+On Windows, do **not** spend time hunting for `bash.exe` or installing
+python — if the wrapper can't find them it will print a clear error
+pointing to the fix. Just call the wrapper and surface its output. On
+Linux/macOS the script is a plain bash CLI; both `bash` and `python3`
+are expected on `PATH` already.
 
 ### How to start a task
 
 The wrapper allocates the next `T-NNN` for you. **Do not** scan
 `.codenook/tasks/` and increment ids by hand.
 
-```powershell
+```bash
 # 1. Create task scaffold (returns the new T-NNN on stdout)
-.codenook\\bin\\codenook.cmd task new --title "<short title>" --accept-defaults
+<codenook> task new --title "<short title>" --accept-defaults
 
 # 2. Hand the user's request to router-agent
-.codenook\\bin\\codenook.cmd router --task <T-NNN> --user-turn "<verbatim user text>"
+<codenook> router --task <T-NNN> --user-turn "<verbatim user text>"
 ```
 
 `router` prints the router-agent reply on stdout. Relay that text
@@ -83,8 +88,8 @@ The wrapper allocates the next `T-NNN` for you. **Do not** scan
 
 Each follow-up is another `router` call with the user's exact words:
 
-```powershell
-.codenook\\bin\\codenook.cmd router --task <T-NNN> --user-turn "<verbatim user reply>"
+```bash
+<codenook> router --task <T-NNN> --user-turn "<verbatim user reply>"
 ```
 
 Same relay rule: print the wrapper's stdout verbatim.
@@ -95,46 +100,36 @@ The router-agent reply itself signals when confirmation is awaited
 (see `awaiting: confirmation` in its frontmatter). Pass the user's
 confirmation through as a normal `--user-turn`:
 
-```powershell
-.codenook\\bin\\codenook.cmd router --task <T-NNN> --user-turn "go"
+```bash
+<codenook> router --task <T-NNN> --user-turn "go"
 ```
 
 When the router replies with handoff (its body will say so), drive
 the tick loop:
 
-```powershell
-.codenook\\bin\\codenook.cmd tick --task <T-NNN> --json
+```bash
+<codenook> tick --task <T-NNN> --json
 ```
 
 Read `status` from the JSON. Loop on `advanced`. Stop on `done` /
 `blocked` and report verbatim. On `waiting`, scan
-`.codenook\\hitl-queue\\*.json` for entries with `decision == null`,
+`.codenook/hitl-queue/*.json` for entries with `decision == null`,
 relay each `prompt` field verbatim to the user, capture the answer,
 then:
 
-```powershell
-.codenook\\bin\\codenook.cmd decide --task <T-NNN> --phase <phase> --decision <approve|reject|needs_changes> [--comment "..."]
+```bash
+<codenook> decide --task <T-NNN> --phase <phase> --decision <approve|reject|needs_changes> [--comment "..."]
 ```
 
 Resume the tick loop when all gates resolve.
 
-### Direct kernel-script form (bash environments only)
+### Direct kernel-script form (advanced, bash environments only)
 
-If you're already in bash/zsh on Linux/macOS or you've explicitly added
-Git-for-Windows bash + python3 to `PATH`, the underlying scripts can be
-called directly. **Do not attempt this from PowerShell as a fallback —
-use the `.cmd` wrapper instead.**
-
-```bash
-.codenook/bin/codenook task new   --title "Implement X"
-.codenook/bin/codenook router     --task T-001 --user-turn "Implement X end-to-end"
-.codenook/bin/codenook tick       --task T-001
-.codenook/bin/codenook decide     --task T-001 --phase design --decision approve
-.codenook/bin/codenook status     [--task T-001]
-.codenook/bin/codenook chain link --child T-002 --parent T-001
-```
-
-The wrapper resolves the kernel via `kernel_dir` in `.codenook/state.json`.
+If you're already in bash/zsh on Linux/macOS, the underlying scripts
+under `.codenook/codenook-core/skills/builtin/` can be called directly
+(see `docs/router-agent.md`). The CLI wrapper above is preferred for
+all routine flows. **Never attempt the raw-bash form from PowerShell
+as a fallback — use the `.cmd` wrapper instead.**
 
 ### Hard rules for the LLM (zero domain budget)
 
