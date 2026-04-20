@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.7] - Bootloader: rewrite as autonomous-trigger main-session protocol
+
+### Changed
+
+- **`_lib/claude_md_sync.py` `render_block`** — the workspace
+  CLAUDE.md bootloader was a soft "quick start" cheat sheet that told
+  the LLM "at the start of every turn, invoke the router-agent skill".
+  This (a) failed silently on hosts (Copilot CLI) that don't register
+  a skill named `router-agent`, and (b) was too aggressive — every
+  trivial Q&A would have spawned a task. Replaced with a strict
+  conductor-style protocol:
+  - **Trigger criteria**: LLM autonomously decides per turn — start a
+    task when the user's intent is *"make me do something"*; do not
+    when it's *"answer my question"*. Lean toward starting in doubt.
+  - **Path**: explicit `bash .codenook/codenook-core/skills/builtin/router-agent/spawn.sh`
+    invocations (no skill name lookup, works on any host).
+  - **Loop**: full §1-§7 protocol covering initial spawn, follow-up
+    user turns, confirm → handoff, tick driver loop with
+    advanced/waiting/done/blocked branches, HITL relay.
+  - **Hard rules**: zero domain budget — MUST NOT read plugin
+    internals, mention plugin ids in prose, or modify state.json /
+    router-context.md / draft-config.yaml directly.
+
+  Net effect: a fresh hosted-agent session opening a CodeNook
+  workspace will now pick up CodeNook on the first task-shaped user
+  utterance instead of silently no-op-ing on a missing skill.
+
 ## [0.13.6] - Wrapper: normalize kernel_dir from Windows backslash form
 
 ### Fixed

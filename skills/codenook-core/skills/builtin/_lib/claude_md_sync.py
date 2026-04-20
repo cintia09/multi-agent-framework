@@ -26,11 +26,89 @@ def render_block(version: str, plugin: str) -> str:
 ## CodeNook v{version} bootloader
 
 This workspace has the CodeNook plugin **`{plugin}`** installed.
+CodeNook is a multi-agent task orchestrator: when the user asks you to
+*do something*, you (the LLM) hand the work off to a structured pipeline
+(design → implement → test → review → accept) instead of doing it ad-hoc.
 
-### Quick start (every CLI user, no host required)
+### When to start a CodeNook task (LLM autonomous decision)
+
+**Trigger** — start a task whenever the user's intent is "**make me do
+something**" rather than "**answer my question**". Lean toward starting
+one when in doubt.
+
+✅ Examples that SHOULD trigger a task:
+- "Implement / build / add / refactor / migrate / fix / clean up …"
+- "Investigate this bug and produce a fix"
+- "Add tests for module X and bring coverage up"
+- Any request that naturally decomposes into design + impl + test
+- Any request that should produce a reviewable code change
+
+❌ Examples that should NOT trigger a task:
+- "Show me / read / open / explain / what does X do?"
+- "Run this command", "git status", "list files"
+- One-off lookups, navigation, single-shot Q&A
+- Conversational replies / clarifications mid-flight
+
+### How to start a task
+
+Allocate a fresh `T-NNN` id (scan existing `.codenook/tasks/T-*` and
+increment the highest numeric suffix, zero-padded), then invoke:
 
 ```bash
-.codenook/bin/codenook --help
+bash .codenook/codenook-core/skills/builtin/router-agent/spawn.sh \\
+    --workspace . --task-id <T-NNN>
+```
+
+`spawn.sh` returns a single-line JSON envelope:
+`{{"action": "...", "task_id": "...", "prompt_path": "...", "reply_path": "...", ...}}`.
+Read `prompt_path` as the system prompt for a sub-agent, dispatch it,
+read `reply_path` after it returns, and relay that text **verbatim** to
+the user. Do not paraphrase or summarise.
+
+### On user follow-ups during the drafting dialog
+
+Persist the user's exact reply to a scratch file (e.g.
+`.codenook/tasks/<T-NNN>/.user-turn.txt`) and call:
+
+```bash
+bash .codenook/codenook-core/skills/builtin/router-agent/spawn.sh \\
+    --workspace . --task-id <T-NNN> --user-turn-file <path>
+```
+
+Same dispatch/relay loop.
+
+### On user confirmation ("go" / "confirm" / "approve")
+
+```bash
+bash .codenook/codenook-core/skills/builtin/router-agent/spawn.sh \\
+    --workspace . --task-id <T-NNN> --confirm
+```
+
+On `action == "handoff"`: enter the tick driver loop:
+
+```bash
+bash .codenook/codenook-core/skills/builtin/orchestrator-tick/tick.sh \\
+    --task <T-NNN> --workspace . --json
+```
+
+Read `status` from the JSON. Loop on `advanced`. Stop on `done` /
+`blocked` and report verbatim. On `waiting`, scan
+`.codenook/hitl-queue/*.json` for entries with `decision == null`,
+relay each `prompt` field verbatim to the user, capture the answer,
+then:
+
+```bash
+bash .codenook/codenook-core/skills/builtin/hitl-adapter/terminal.sh \\
+    decide --id <hitl-entry-id> --decision <answer>
+```
+
+Resume the tick loop when all gates resolve.
+
+### Plain-shell alternative
+
+Users without a hosted agent can use the wrapper directly:
+
+```bash
 .codenook/bin/codenook task new   --title "Implement X"
 .codenook/bin/codenook router     --task T-001 --user-turn "Implement X end-to-end"
 .codenook/bin/codenook tick       --task T-001
@@ -39,29 +117,33 @@ This workspace has the CodeNook plugin **`{plugin}`** installed.
 .codenook/bin/codenook chain link --child T-002 --parent T-001
 ```
 
-The wrapper resolves to the kernel via `kernel_dir` recorded in
-`.codenook/state.json`, so it works from any cwd in the workspace.
+The wrapper resolves the kernel via `kernel_dir` in `.codenook/state.json`.
 
-### Hosted-agent flow (Claude Code / Copilot CLI)
+### Hard rules for the LLM (zero domain budget)
 
-At the start of every turn, invoke the **`router-agent`** skill:
+- MUST NOT read `plugins/*/plugin.yaml`, `plugins/*/knowledge/`,
+  `plugins/*/roles/`, `plugins/*/skills/` directly. Plugin selection
+  happens inside router-agent.
+- MUST NOT mention plugin ids in prose ("development", "writing", etc).
+- MUST NOT modify `router-context.md`, `draft-config.yaml`, `state.json`
+  by hand — only via `spawn.sh`, `orchestrator-tick`, `hitl-adapter`.
+- MUST NOT spawn phase agents (designer / implementer / tester /
+  reviewer / acceptor / validator) directly. That's `tick.sh`'s job.
+- MUST NOT interpret, paraphrase, or summarise `router-reply.md`, the
+  HITL `prompt` field, or per-phase outputs. Relay verbatim.
+- If a task seems to require breaking one of these rules, surface the
+  problem to the user instead of working around it.
 
-> "Use the router-agent skill to ingest this turn against `.codenook/`."
-
-The host drives the LLM round-trip natively. Plain-shell users without
-such a host should use the `codenook router` wrapper above; it calls
-`spawn.sh` and then `host_driver.py` to complete the loop.
-
-### What the orchestrator reads
+### Workspace layout the orchestrator reads
 
 - `.codenook/state.json` — installed plugins, kernel version, paths
-- `.codenook/schemas/state.example.md` — annotated task `state.json` reference
+- `.codenook/codenook-core/` — self-contained kernel (read-only)
 - `.codenook/schemas/` — `task-state`, `installed`, `hitl-entry`, `queue-entry`
 - `.codenook/plugins/{plugin}/` — read-only phase prompts and roles
 - `.codenook/memory/` — `knowledge`, `skills`, `history`, `_pending`, `config.yaml`
 - `.codenook/tasks/<task_id>/` — per-task state, prompts, audit log
 
-**Plugin and source files are read-only.** Writes happen under
+**Plugin and kernel files are read-only.** Writes happen under
 `.codenook/tasks/`, `.codenook/memory/`, and `.codenook/queue/` only.
 
 ### Task-chain fields
