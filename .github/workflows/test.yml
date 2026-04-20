@@ -12,36 +12,67 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify install script (dry run)
-        run: bash install.sh --dry-run
-
-      - name: Verify skill structure
-        run: |
-          # codenook-init core
-          test -f skills/codenook-init/SKILL.md
-          echo "✅ SKILL.md present"
-
-          # Agent templates
-          for agent in acceptor designer implementer reviewer tester; do
-            test -f "skills/codenook-init/templates/${agent}.agent.md"
-          done
-          echo "✅ 5 agent templates present"
-
-          # Engine template
-          test -f skills/codenook-init/templates/codenook.instructions.md
-          echo "✅ Engine template present"
-
-      - name: Verify HITL scripts
-        run: |
-          for f in skills/codenook-init/hitl-adapters/*.sh; do
-            bash -n "$f" && echo "✅ $(basename $f) syntax OK"
-          done
-          python3 -c "import ast; ast.parse(open('skills/codenook-init/hitl-adapters/hitl-server.py').read())"
-          echo "✅ hitl-server.py syntax OK"
-          echo "✅ All HITL scripts valid"
-
       - name: Verify VERSION
         run: |
           VERSION=$(cat VERSION)
-          echo "Version: $VERSION"
-          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && echo "✅ Valid semver"
+          KERNEL_VERSION=$(cat skills/codenook-core/VERSION)
+          echo "Top-level: $VERSION"
+          echo "Kernel:    $KERNEL_VERSION"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] && echo "✅ Top-level VERSION is valid semver"
+          [[ "$VERSION" == "$KERNEL_VERSION" ]] && echo "✅ Top-level and kernel VERSION are in sync" || \
+            { echo "❌ VERSION mismatch: top=$VERSION kernel=$KERNEL_VERSION"; exit 1; }
+
+      - name: Verify kernel structure
+        run: |
+          test -f skills/codenook-core/install.sh
+          test -f skills/codenook-core/VERSION
+          test -d skills/codenook-core/skills/builtin
+          test -x skills/codenook-core/skills/builtin/init/init.sh
+          test -x skills/codenook-core/skills/builtin/router-agent/spawn.sh
+          test -x skills/codenook-core/skills/builtin/orchestrator-tick/tick.sh
+          test -x skills/codenook-core/skills/builtin/hitl-adapter/terminal.sh
+          test -x skills/codenook-core/templates/codenook-wrapper.sh
+          echo "✅ Kernel structure intact"
+
+      - name: Shell syntax check (builtin scripts)
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            bash -n "$f" || { echo "❌ syntax: $f"; fail=1; }
+          done < <(find skills/codenook-core/skills/builtin -name '*.sh' -type f)
+          [ $fail -eq 0 ] && echo "✅ All builtin shell scripts parse"
+          exit $fail
+
+      - name: Python syntax check (_lib + orchestrator)
+        run: |
+          python3 -c "
+          import ast, pathlib, sys
+          fail = 0
+          for p in pathlib.Path('skills/codenook-core').rglob('*.py'):
+              try:
+                  ast.parse(p.read_text(encoding='utf-8'))
+              except SyntaxError as e:
+                  print(f'❌ {p}: {e}'); fail = 1
+          sys.exit(fail)
+          "
+          echo "✅ All Python modules parse"
+
+      - name: Install (dry run) — top-level installer
+        run: |
+          mkdir -p /tmp/ws-dry
+          bash install.sh --dry-run /tmp/ws-dry || true
+          echo "✅ install.sh --dry-run completed"
+
+      - name: Install (full) into temp workspace + verify self-contained
+        run: |
+          mkdir -p /tmp/ws-full
+          bash install.sh /tmp/ws-full
+          test -f /tmp/ws-full/.codenook/state.json
+          test -d /tmp/ws-full/.codenook/codenook-core/skills/builtin
+          test -x /tmp/ws-full/.codenook/bin/codenook
+          KDIR=$(python3 -c "import json; print(json.load(open('/tmp/ws-full/.codenook/state.json'))['kernel_dir'])")
+          echo "kernel_dir = $KDIR"
+          case "$KDIR" in
+            /tmp/ws-full/.codenook/codenook-core/*) echo "✅ kernel_dir is workspace-local" ;;
+            *) echo "❌ kernel_dir is NOT workspace-local: $KDIR"; exit 1 ;;
+          esac

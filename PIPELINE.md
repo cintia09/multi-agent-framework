@@ -1,6 +1,6 @@
-# CodeNook Pipeline — v0.11 Runtime Reference
+# CodeNook Pipeline — v0.13 Runtime Reference
 
-This document describes the end-to-end runtime of CodeNook v0.11.1: how a user
+This document describes the end-to-end runtime of CodeNook v0.13.2: how a user
 turn becomes a task, how a task advances through phases, how memory accumulates,
 and how task chains stitch follow-up work back to its ancestors.
 
@@ -43,8 +43,8 @@ called once per phase).
 
 ## 2. Workspace setup
 
-> **Status note (v0.11.2 — DR-003):** the `init.sh` subcommands shown
-> below describe the *target* M5+ pipeline. In v0.11.2 only
+> **Status note (v0.13.2 — DR-003):** the `init.sh` subcommands shown
+> below describe the *target* M5+ pipeline. In v0.13.2 only
 > `init.sh --version`, `--help`, and `--refresh-models` are live; `init.sh`
 > with no args, `--install-plugin`, `--uninstall-plugin`,
 > `--scaffold-plugin`, `--pack-plugin`, and `--upgrade-core` are 🚧
@@ -308,4 +308,4 @@ CI fails on any non-zero exit.
 
 ---
 
-*Generated for CodeNook v0.11.1 — kernel + plugin runtime reference.*
+*Generated for CodeNook v0.13.2 — kernel + plugin runtime reference.*

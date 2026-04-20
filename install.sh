@@ -30,7 +30,7 @@
 
 set -euo pipefail
 
-VERSION="0.13.2"
+VERSION="0.13.3"
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_PLUGIN="development"
 
@@ -142,7 +142,11 @@ SOURCE_INIT="$SOURCE_CORE/skills/builtin/init/init.sh"
 if [ ! -x "$SOURCE_INIT" ]; then
   err "source init.sh not executable: $SOURCE_INIT"; exit 2
 fi
-"$SOURCE_INIT" "$WORKSPACE"
+if ! "$SOURCE_INIT" "$WORKSPACE"; then
+  err "kernel bootstrap failed (init.sh exited non-zero); workspace may be in a half-written state"
+  err "inspect: $WORKSPACE/.codenook/codenook-core (and any .codenook-core.* staging dirs alongside it)"
+  exit 2
+fi
 info "Kernel staged at $WS_CORE (self-contained)"
 
 if [ ! -x "$KERNEL_INSTALL" ]; then

@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.3] - Code review follow-up: CI rebuild + doc version sync
+
+### Fixed
+
+- **CI workflow** (`.github/workflows/test.yml`) — old workflow still
+  referenced `skills/codenook-init/` (deleted in v0.11.2), so CI failed
+  on every push. Rewrote the workflow to:
+  - verify top-level VERSION ≡ kernel VERSION (catch drift early);
+  - syntax-check every `_lib/*.py` and every `builtin/**/*.sh`;
+  - run `bash install.sh` against a temp workspace and assert that
+    `state.json.kernel_dir` is workspace-local
+    (`<ws>/.codenook/codenook-core/...`).
+- **install.sh** — kernel bootstrap step (`init.sh "$WORKSPACE"`) now
+  has explicit error handling that points at the half-written
+  `<ws>/.codenook/codenook-core` and any `.codenook-core.*` staging
+  dirs left behind, instead of dying silently under `set -e`.
+
+### Changed
+
+- **README.md** — replaced 9 stale `v0.11.x` / `v6` markers with the
+  current `v0.13.x` / "plugin architecture" wording; updated badge,
+  hero paragraph, install paragraph, init.sh paragraph, roadmap, and
+  documentation table.
+- **PIPELINE.md** — header, status-note (DR-003), and footer updated
+  from `v0.11.x` to `v0.13.2`.
+
 ## [0.13.2] - 2026-04-20 · English CLAUDE.md + interactive install confirm
 
 Two small but user-visible changes.
