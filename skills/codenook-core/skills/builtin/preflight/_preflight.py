@@ -4,6 +4,58 @@ import json
 import os
 import sys
 
+
+def _discover_known_phases(workspace: str, state: dict) -> list[str]:
+    """Return phase ids declared by the task's active plugin.
+
+    Resolution order:
+      1. ``state["plugin"]`` (modern field used by orchestrator-tick).
+      2. The single entry in ``.codenook/state.json::installed_plugins``
+         when there is exactly one — this matches the common single-plugin
+         workspace.
+
+    Reads ``.codenook/plugins/<id>/phases.yaml`` and extracts the ``id``
+    of every entry under ``phases:``. Returns an empty list when nothing
+    can be resolved (callers fall back to the legacy whitelist).
+    """
+    plugin_id = state.get("plugin") or ""
+    if not plugin_id:
+        try:
+            ws_state_p = os.path.join(workspace, ".codenook", "state.json")
+            with open(ws_state_p, "r", encoding="utf-8") as f:
+                ws_state = json.load(f)
+            installed = ws_state.get("installed_plugins", []) or []
+            if len(installed) == 1 and isinstance(installed[0], dict):
+                plugin_id = installed[0].get("id", "")
+        except Exception:
+            return []
+    if not plugin_id:
+        return []
+    phases_yaml = os.path.join(
+        workspace, ".codenook", "plugins", plugin_id, "phases.yaml"
+    )
+    if not os.path.isfile(phases_yaml):
+        return []
+    try:
+        try:
+            import yaml  # type: ignore
+            with open(phases_yaml, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+            phases = data.get("phases", []) or []
+            return [p["id"] for p in phases if isinstance(p, dict) and p.get("id")]
+        except ImportError:
+            # Minimal fallback parser: collect lines `  - id: <name>`.
+            ids = []
+            with open(phases_yaml, "r", encoding="utf-8") as f:
+                for line in f:
+                    s = line.strip()
+                    if s.startswith("- id:"):
+                        ids.append(s.split(":", 1)[1].strip().strip('"\''))
+            return ids
+    except Exception:
+        return []
+
+
 def main():
     task = os.environ["CN_TASK"]
     state_file = os.environ["CN_STATE_FILE"]
@@ -34,7 +86,21 @@ def main():
         reasons.append("needs dual_mode")
     
     # Check 2: known phase
-    KNOWN_PHASES = ["start", "implement", "test", "review", "distill", "accept", "done"]
+    # DR-008 (v0.11.2): the legacy preflight had a hard-coded
+    # KNOWN_PHASES list that diverged from every shipped plugin's
+    # phases.yaml. Now we read the active plugin's phase ids from
+    # state["plugin"] (or state["installed_plugin"]); if that yields a
+    # non-empty list we use it, otherwise we fall back to a generic
+    # superset that includes both the historic legacy phases and the
+    # development-plugin phases so existing callers remain green.
+    LEGACY_FALLBACK_PHASES = [
+        "start", "implement", "test", "review", "distill", "accept", "done",
+        # Development plugin (covered explicitly so that plugin-less
+        # callers running against a development-plugin task do not
+        # see bogus unknown_phase errors — see DR-008).
+        "clarify", "design", "plan", "validate", "ship",
+    ]
+    KNOWN_PHASES = _discover_known_phases(workspace, state) or LEGACY_FALLBACK_PHASES
     if phase not in KNOWN_PHASES:
         reasons.append(f"unknown_phase: {phase}")
     
