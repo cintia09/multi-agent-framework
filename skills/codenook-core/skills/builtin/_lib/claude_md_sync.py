@@ -74,12 +74,10 @@ are expected on `PATH` already.
 The wrapper allocates the next `T-NNN` for you. **Do not** scan
 `.codenook/tasks/` and increment ids by hand.
 
-The default flow is **conductor-driven plugin selection** → `task
+The flow is **conductor-driven plugin selection** → `task
 new --plugin <id>` → `tick`. The conductor (you) reads the user's
 intent, picks the best-matching plugin, and creates the task with
-`--plugin` set explicitly. The LLM-mediated router-agent drafting
-dialog is **off by default** and only invoked when the user
-explicitly asks for it.
+`--plugin` set explicitly.
 
 **What the conductor reads when picking a plugin / starting a task:**
 
@@ -148,21 +146,7 @@ verbatim to the user, capture the answer, then:
 
 Resume the tick loop when all gates resolve.
 
-#### Optional: router-agent drafting dialog (advanced, off by default)
-
-Only invoke `router` when the user explicitly asks for an
-LLM-mediated drafting dialog. The default conductor-driven flow
-above handles the common case faster (no extra sub-agent round-trip
-just to pick a plugin).
-
-```bash
-<codenook> router --task <T-NNN> --user-turn "<verbatim user text>"
-```
-
-`router` prints a JSON envelope with `prompt_path` / `reply_path`;
-follow the same dispatch protocol as `tick` envelopes.
-
-### The dispatch envelope (used by both `tick` and `router`)
+### The dispatch envelope
 
 When `tick --json` returns and CodeNook has dispatched a phase agent
 (clarifier, designer, implementer, tester, reviewer, …), the JSON
@@ -183,9 +167,7 @@ LLM round-trip yourself:
  }}}}
 ```
 
-`router` returns the same envelope shape (with `action: prompt`)
-pointing at `.router-prompt.md` / `router-reply.md`. Same protocol
-for both:
+Protocol:
 
 1. **Read `system_prompt_path`** (when present, role profile) and
    **`prompt_path`** (always present, the per-call instructions).
@@ -299,9 +281,9 @@ identical across platforms. There is no "raw-bash form" fallback.
 - MUST NOT mention plugin ids in user-facing prose unless echoing
   back what the user said. Pick the plugin silently via
   `--plugin <id>`.
-- MUST NOT modify `router-context.md`, `draft-config.yaml`,
-  `state.json` by hand — only via the `codenook` CLI wrapper, which
-  fronts `spawn.sh`, `orchestrator-tick`, and `hitl-adapter`.
+- MUST NOT modify `draft-config.yaml`, `state.json` by hand — only via
+  the `codenook` CLI wrapper, which fronts `orchestrator-tick`, and
+  `hitl-adapter`.
 - MUST NOT spawn phase agents (designer / implementer / tester /
   reviewer / acceptor / validator) directly. That's `codenook tick`'s
   job (which fronts `tick.sh`).
@@ -310,8 +292,8 @@ identical across platforms. There is no "raw-bash form" fallback.
   the user, write the reply file, then call `tick`). Do **not**
   dispatch a sub-agent for clarifier — that defeats the latency
   optimisation introduced in v0.13.22.
-- MUST NOT interpret, paraphrase, or summarise `router-reply.md`, the
-  HITL `prompt` field, or per-phase outputs. Relay verbatim.
+- MUST NOT interpret, paraphrase, or summarise the HITL `prompt`
+  field or per-phase outputs. Relay verbatim.
 - MUST end every reply by asking the user what their next step is
   (e.g. "What would you like to do next?" / "下一步想做什么？"). Use
   the host's interactive prompt facility when available; otherwise ask

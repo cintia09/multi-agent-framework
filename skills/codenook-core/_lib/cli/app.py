@@ -22,6 +22,9 @@ Subcommands:
                        [--accept-defaults]
   task set --task T-NNN --field <field> --value <val>
   router   --task T-NNN [--user-turn "…" | --user-turn-file <p> | --confirm]
+                       [DEPRECATED — slated for removal in a future release;
+                        prefer the conductor-driven `task new --plugin <id>`
+                        flow which avoids the extra LLM round-trip]
   tick     --task T-NNN [--json]
   decide   --task T-NNN --phase <id> --decision approve|reject|needs_changes
                                     [--comment "…"]
@@ -81,6 +84,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         from . import cmd_task
         return cmd_task.run(ctx, rest)
     if sub == "router":
+        sys.stderr.write(
+            "codenook: WARNING — the `router` subcommand is deprecated and "
+            "will be removed in a future release. Prefer the conductor-driven "
+            "`task new --plugin <id>` flow.\n"
+        )
         from . import cmd_router
         return cmd_router.run(ctx, rest)
     if sub == "tick":
