@@ -82,10 +82,13 @@ explicitly asks for it.
 
 **What the conductor reads when picking a plugin / starting a task:**
 
-- `.codenook/plugins/<id>/plugin.yaml` — the manifest's match
-  fields (which use-cases / keywords / examples) for each
-  installed plugin. Rank these against the user's request to
-  choose one. If two tie or none fits, ask.
+- `.codenook/state.json` — `installed_plugins` field is the
+  authoritative list of plugin ids in this workspace. Read this
+  first; do not rely on globbing.
+- `.codenook/plugins/<id>/plugin.yaml` — for each id from
+  `state.json`, read the manifest and look at the match fields
+  (which use-cases / keywords / examples). Rank against the
+  user's request and pick one. If two tie or none fits, ask.
 - `.codenook/memory/knowledge/*.md` — workspace-shared knowledge
   distilled from prior tasks. May influence scope, defaults, or
   warnings to surface to the user. Skim file names; read on demand.
@@ -104,8 +107,10 @@ hard rules below restrict only state mutation and per-phase
 artifact interpretation, not orientation reads.
 
 ```bash
-# 1. Pick a plugin. Read each .codenook/plugins/<id>/plugin.yaml,
-#    skim .codenook/memory/{{knowledge,skills}}/, rank candidates
+# 1. Pick a plugin. Read `.codenook/state.json` `installed_plugins`
+#    for the authoritative id list, then read each
+#    `.codenook/plugins/<id>/plugin.yaml`. Skim
+#    `.codenook/memory/{{knowledge,skills}}/`. Rank candidates
 #    against the user request, choose the best fit. If two tie or
 #    none fits well, ask the user which one.
 #

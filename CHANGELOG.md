@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.20] - bootloader: read state.json for installed plugins
+
+### Fixed
+
+- Conductor instructions now point at `.codenook/state.json`
+  `installed_plugins` as the authoritative plugin list, instead of
+  globbing `.codenook/plugins/*/plugin.yaml`. Globbing was
+  unreliable across host LLM frontends (cwd / path-separator
+  inconsistencies on Windows), causing the conductor to report
+  "no plugins found" even when three were installed.
+
 ## [0.13.19] - conductor-driven plugin selection + dead router code removal
 
 ### Changed
