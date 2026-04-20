@@ -186,6 +186,21 @@ def _candidates_from_role_outputs(workspace: Path, task_id: str) -> list[dict] |
             continue
         block = fm.get("extract")
         if block is None:
+            # E2E-P-003 — fall back: synthesize a minimal candidate from
+            # the role's own `summary` + body when the role didn't author
+            # an explicit `extract:` block. This guarantees the memory
+            # layer is observable after a full lifecycle (round-2 fix).
+            summary = (fm.get("summary") or "").strip()
+            verdict = (fm.get("verdict") or "").strip()
+            if summary and verdict in ("ok", "approve", "approved"):
+                body_after = text[m.end():].strip()
+                title = summary[:80] if len(summary) > 80 else summary
+                candidates.append({
+                    "title": title or f"{p.stem} note",
+                    "summary": summary[:200],
+                    "tags": [task_id, p.stem.split("-")[-1] or "role-output"],
+                    "body": (body_after or summary)[:4096],
+                })
             continue
         items = block if isinstance(block, list) else [block]
         for it in items:
