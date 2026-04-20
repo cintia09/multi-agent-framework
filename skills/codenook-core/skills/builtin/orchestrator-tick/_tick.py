@@ -109,6 +109,9 @@ def emit_summary(payload: dict) -> None:
     Byte-correct UTF-8 truncation:
       * Loop progressively trims `message_for_user`/`next_action` by 10%
         chars from the right until the encoded payload fits.
+      * If still too large, drop optional informational fields
+        (`missing`, `allowed_values`, `recovery`, `detail`, `file`,
+        `reason`) one at a time.
       * Final guard hard-truncates the JSON string at 500 bytes on a
         valid UTF-8 char boundary (rare; only kicks in if every other
         knob has been exhausted)."""
@@ -117,14 +120,21 @@ def emit_summary(payload: dict) -> None:
         trimmed = False
         for k in ("message_for_user", "next_action"):
             v = payload.get(k)
-            if isinstance(v, str) and v:
+            if isinstance(v, str) and len(v) > 1:
                 cut = max(1, len(v) - max(1, len(v) // 10))
-                payload[k] = v[:cut]
-                trimmed = True
-                if _payload_bytes(payload) <= limit:
-                    break
+                if cut < len(v):
+                    payload[k] = v[:cut]
+                    trimmed = True
+                    if _payload_bytes(payload) <= limit:
+                        break
         if not trimmed:
             break
+    # Drop optional/informational fields if still too large.
+    for k in ("missing", "allowed_values", "recovery", "detail", "file", "reason"):
+        if _payload_bytes(payload) <= limit:
+            break
+        if k in payload:
+            payload.pop(k, None)
     s = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     if len(s.encode("utf-8")) > limit:
         s = _utf8_safe_truncate(s, limit)
@@ -147,30 +157,49 @@ def read_json(path: Path) -> dict:
 _FM_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
-def output_ready(workspace: Path, task_id: str, expected_output: str) -> bool:
-    """File exists AND has frontmatter `verdict: <v>` matching enum."""
+class _OutputState:
+    """Sentinel results for verdict reads (E2E-005)."""
+    MISSING = "missing"
+    NO_FRONTMATTER = "no_frontmatter"
+    YAML_PARSE_ERROR = "yaml_parse_error"
+    BAD_VERDICT = "bad_verdict"
+
+
+def read_verdict_detailed(workspace: Path, task_id: str,
+                          expected_output: str) -> tuple[str | None, str, str]:
+    """Returns ``(verdict, status, detail)``.
+
+    status ∈ {ok, missing, no_frontmatter, yaml_parse_error, bad_verdict}.
+    detail is human-readable (parse error message / file path / etc).
+    """
     root = task_root(workspace, task_id)
     p = _assert_under(root / expected_output, root)
+    rel = expected_output
     if not p.is_file():
-        return False
-    return read_verdict(workspace, task_id, expected_output) is not None
-
-
-def read_verdict(workspace: Path, task_id: str, expected_output: str) -> str | None:
-    root = task_root(workspace, task_id)
-    p = _assert_under(root / expected_output, root)
+        return None, _OutputState.MISSING, str(rel)
     text = p.read_text(encoding="utf-8")
     m = _FM_RE.match(text)
     if not m:
-        return None
+        return None, _OutputState.NO_FRONTMATTER, str(rel)
     try:
         fm = yaml.safe_load(m.group(1)) or {}
-    except yaml.YAMLError:
-        return None
-    v = fm.get("verdict")
+    except yaml.YAMLError as e:
+        return None, _OutputState.YAML_PARSE_ERROR, f"{rel}: {str(e).splitlines()[0]}"
+    v = fm.get("verdict") if isinstance(fm, dict) else None
     if v in ("ok", "needs_revision", "blocked"):
-        return v
-    return None
+        return v, "ok", str(rel)
+    return None, _OutputState.BAD_VERDICT, f"{rel}: verdict={v!r}"
+
+
+def output_ready(workspace: Path, task_id: str, expected_output: str) -> bool:
+    """File exists AND has frontmatter `verdict: <v>` matching enum."""
+    v, status, _ = read_verdict_detailed(workspace, task_id, expected_output)
+    return v is not None and status == "ok"
+
+
+def read_verdict(workspace: Path, task_id: str, expected_output: str) -> str | None:
+    v, _, _ = read_verdict_detailed(workspace, task_id, expected_output)
+    return v
 
 
 # ── phase / transition lookup ────────────────────────────────────────────
@@ -329,6 +358,69 @@ def check_entry_questions(workspace: Path, plugin: str, phase_id: str,
     return missing
 
 
+def entry_question_meta(workspace: Path, plugin: str, phase_id: str,
+                        keys: list[str]) -> dict:
+    """Return per-key {allowed_values?, description?} dict (E2E-006).
+
+    Falls back to the JSON schema enum for well-known fields (e.g.
+    ``dual_mode``) when the plugin's entry-questions.yaml omits them.
+    """
+    eq = read_yaml(workspace / ".codenook" / "plugins" / plugin / "entry-questions.yaml") or {}
+    spec = eq.get(phase_id) or {}
+    questions = spec.get("questions") or {}
+    out: dict[str, dict] = {}
+    for k in keys:
+        meta = {}
+        q = questions.get(k) if isinstance(questions, dict) else None
+        if isinstance(q, dict):
+            if "allowed_values" in q:
+                meta["allowed_values"] = q["allowed_values"]
+            elif "enum" in q:
+                meta["allowed_values"] = q["enum"]
+            if "description" in q:
+                meta["description"] = q["description"]
+        # Fallback enums for well-known schema fields.
+        if "allowed_values" not in meta:
+            try:
+                schema = read_json(SCHEMAS_DIR / "task-state.schema.json")
+                props = (schema.get("properties") or {}).get(k) or {}
+                if isinstance(props.get("enum"), list):
+                    meta["allowed_values"] = list(props["enum"])
+            except Exception:
+                pass
+        out[k] = meta
+    return out
+
+
+def _missing_field_response(workspace: Path, plugin: str, phase_id: str,
+                            missing: list[str]) -> dict:
+    meta = entry_question_meta(workspace, plugin, phase_id, missing)
+    parts = []
+    for k in missing:
+        m = meta.get(k) or {}
+        av = m.get("allowed_values")
+        if av:
+            parts.append(f"{k} (allowed: {'|'.join(map(str, av))})")
+        else:
+            parts.append(k)
+    primary = missing[0]
+    primary_av = (meta.get(primary) or {}).get("allowed_values")
+    recovery = (
+        f"rerun: codenook task set --task <id> --field {primary} "
+        f"--value {(primary_av[0] if primary_av else '<value>')}"
+    )
+    return {
+        "status": "blocked",
+        "next_action": f"missing: {','.join(missing)}",
+        "message_for_user": "Please answer first: " + ", ".join(parts),
+        "missing": missing,
+        "allowed_values": {k: (meta.get(k) or {}).get("allowed_values")
+                           for k in missing
+                           if (meta.get(k) or {}).get("allowed_values")},
+        "recovery": recovery,
+    }
+
+
 # ── seed_subtasks (fanout) ──────────────────────────────────────────────
 def seed_subtasks(workspace: Path, state: dict, phase: dict) -> dict:
     parent = state["task_id"]
@@ -401,11 +493,8 @@ def dispatch_parallel(workspace: Path, state: dict, phase: dict, cfg: dict) -> d
 def dispatch_role(workspace: Path, state: dict, phase: dict, cfg: dict) -> dict:
     missing = check_entry_questions(workspace, state["plugin"], phase.get("id"), state)
     if missing:
-        return {
-            "status": "blocked",
-            "next_action": f"missing: {','.join(missing)}",
-            "message_for_user": f"Please answer first: {', '.join(missing)}",
-        }
+        return _missing_field_response(workspace, state["plugin"],
+                                       phase.get("id"), missing)
     if phase.get("allows_fanout") and state.get("decomposed"):
         return seed_subtasks(workspace, state, phase)
     if phase.get("dual_mode_compatible") and (
@@ -530,11 +619,8 @@ def tick(workspace: Path, state_file: Path) -> tuple[dict, dict]:
         first = phases[0]
         pre_check = check_entry_questions(workspace, plugin, first.get("id"), state)
         if pre_check:
-            return state, {
-                "status": "blocked",
-                "next_action": f"missing: {','.join(pre_check)}",
-                "message_for_user": f"Please answer first: {', '.join(pre_check)}",
-            }
+            return state, _missing_field_response(workspace, plugin,
+                                                  first.get("id"), pre_check)
         result = dispatch_or_skip(workspace, state, first, cfg, phases, trans_doc)
         return state, result
 
@@ -547,13 +633,40 @@ def tick(workspace: Path, state_file: Path) -> tuple[dict, dict]:
     just_consumed_verdict: str | None = None
     if in_flight:
         expected = in_flight.get("expected_output", "")
-        if not output_ready(workspace, state["task_id"], expected):
+        v, vstatus, vdetail = read_verdict_detailed(
+            workspace, state["task_id"], expected)
+        if v is None:
             del state["last_tick_ts"]
-            return state, {
-                "status": "waiting",
-                "next_action": f"awaiting {in_flight.get('role')}",
+            if vstatus == _OutputState.MISSING:
+                return state, {
+                    "status": "waiting",
+                    "next_action": f"awaiting {in_flight.get('role')}",
+                }
+            # E2E-005: surface parse / frontmatter / verdict errors instead
+            # of looking like the agent never returned.
+            reason_map = {
+                _OutputState.NO_FRONTMATTER: "no_frontmatter",
+                _OutputState.YAML_PARSE_ERROR: "yaml_parse_error",
+                _OutputState.BAD_VERDICT: "bad_verdict",
             }
-        just_consumed_verdict = read_verdict(workspace, state["task_id"], expected) or "ok"
+            reason = reason_map.get(vstatus, "malformed_output")
+            print(
+                f"[orchestrator-tick] WARNING: {in_flight.get('role')} output "
+                f"present but unusable ({reason}): {vdetail}",
+                file=sys.stderr,
+            )
+            return state, {
+                "status": "blocked",
+                "next_action": f"awaiting {in_flight.get('role')}",
+                "reason": reason,
+                "detail": vdetail,
+                "file": expected,
+                "message_for_user": (
+                    f"Role output present but unusable ({reason}). "
+                    f"Fix: {expected}"
+                ),
+            }
+        just_consumed_verdict = v
         state["history"].append(
             {"ts": now_iso(), "phase": cur.get("id"), "verdict": just_consumed_verdict}
         )
