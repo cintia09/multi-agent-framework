@@ -301,30 +301,92 @@ def _looks_like_repo_claude_md(path: Path) -> bool:
     return False
 
 
+_BEGIN_MARKER = "<!-- codenook:begin -->"
+_END_MARKER = "<!-- codenook:end -->"
+
+
+def _marker_lineranges(text: str) -> tuple[tuple[int, int] | None, list[tuple[int, int]]]:
+    """Return (inside_range, outside_ranges).
+
+    Lines are 1-indexed inclusive. ``inside_range`` covers
+    BEGIN..END markers (inclusive). ``outside_ranges`` covers everything else.
+    If markers are absent, inside_range is None and outside_ranges spans the
+    whole file.
+    """
+    lines = text.splitlines()
+    n = len(lines)
+    bi = ei = -1
+    for i, ln in enumerate(lines, start=1):
+        if _BEGIN_MARKER in ln and bi == -1:
+            bi = i
+        elif _END_MARKER in ln and bi != -1 and ei == -1:
+            ei = i
+            break
+    if bi == -1 or ei == -1 or ei <= bi:
+        return None, [(1, n)] if n else []
+    inside = (bi, ei)
+    outside = []
+    if bi > 1:
+        outside.append((1, bi - 1))
+    if ei < n:
+        outside.append((ei + 1, n))
+    return inside, outside
+
+
+def _filter_findings(findings: list[dict], ranges: list[tuple[int, int]]) -> list[dict]:
+    if not ranges:
+        return []
+    out = []
+    for f in findings:
+        ln = f.get("line", 0) or 0
+        if ln <= 0:
+            # Required-section findings are file-level — keep them.
+            out.append(f)
+            continue
+        for a, b in ranges:
+            if a <= ln <= b:
+                out.append(f); break
+    return out
+
+
 def cli_main(argv: list[str]) -> int:
     if argv and argv[0] in ("-h", "--help"):
         print(
-            "usage: claude_md_linter.py [--check-claude-md] <FILE> [<FILE> ...]\n"
-            "Scans CLAUDE.md-style files for forbidden domain tokens and\n"
-            "M9.7 memory-protocol violations. With --check-claude-md (or\n"
-            "when a path resolves to the repo-root CLAUDE.md) the linter\n"
-            "also requires the M9.2 watermark section to be present.\n"
-            "Exit 0 if no errors, 1 otherwise. Findings printed to stderr.",
+            "usage: claude_md_linter.py [--marker-only|--strict|--outside-marker-only]\n"
+            "                            [--check-claude-md] [--json] <FILE> [<FILE> ...]\n"
+            "\n"
+            "Modes (default: --marker-only):\n"
+            "  --marker-only         scan only INSIDE the codenook:begin..end block\n"
+            "  --strict              scan the entire file (legacy v0.11.2 behavior)\n"
+            "  --outside-marker-only scan only OUTSIDE the codenook block (installer warning)\n"
+            "\n"
+            "Other flags:\n"
+            "  --check-claude-md     additionally require the M9.2 watermark heading\n"
+            "  --json                emit machine-readable {errors,warnings,...} on stdout\n"
+            "\n"
+            "Exit 0 if no errors, 1 otherwise. Findings printed to stderr unless --json.",
             file=sys.stderr,
         )
         return 0
     if not argv:
         print(
-            "usage: claude_md_linter.py [--check-claude-md] <FILE> [<FILE> ...]",
+            "usage: claude_md_linter.py [--marker-only|--strict|--outside-marker-only] "
+            "[--check-claude-md] [--json] <FILE> [<FILE> ...]",
             file=sys.stderr,
         )
         return 2
 
-    explicit_check = False
     args = list(argv)
-    if "--check-claude-md" in args:
-        explicit_check = True
-        args = [a for a in args if a != "--check-claude-md"]
+    explicit_check = "--check-claude-md" in args
+    json_out = "--json" in args
+    strict = "--strict" in args
+    outside_only = "--outside-marker-only" in args
+    marker_only = "--marker-only" in args
+    if not (strict or outside_only or marker_only):
+        marker_only = True  # E2E-017 default
+    args = [a for a in args if a not in (
+        "--check-claude-md", "--json", "--strict",
+        "--marker-only", "--outside-marker-only")]
 
     paths = [Path(a) for a in args]
     missing = [p for p in paths if not p.exists()]
@@ -336,18 +398,49 @@ def cli_main(argv: list[str]) -> int:
     auto_check = any(_looks_like_repo_claude_md(p) for p in paths)
     check_required = explicit_check or auto_check
 
-    result = scan_files(paths, check_required_sections=check_required)
-    for f in result["errors"]:
-        print(_format_finding(f), file=sys.stderr)
-    for f in result["warnings"]:
-        print(_format_finding(f), file=sys.stderr)
+    aggregated: list[dict] = []
+    files_scanned = 0
+    for p in paths:
+        files_scanned += 1
+        text = p.read_text(encoding="utf-8", errors="replace") if p.is_file() else ""
+        raw = scan_file(p, check_required_sections=check_required)
+        if strict:
+            kept = raw
+        else:
+            inside, outside = _marker_lineranges(text)
+            ranges = [inside] if (marker_only and inside is not None) else (
+                outside if outside_only else (
+                    [inside] if inside is not None else []
+                )
+            )
+            # When marker-only and there are no markers, scan everything to
+            # avoid silently skipping un-augmented files.
+            if marker_only and inside is None:
+                ranges = [(1, len(text.splitlines()))] if text else []
+            kept = _filter_findings(raw, ranges)
+        aggregated.extend(kept)
 
-    print(
-        f"scanned {result['files_scanned']} file(s): "
-        f"{len(result['errors'])} error(s), {len(result['warnings'])} warning(s)",
-        file=sys.stderr,
-    )
-    return 0 if not result["errors"] else 1
+    errors = [f for f in aggregated if f["severity"] == "error"]
+    warnings = [f for f in aggregated if f["severity"] == "warning"]
+
+    if json_out:
+        import json as _json
+        print(_json.dumps({
+            "errors": errors,
+            "warnings": warnings,
+            "files_scanned": files_scanned,
+        }))
+    else:
+        for f in errors:
+            print(_format_finding(f), file=sys.stderr)
+        for f in warnings:
+            print(_format_finding(f), file=sys.stderr)
+        print(
+            f"scanned {files_scanned} file(s): "
+            f"{len(errors)} error(s), {len(warnings)} warning(s)",
+            file=sys.stderr,
+        )
+    return 0 if not errors else 1
 
 
 if __name__ == "__main__":  # pragma: no cover

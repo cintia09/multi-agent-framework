@@ -25,24 +25,53 @@ def render_block(version: str, plugin: str) -> str:
 
 ## CodeNook v{version} bootloader
 
-This workspace has the CodeNook plugin **`{plugin}`** installed. To start
-working with multi-agent flows, invoke the **`router-agent`** skill from
-your Claude Code or Copilot CLI session at the start of every turn:
+This workspace has the CodeNook plugin **`{plugin}`** installed.
+
+### Quick start (every CLI user, no host required)
+
+```bash
+.codenook/bin/codenook --help
+.codenook/bin/codenook task new   --title "Implement X"
+.codenook/bin/codenook router     --task T-001 --user-turn "Implement X end-to-end"
+.codenook/bin/codenook tick       --task T-001
+.codenook/bin/codenook decide     --task T-001 --phase design --decision approve
+.codenook/bin/codenook status     [--task T-001]
+.codenook/bin/codenook chain link --child T-002 --parent T-001
+```
+
+The wrapper resolves to the kernel via `kernel_dir` recorded in
+`.codenook/state.json`, so it works from any cwd in the workspace.
+
+### Hosted-agent flow (Claude Code / Copilot CLI)
+
+At the start of every turn, invoke the **`router-agent`** skill:
 
 > "Use the router-agent skill to ingest this turn against `.codenook/`."
 
-The router agent reads:
+The host drives the LLM round-trip natively. Plain-shell users without
+such a host should use the `codenook router` wrapper above; it calls
+`spawn.sh` and then `host_driver.py` to complete the loop.
 
-- `.codenook/state.json` — installed plugins
+### What the orchestrator reads
+
+- `.codenook/state.json` — installed plugins, kernel version, paths
+- `.codenook/state.example.md` — annotated task `state.json` reference
+- `.codenook/schemas/` — `task-state`, `installed`, `hitl-entry`, `queue-entry`
 - `.codenook/plugins/{plugin}/` — read-only phase prompts and roles
-- `.codenook/memory/` — knowledge / skills / config / history
+- `.codenook/memory/` — `knowledge`, `skills`, `history`, `_pending`, `config.yaml`
 - `.codenook/tasks/<task_id>/` — per-task state, prompts, audit log
 
-…then dispatches the next phase via `dispatch_subagent` and writes back
-to `.codenook/tasks/` only. **Plugin and source files are read-only.**
+**Plugin and source files are read-only.** Writes happen under
+`.codenook/tasks/`, `.codenook/memory/`, and `.codenook/queue/` only.
 
-For the live status of init.sh subcommands and the install flow, see the
-project README and `docs/architecture.md`.
+### Task-chain fields
+
+`state.json` supports `parent_id` (linked parent task) and `chain_root`
+(cached terminal ancestor; auto-maintained by `codenook chain link`).
+See `plugins/{plugin}/README.md` § task-chains.
+
+For init.sh subcommands and install flow see the project README and
+`docs/architecture.md`.
 {END}
 """
 
