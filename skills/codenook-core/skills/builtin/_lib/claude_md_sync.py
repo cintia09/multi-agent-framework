@@ -73,33 +73,57 @@ are expected on `PATH` already.
 The wrapper allocates the next `T-NNN` for you. **Do not** scan
 `.codenook/tasks/` and increment ids by hand.
 
-The default flow is **router-agent first** — it disambiguates which
-plugin (and roles) the user's request maps to, captures iterative
-drafting, and then hands off to the tick loop. This is required
-when more than one plugin is installed; for single-plugin workspaces
-see "shortcut" at the end of this section.
+The default flow is **conductor-driven plugin selection** → `task
+new --plugin <id>` → `tick`. The conductor (you) reads the user's
+intent, picks the best-matching plugin, and creates the task with
+`--plugin` set explicitly. The LLM-mediated router-agent drafting
+dialog is **off by default** and only invoked when the user
+explicitly asks for it.
+
+**What the conductor reads when picking a plugin / starting a task:**
+
+- `.codenook/plugins/<id>/plugin.yaml` — the manifest's match
+  fields (which use-cases / keywords / examples) for each
+  installed plugin. Rank these against the user's request to
+  choose one. If two tie or none fits, ask.
+- `.codenook/memory/knowledge/*.md` — workspace-shared knowledge
+  distilled from prior tasks. May influence scope, defaults, or
+  warnings to surface to the user. Skim file names; read on demand.
+- `.codenook/memory/skills/*.md` — workspace-shared procedural
+  skills (recipes, conventions). Same usage as `knowledge/`.
+- `.codenook/memory/history/` and `.codenook/memory/_pending/` —
+  prior task summaries and draft notes. Useful when the user
+  references "last time" or wants to continue earlier work.
+- `.codenook/memory/config.yaml` — workspace-level overrides
+  (default plugin, dual_mode, target_dir, etc.) — honour these
+  when the user did not state otherwise.
+
+The conductor MAY read these files freely. They are workspace-
+shared resources, not phase outputs. The "zero domain budget"
+hard rules below restrict only state mutation and per-phase
+artifact interpretation, not orientation reads.
 
 ```bash
-# 1. Create the task scaffold (returns the new T-NNN on stdout).
-#    Do NOT pass --accept-defaults here; let router-agent fill in
-#    plugin / scope / dual_mode through the drafting dialog.
-<codenook> task new --title "<short title>"
+# 1. Pick a plugin. Read each .codenook/plugins/<id>/plugin.yaml,
+#    skim .codenook/memory/{{knowledge,skills}}/, rank candidates
+#    against the user request, choose the best fit. If two tie or
+#    none fits well, ask the user which one.
+#
+# 2. Create the task. Pass --plugin explicitly. --summary carries
+#    the user's request verbatim; --accept-defaults fills
+#    dual_mode/priority/target_dir with sane defaults so no
+#    entry-question gate fires. Returns the new T-NNN on stdout.
+<codenook> task new --title "<short title>" \
+                    --summary "<verbatim user request>" \
+                    --plugin <chosen-plugin-id> \
+                    --accept-defaults
 
-# 2. Hand the user's request to router-agent. It returns a JSON
-#    envelope with prompt_path / reply_path; dispatch a sub-agent
-#    per the dispatch protocol below.
-<codenook> router --task <T-NNN> --user-turn "<verbatim user text>"
-
-# 3. Each user follow-up is another router call with the user's
-#    exact words (continue the drafting dialog).
-<codenook> router --task <T-NNN> --user-turn "<verbatim user reply>"
-
-# 4. When the router-reply.md frontmatter signals handoff
-#    (awaiting: handoff or status: confirmed), drive the tick loop:
+# 3. Drive the tick loop. Each call advances at most one phase and
+#    returns a JSON envelope with the new status.
 <codenook> tick --task <T-NNN> --json
 ```
 
-Loop step 4 on `status: advanced`. Stop on `done` / `blocked` and
+Loop step 3 on `status: advanced`. Stop on `done` / `blocked` and
 report verbatim. On `waiting`, scan `.codenook/hitl-queue/*.json`
 for entries with `decision == null`, relay each `prompt` field
 verbatim to the user, capture the answer, then:
@@ -112,22 +136,19 @@ verbatim to the user, capture the answer, then:
 
 Resume the tick loop when all gates resolve.
 
-#### Single-plugin shortcut (skip router-agent)
+#### Optional: router-agent drafting dialog (advanced, off by default)
 
-If `state.installed_plugins` has exactly one entry AND the user's
-request needs no drafting clarification, you may skip router-agent
-and go straight to tick:
+Only invoke `router` when the user explicitly asks for an
+LLM-mediated drafting dialog. The default conductor-driven flow
+above handles the common case faster (no extra sub-agent round-trip
+just to pick a plugin).
 
 ```bash
-<codenook> task new --title "<short title>" \
-                    --summary "<verbatim user request>" \
-                    --accept-defaults
-<codenook> tick --task <T-NNN> --json
+<codenook> router --task <T-NNN> --user-turn "<verbatim user text>"
 ```
 
-For multi-plugin workspaces this shortcut silently picks
-`installed_plugins[0]` which is almost always wrong — use the
-default router-driven flow instead.
+`router` prints a JSON envelope with `prompt_path` / `reply_path`;
+follow the same dispatch protocol as `tick` envelopes.
 
 ### The dispatch envelope (used by both `tick` and `router`)
 
@@ -201,13 +222,20 @@ as a fallback — use the `.cmd` wrapper instead.**
 
 ### Hard rules for the LLM (zero domain budget)
 
-- MUST NOT read `plugins/*/plugin.yaml`, `plugins/*/knowledge/`,
-  `plugins/*/roles/`, `plugins/*/skills/` directly. Plugin selection
-  happens inside router-agent.
-- MUST NOT mention plugin ids in prose ("development", "writing", etc).
-- MUST NOT modify `router-context.md`, `draft-config.yaml`, `state.json`
-  by hand — only via the `codenook` CLI wrapper, which fronts
-  `spawn.sh`, `orchestrator-tick`, and `hitl-adapter`.
+- MAY read `.codenook/plugins/*/plugin.yaml` and
+  `.codenook/memory/{{knowledge,skills,history,_pending,config.yaml}}`
+  for orientation (plugin selection, scope hints, conventions).
+  These are workspace-shared resources and reading is expected.
+- MUST NOT read `.codenook/plugins/*/roles/` or
+  `.codenook/plugins/*/skills/` or `.codenook/plugins/*/knowledge/`
+  in conductor context — those are sub-agent system prompts /
+  per-phase resources, not for the conductor to interpret.
+- MUST NOT mention plugin ids in user-facing prose unless echoing
+  back what the user said. Pick the plugin silently via
+  `--plugin <id>`.
+- MUST NOT modify `router-context.md`, `draft-config.yaml`,
+  `state.json` by hand — only via the `codenook` CLI wrapper, which
+  fronts `spawn.sh`, `orchestrator-tick`, and `hitl-adapter`.
 - MUST NOT spawn phase agents (designer / implementer / tester /
   reviewer / acceptor / validator) directly. That's `codenook tick`'s
   job (which fronts `tick.sh`).

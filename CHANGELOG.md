@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.19] - conductor-driven plugin selection + dead router code removal
+
+### Changed
+
+- **Bootloader (`CLAUDE.md`)** flipped back: the conductor (host LLM
+  session) now picks the plugin itself by reading
+  `.codenook/plugins/*/plugin.yaml` (`applies_to`, `keywords`,
+  `examples`) and skimming `.codenook/memory/{knowledge,skills,
+  history,_pending,config.yaml}` for prior-task context. Default
+  flow is `task new --plugin <id> --accept-defaults` → `tick`. The
+  router-agent drafting sub-agent is **off by default** and only
+  invoked when the user explicitly asks for it, or in multi-plugin
+  ambiguous cases the conductor cannot resolve on its own.
+- Hard rules relaxed accordingly: conductor MAY read plugin
+  manifests and `memory/` (workspace-shared resources). Still MUST
+  NOT read `plugins/*/roles/`, `plugins/*/skills/`, or
+  `plugins/*/knowledge/` (those are sub-agent system prompts), and
+  MUST NOT mention plugin ids in user-facing prose unless echoing
+  back the user.
+
+### Removed
+
+- Dead `host_driver.py` (in-process LLM round-trip for router-agent)
+  and its test (`tests/python/test_router_host_driver.py`). The
+  `CN_ROUTER_DRIVE=1` opt-in block in the wrapper is removed; it
+  was never enabled in production. Router still works via
+  `codenook router` when explicitly invoked — `spawn.sh` +
+  `render_prompt.py` are kept.
+
+### Why
+
+`router-agent` was costing a full sub-agent dispatch round-trip on
+every task start, even when the user's intent already mapped
+unambiguously to one plugin. Conductor-driven selection is one or
+two file reads in main context, no extra LLM call, and lets the
+conductor naturally surface ambiguity to the user via the host's
+own prompting mechanism. Memory awareness was the missing piece:
+prior-task knowledge now influences plugin choice and scope hints.
+
 ## [0.13.18] - re-promote router-agent as default + idempotent --upgrade
 
 ### Changed

@@ -37,7 +37,7 @@ export PYTHONIOENCODING=utf-8
 # On Windows the .cmd shim prepends a Python install dir to PATH, but the
 # executable there is usually `python.exe` (not `python3.exe`). We synthesize
 # a tiny `python3` shim in a temp dir and front-load it onto PATH so every
-# downstream call (this script, spawn.sh, tick.sh, host_driver.py) finds it
+# downstream call (this script, spawn.sh, tick.sh) finds it
 # without code changes.
 if ! command -v python3 >/dev/null 2>&1; then
   if command -v python >/dev/null 2>&1; then
@@ -97,7 +97,6 @@ fi
 LIB_DIR="$KERNEL_DIR/_lib"
 TICK_SH="$KERNEL_DIR/orchestrator-tick/tick.sh"
 ROUTER_SPAWN="$KERNEL_DIR/router-agent/spawn.sh"
-ROUTER_DRIVER="$KERNEL_DIR/router-agent/host_driver.py"
 HITL_SH="$KERNEL_DIR/hitl-adapter/terminal.sh"
 TASK_CONFIG_SET="$KERNEL_DIR/task-config-set/set.sh"
 
@@ -295,23 +294,6 @@ cmd_router() {
   # AFTER the conductor (main LLM session) dispatches a sub-agent using
   # prompt_path as the system prompt (see CLAUDE.md §1).
   "$ROUTER_SPAWN" --task-id "$task" --workspace "$CODENOOK_WORKSPACE" --user-turn "$user_turn"
-
-  # Optional headless / batch mode: if CN_ROUTER_DRIVE=1, run host_driver.py
-  # to do the LLM round-trip in-process (uses _lib/llm_call.py — defaults to
-  # mock unless CN_LLM_MODE=real). Off by default so the conductor LLM can
-  # drive the dispatch via its own sub-agent facility (the v6 protocol).
-  if [ "${CN_ROUTER_DRIVE:-0}" = "1" ]; then
-    if [ -x "$ROUTER_DRIVER" ] || [ -f "$ROUTER_DRIVER" ]; then
-      python3 "$ROUTER_DRIVER" --task-id "$task" --workspace "$CODENOOK_WORKSPACE" || true
-    fi
-    local _reply="$CODENOOK_WORKSPACE/.codenook/tasks/$task/router-reply.md"
-    if [ -f "$_reply" ]; then
-      echo
-      echo "----- router-reply.md -----"
-      cat "$_reply"
-      echo "----- end router-reply -----"
-    fi
-  fi
 }
 
 cmd_tick() {
