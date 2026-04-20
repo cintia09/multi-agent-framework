@@ -236,11 +236,14 @@ On `waiting` you may also need to clear an HITL gate. Scan
 `.codenook/hitl-queue/*.json` for entries with `decision == null`.
 For each open entry:
 
-1. **Default channel is `terminal`.** Before relaying the prompt,
-   briefly ask the user whether to switch to the `html` channel for
-   this gate (one short ask_user with two choices: `terminal`
-   (default) / `html`). If the user picks anything other than
-   `html`, treat it as `terminal`.
+1. **MANDATORY channel-choice ask.** Before relaying ANY HITL gate
+   prompt to the user, you MUST first issue exactly one `ask_user`
+   (or equivalent) with two choices — `terminal` (default) and
+   `html` — to let the user pick the channel for this gate. This
+   step is non-negotiable: do NOT skip it, do NOT inline it into a
+   later question, do NOT decide on the user's behalf. Any answer
+   other than `html` is treated as `terminal`.
+
    - `terminal` (default) — relay the `prompt` field verbatim via
      your normal `ask_user`-style facility.
    - `html` — render the gate as a self-contained file the user
@@ -253,8 +256,10 @@ For each open entry:
      # then ask for their decision + comment in the terminal as usual.
      ```
 
-   If only `terminal` is reachable in your runtime (e.g. no shell
-   wrapper available), skip the question and use it.
+   The ONLY case in which you may skip the channel-choice ask is
+   when no shell wrapper is reachable in your runtime (so `html`
+   cannot be honoured anyway); in that case use `terminal`
+   unconditionally.
 2. Relay the prompt (verbatim if terminal; via the rendered file if
    html), capture the user's answer, then submit the decision:
 

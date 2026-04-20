@@ -128,18 +128,39 @@ When the tick returns `waiting`, scan
 `<ws>/.codenook/hitl-queue/*.json` for entries whose `decision` is
 `null`. For each such entry:
 
-* Read the entry JSON.
-* Show the `prompt` field verbatim to the user. Do not interpret the
-  gate, do not editorialise, do not suggest an answer.
-* Capture the user's free-form answer.
-* Invoke
+1. **MANDATORY channel-choice ask.** Before relaying ANY HITL gate
+   prompt, you MUST first issue exactly one `ask_user` (or
+   equivalent) with two choices — `terminal` (default) and `html` —
+   to let the user pick the channel for this gate. This step is
+   non-negotiable: do NOT skip it, do NOT inline it into a later
+   question, do NOT decide on the user's behalf. Any answer other
+   than `html` is treated as `terminal`. The ONLY case in which you
+   may skip the ask is when no shell wrapper is reachable in your
+   runtime (so `html` cannot be honoured anyway); in that case use
+   `terminal` unconditionally.
 
-  ```bash
-  <ws>/.codenook/codenook-core/skills/builtin/hitl-adapter/terminal.sh decide \
-      --id <hitl-entry-id> --decision <answer>
-  ```
+2. **Relay the prompt.**
+   - `terminal` — read the entry JSON and show the `prompt` field
+     verbatim to the user. Do not interpret the gate, do not
+     editorialise, do not suggest an answer.
+   - `html` — render the gate as a self-contained file and tell the
+     user to open it:
 
-* When all open gates are resolved, resume the tick loop (§4).
+     ```bash
+     <ws>/.codenook/codenook-core/skills/builtin/hitl-adapter/html.sh render \
+         --id <hitl-entry-id>
+     ```
+
+     Then collect the decision back in the terminal as usual.
+
+3. Capture the user's free-form answer and submit:
+
+   ```bash
+   <ws>/.codenook/codenook-core/skills/builtin/hitl-adapter/terminal.sh decide \
+       --id <hitl-entry-id> --decision <answer>
+   ```
+
+4. When all open gates are resolved, resume the tick loop (§4).
 
 ## 6. Termination
 
