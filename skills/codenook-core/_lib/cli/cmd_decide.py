@@ -80,10 +80,6 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
             except Exception:
                 continue
             if e.get("task_id") != task or e.get("decision"):
-                if e.get("task_id") == task and not e.get("decision"):
-                    g = e.get("gate") or ""
-                    if g and g not in pending_gates:
-                        pending_gates.append(g)
                 continue
             g = e.get("gate") or ""
             if g and g not in pending_gates:
