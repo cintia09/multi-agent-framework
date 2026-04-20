@@ -37,22 +37,24 @@ When a user message reads as a request to start new work:
 * DO allocate a fresh task id by scanning the workspace's existing
   `tasks/T-*` directories and incrementing the highest numeric
   suffix (zero-padded to three digits, e.g. `T-001`, `T-042`).
-* DO invoke the router-agent spawn entry once:
+* DO invoke the router entry once via the workspace CLI:
 
   ```bash
-  <ws>/.codenook/codenook-core/skills/builtin/router-agent/spawn.sh \
-      --workspace <ws> \
-      --task-id <new-T-NNN>
+  <codenook> router --task <new-T-NNN>
   ```
 
-* The spawn entry returns a single-line JSON envelope of the form
+  Where `<codenook>` is whichever CLI shim is appropriate for your
+  shell — typically `<ws>/.codenook/bin/codenook` on POSIX or
+  `<ws>\.codenook\bin\codenook.cmd` on Windows.
+
+* The router returns a single-line JSON envelope of the form
   `{"action": "...", "task_id": "...", "prompt_path": "...", "reply_path": "...", ...}`.
   Read the `prompt_path` file, dispatch a sub-agent (Task tool /
   sub-agent dispatch) using that prompt as the system prompt, and
   when the sub-agent finishes, read the `reply_path` file and show
   its contents verbatim to the user.
 * The main session does not paraphrase, summarise, or annotate the
-  router-agent's reply.
+  router's reply.
 
 ## 2. On each user follow-up turn
 
@@ -60,11 +62,11 @@ When the user replies during an open drafting dialog:
 
 * Persist the user's exact utterance to a scratch file
   (`tasks/<T-NNN>/.user-turn.txt` or similar).
-* DO invoke spawn again with the existing task id and the turn file:
+* DO invoke the router again with the existing task id and the turn
+  file:
 
   ```bash
-  spawn.sh --task-id <T-NNN> --workspace <ws> \
-           --user-turn-file <path-to-user-turn-text>
+  <codenook> router --task <T-NNN> --user-turn-file <path-to-user-turn-text>
   ```
 
 * Run the same dispatch loop: read `prompt_path`, dispatch a fresh
@@ -78,10 +80,10 @@ When the user replies during an open drafting dialog:
 When the user explicitly confirms (e.g. "go", "confirm", "approve",
 "ship it"):
 
-* DO invoke spawn in confirm mode:
+* DO invoke the router in confirm mode:
 
   ```bash
-  spawn.sh --task-id <T-NNN> --workspace <ws> --confirm
+  <codenook> router --task <T-NNN> --confirm
   ```
 
 * On `action == "handoff"`: the draft is frozen, `state.json` is
@@ -89,7 +91,7 @@ When the user explicitly confirms (e.g. "go", "confirm", "approve",
   loop (see §4).
 * On `action == "error"` with `code == "draft_invalid"`: show the
   `errors` array verbatim to the user and return to step 2 (continue
-  the dialog by collecting the next user turn and calling spawn
+  the dialog by collecting the next user turn and calling the router
   again).
 * On `action == "busy"`: surface the message verbatim and let the
   user retry.
@@ -102,8 +104,7 @@ metronome. Loop:
 1. Invoke
 
    ```bash
-   <ws>/.codenook/codenook-core/skills/builtin/orchestrator-tick/tick.sh \
-       --task <T-NNN> --workspace <ws> --json
+   <codenook> tick --task <T-NNN> --json
    ```
 
 2. Read the `status` field from the JSON envelope. Treat it as
@@ -147,19 +148,17 @@ When the tick returns `waiting`, scan
      **auto-open it in the default browser** with `--open`:
 
      ```bash
-     <ws>/.codenook/codenook-core/skills/builtin/hitl-adapter/html.sh render \
-         --id <hitl-entry-id> --open
+     <codenook> hitl render --id <hitl-entry-id> --open
      ```
 
-     The script writes the file, prints its path, then opens it via
+     The CLI writes the file, prints its path, then opens it via
      `open` (macOS) / `xdg-open` (Linux) / `start` (Windows). Then
      collect the decision back in the terminal as usual.
 
 3. Capture the user's free-form answer and submit:
 
    ```bash
-   <ws>/.codenook/codenook-core/skills/builtin/hitl-adapter/terminal.sh decide \
-       --id <hitl-entry-id> --decision <answer>
+   <codenook> hitl decide --id <hitl-entry-id> --decision <answer>
    ```
 
 4. When all open gates are resolved, resume the tick loop (§4).
@@ -228,8 +227,7 @@ knowledge to context overflow:
 1. **Stop new feature work** — do not spawn new sub-agents and do not
    open new files for reading.
 2. **Sediment current task knowledge** — for each active task ID, call:
-   `bash <ws>/.codenook/codenook-core/skills/builtin/extractor-batch/extractor-batch.sh \
-       --task-id <T-NNN> --reason context-pressure --workspace <ws>`
+   `<codenook> extract --task <T-NNN> --reason context-pressure`
    This command asynchronously dispatches knowledge / skill / config
    extractors in a subprocess, returns within ≤ 200ms wall-clock, and
    does not block the main session.
@@ -239,7 +237,7 @@ knowledge to context overflow:
 
 The main session is **not allowed** to scan any file under
 `.codenook/memory/` directly; it can only rely on the exit JSON from
-`extractor-batch.sh --reason context-pressure` and forward it as a
+`<codenook> extract --reason context-pressure` and forward it as a
 string to the user. The full watermark protocol (path A / path B,
 idempotency keys, `MEMORY_INDEX` injection, `extraction-log.jsonl`
 audit semantics, context-pressure event type) is documented in

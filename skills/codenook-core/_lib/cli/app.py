@@ -21,11 +21,12 @@ Subcommands:
                        [--parent T-X] [--priority P0|P1|P2|P3]
                        [--accept-defaults]
   task set --task T-NNN --field <field> --value <val>
-  router   --task T-NNN --user-turn "…"
+  router   --task T-NNN [--user-turn "…" | --user-turn-file <p> | --confirm]
   tick     --task T-NNN [--json]
   decide   --task T-NNN --phase <id> --decision approve|reject|needs_changes
                                     [--comment "…"]
   hitl     <list|show|render|decide> [args...]
+  extract  --task T-NNN --reason <reason> [--phase <phase>]
   status   [--task T-NNN]
   chain    link  --child T-X --parent T-Y [--force]
   chain    show  <task>
@@ -91,6 +92,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if sub == "hitl":
         from . import cmd_hitl
         return cmd_hitl.run(ctx, rest)
+    if sub == "extract":
+        from . import cmd_extract
+        return cmd_extract.run(ctx, rest)
     if sub == "status":
         from . import cmd_status
         return cmd_status.run(ctx, rest)

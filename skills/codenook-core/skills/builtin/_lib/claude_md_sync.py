@@ -6,7 +6,7 @@ Wraps the bootloader between explicit ``<!-- codenook:begin -->`` and
 place; user content outside the markers is never touched. When no
 CLAUDE.md exists, a stub is created containing only the block.
 
-Used by the top-level ``install.sh`` (DR-006).
+Used by the top-level ``install.py`` (DR-006).
 """
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ END = "<!-- codenook:end -->"
 
 def render_block(version: str, plugin: str) -> str:
     return f"""{BEGIN}
-<!-- DO NOT EDIT BY HAND. Managed by `bash install.sh`. To remove this block,
-     re-run install.sh with --no-claude-md and delete the markers manually. -->
+<!-- DO NOT EDIT BY HAND. Managed by `python install.py`. To remove this block,
+     re-run install.py with --no-claude-md and delete the markers manually. -->
 
 ## CodeNook v{version} bootloader
 
@@ -49,10 +49,12 @@ guessing.
 ### Invoking the orchestrator (env-portable form)
 
 **Always use the `.codenook/bin/codenook` CLI wrapper.** Do **not** call
-`spawn.sh`, `tick.sh`, or `terminal.sh` directly — those require `bash`
-and `python3` to be on `PATH`, which is often **not** the case in a
-Windows hosted-LLM session (Copilot CLI, Cursor, etc.). The wrapper
-auto-discovers Git-for-Windows bash and a working python3 for you.
+the underlying kernel scripts (under
+`.codenook/codenook-core/skills/builtin/`) directly — they are private
+implementation details and may be renamed or replaced across kernel
+upgrades. The wrapper auto-discovers a working `python3` (and Git-for-
+Windows bash on Windows when the kernel still needs it internally) so
+the same CLI works identically on macOS, Linux, and Windows.
 
 **Per-shell invocation form** (replace `<codenook>` in every example
 below with the form for your host shell):
@@ -272,13 +274,18 @@ For each open entry:
 
 Resume the tick loop when all gates resolve.
 
-### Direct kernel-script form (advanced, bash environments only)
+### CLI is the ONLY sanctioned entry point
 
-If you're already in bash/zsh on Linux/macOS, the underlying scripts
-under `.codenook/codenook-core/skills/builtin/` can be called directly
-(see `docs/router-agent.md`). The CLI wrapper above is preferred for
-all routine flows. **Never attempt the raw-bash form from PowerShell
-as a fallback — use the `.cmd` wrapper instead.**
+The `codenook` CLI is the canonical contract. Internal kernel scripts
+under `.codenook/codenook-core/skills/builtin/` are private
+implementation details — calling them directly is unsupported and may
+break across kernel upgrades. Specifically:
+
+- POSIX shells (bash/zsh): use `<ws>/.codenook/bin/codenook ...`
+- Windows (PowerShell / cmd): use `<ws>\.codenook\bin\codenook.cmd ...`
+
+Both shims dispatch to the same Python entrypoint, so behaviour is
+identical across platforms. There is no "raw-bash form" fallback.
 
 ### Hard rules for the LLM (zero domain budget)
 
@@ -331,8 +338,8 @@ as a fallback — use the `.cmd` wrapper instead.**
 (cached terminal ancestor; auto-maintained by `codenook chain link`).
 See `plugins/{plugin}/README.md` § task-chains.
 
-For init.sh subcommands and install flow see the project README and
-`docs/architecture.md`.
+For install flow and CLI subcommand reference see the project README
+and `docs/architecture.md`.
 {END}
 """
 
