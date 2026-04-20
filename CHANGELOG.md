@@ -2,6 +2,87 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.2] - 2026-04-20 · Fix-pack (deep-review DR-001..DR-014 subset)
+
+Fix-pack release applying the high-impact subset of the v0.11.1
+deep-review (`docs/deep-review-v0.11.1.md`). Bats sweep grows from
+**851 → 878** assertions (27 new); zero regressions. See
+`docs/release-report-v0.11.md` §"v0.11.2 follow-up" for the full
+matrix.
+
+### Removed
+
+- `skills/codenook-init/` — the v4.9.5 legacy initialiser was missed
+  during v0.11.1 v5-poc cleanup. Deleted in full; the matching
+  `sync-skills.sh` (which only existed to push that skill to
+  `~/.copilot/` and `~/.claude/`) is also removed. Cross-references
+  purged from README, PIPELINE, requirements, architecture and
+  implementation docs (historical reports retain their original
+  wording).
+
+### Added
+
+- Top-level `install.sh` rewritten: accepts `bash install.sh
+  <workspace_path>` (DR-002) and delegates to
+  `skills/codenook-core/install.sh`. New flags: `--dry-run`,
+  `--upgrade`, `--check`, `--no-claude-md`, `--plugin <id>`. Always
+  idempotent.
+- `skills/codenook-core/skills/builtin/_lib/claude_md_sync.py` — new
+  helper that writes/replaces a clearly delimited
+  `<!-- codenook:begin --> ... <!-- codenook:end -->` bootloader block
+  in the workspace `CLAUDE.md` (DR-006). Re-runs produce zero diff;
+  user content outside the markers is never touched.
+- `skills/codenook-core/skills/builtin/_lib/secret_scan.py` — extended
+  ruleset (DR-005): JWT, Google API keys (`AIza…`), Slack tokens,
+  generic `Authorization: Bearer …` (≥ 20-char token), modern GitHub
+  PATs (`ghp_/ghs_/gho_/ghu_/ghr_`, `github_pat_`). Also added a thin
+  CLI to the module so it can be invoked as
+  `python3 secret_scan.py <file>...`.
+- `skills/codenook-core/skills/builtin/preflight/_preflight.py`:
+  `_discover_known_phases()` reads phase ids from the active plugin's
+  `phases.yaml` (resolved via `state["plugin"]` or the single entry in
+  workspace `state.json`); falls back to a generic legacy +
+  development-plugin superset (DR-008).
+- New bats: `tests/v011_2-fix-pack.bats` (19 cases),
+  `tests/v011_2-install-claude-md.bats` (8 cases).
+
+### Fixed
+
+- `plugin_readonly.assert_writable_path` no longer over-blocks when
+  called with `workspace_root=None`: now falls back to CWD as the
+  implicit workspace, matching the kernel's runtime invariant
+  (DR-001). Three legacy `m9-plugin-readonly.bats` tests
+  (TC-M9.7-03 memory_layer, TC-M9.7-22 router_context, TC-M9.7-23
+  draft_config) updated to chdir into the workspace, locking the new
+  contract.
+- `memory_index._write_snapshot` now `os.unlink`s the
+  `.index-snapshot.json.lock` file after releasing the `flock`,
+  preventing accumulation of stale lock files (DR-011).
+- Source-tree docstrings rewritten: every `docs/v6/<name>-v6.md`
+  reference now points at the flattened `docs/<name>.md` (DR-004).
+  `grep -r docs/v6 skills/ plugins/` returns 0.
+
+### Documentation
+
+- README, PIPELINE, `docs/architecture.md`, `docs/implementation.md`:
+  added `init.sh` subcommand status table / banner — only
+  `--version`, `--help`, `--refresh-models` are ✅ live in v0.11.2;
+  the rest are 🚧 planned for v0.12. Quick Start now points at
+  `bash install.sh <workspace_path>` (DR-003).
+- `docs/release-report-v0.11.md` MEDIUM-04 entry rewritten: clarifies
+  that `fcntl.flock` IS implemented in `_write_snapshot`; only the
+  cross-lock ordering between snapshot lock and per-task `task_lock`
+  remains for v0.12 (DR-014).
+- `docs/requirements.md` FR-INIT-2 updated to describe the new
+  `install.sh` semantics and the legacy `codenook-init` removal.
+- `blog/images/architecture-v0.11.{svg,png}` and the hero
+  `blog/images/architecture.png` redrawn as a strict 4-layer C4
+  diagram. `router-agent`, `orchestrator-tick`, `spawn`,
+  `dispatch_subagent` now appear **once**, inside the Kernel
+  container (alongside the other builtin skills and the `_lib/`
+  utilities row). Hand-authored SVG; rendered via `rsvg-convert -w
+  1920`.
+
 ## [0.11.1] - 2026-04-19 · Surface Cleanup (v5-poc removal)
 
 Surface-only cleanup release. **No functional changes** to
