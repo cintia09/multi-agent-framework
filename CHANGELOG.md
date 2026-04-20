@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.8] - Bootloader: explicit-trigger only + always-ask-next-step rule
+
+### Changed
+
+- **`_lib/claude_md_sync.py` `render_block`** — removed the
+  "LLM autonomously decides whether to start a task" section
+  (with ✅/❌ examples and "lean toward starting" guidance). The
+  conductor no longer guesses. A CodeNook task is started **only**
+  when the user explicitly asks for one ("open a codenook task",
+  "用 codenook 做", "走 codenook 流程", etc.). Without that explicit
+  trigger the LLM answers the user normally and never spawns
+  router-agent. This matches the original "main session has zero
+  domain budget" design — even the trigger judgment is offloaded to
+  the user.
+
+### Added
+
+- **Hard rule: always ask for next step** — every reply must end by
+  asking the user what to do next (host's interactive prompt facility
+  preferred, plain text otherwise). Applies whether or not a task is
+  active.
+
 ## [0.13.7] - Bootloader: rewrite as autonomous-trigger main-session protocol
 
 ### Changed

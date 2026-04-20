@@ -26,28 +26,25 @@ def render_block(version: str, plugin: str) -> str:
 ## CodeNook v{version} bootloader
 
 This workspace has the CodeNook plugin **`{plugin}`** installed.
-CodeNook is a multi-agent task orchestrator: when the user asks you to
-*do something*, you (the LLM) hand the work off to a structured pipeline
-(design → implement → test → review → accept) instead of doing it ad-hoc.
+CodeNook is a multi-agent task orchestrator. The LLM (you) acts as a
+**pure conductor**: when the user asks for a CodeNook task, you hand
+the work off to the orchestrator and relay its messages verbatim. You
+do **not** decide on your own whether something should become a task.
 
-### When to start a CodeNook task (LLM autonomous decision)
+### When to start a CodeNook task (explicit user trigger only)
 
-**Trigger** — start a task whenever the user's intent is "**make me do
-something**" rather than "**answer my question**". Lean toward starting
-one when in doubt.
+Start a task **only** when the user explicitly asks for one. Recognise
+phrases such as:
 
-✅ Examples that SHOULD trigger a task:
-- "Implement / build / add / refactor / migrate / fix / clean up …"
-- "Investigate this bug and produce a fix"
-- "Add tests for module X and bring coverage up"
-- Any request that naturally decomposes into design + impl + test
-- Any request that should produce a reviewable code change
+- "open / start / new / create a codenook task"
+- "use codenook to …"
+- "走 codenook 流程", "用 codenook 做", "新建 codenook 任务",
+  "开个 codenook 任务", "交给 codenook"
 
-❌ Examples that should NOT trigger a task:
-- "Show me / read / open / explain / what does X do?"
-- "Run this command", "git status", "list files"
-- One-off lookups, navigation, single-shot Q&A
-- Conversational replies / clarifications mid-flight
+If the user just asks a question or asks you to do something **without**
+mentioning codenook, answer normally — do not auto-spawn a task. When
+unsure, ask the user whether they want a CodeNook task instead of
+guessing.
 
 ### How to start a task
 
@@ -131,6 +128,10 @@ The wrapper resolves the kernel via `kernel_dir` in `.codenook/state.json`.
   reviewer / acceptor / validator) directly. That's `tick.sh`'s job.
 - MUST NOT interpret, paraphrase, or summarise `router-reply.md`, the
   HITL `prompt` field, or per-phase outputs. Relay verbatim.
+- MUST end every reply by asking the user what their next step is
+  (e.g. "What would you like to do next?" / "下一步想做什么？"). Use
+  the host's interactive prompt facility when available; otherwise ask
+  in plain text. This applies whether or not a CodeNook task is active.
 - If a task seems to require breaking one of these rules, surface the
   problem to the user instead of working around it.
 
