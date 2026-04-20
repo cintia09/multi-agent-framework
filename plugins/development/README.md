@@ -56,3 +56,31 @@ summary: <≤200 chars>
   equivalence is the v6 acceptance bar (§9.5 / decision #T-13).
 * The plugin uninstall path is not exercised; M2 ships install only.
   An archive-on-uninstall flow is M7+.
+
+## Task chains (M10 / E2E-008)
+
+Tasks can be linked into parent/child chains for context propagation
+and chain-summarized memory. The relevant `state.json` fields are:
+
+| Field | Type | Set by | Purpose |
+|---|---|---|---|
+| `parent_id` | `T-XXX` \| `null` | `codenook chain link` / `codenook task new --parent` | Direct parent task id. |
+| `chain_root` | `T-XXX` \| `null` | Auto-maintained by `task_chain.set_parent` | Cached terminal ancestor for O(1) root lookup. |
+
+The bootloader CLI ships a helper:
+
+```bash
+.codenook/bin/codenook chain link  --child T-002 --parent T-001
+.codenook/bin/codenook chain show  T-002
+.codenook/bin/codenook chain detach T-002
+```
+
+The link command refuses cycles (`CycleError`, exit 2), refuses
+overwrites without `--force` (`AlreadyAttachedError`, exit 3), and
+echoes back `{child, parent_id, chain_root}` so callers can verify the
+write took effect.
+
+> **Common mistake.** The schema field is `parent_id`, not `parent`.
+> A bare `parent:` key is rejected by `task-state.schema.json`
+> (`additionalProperties: false`). Always use the `chain link` helper
+> or set `parent_id` explicitly.
