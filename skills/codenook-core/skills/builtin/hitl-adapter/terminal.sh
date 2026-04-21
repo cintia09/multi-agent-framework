@@ -15,7 +15,7 @@ SUBCMD="${1:-}"
 [ $# -ge 1 ] && shift || true
 
 ID=""; DECISION=""; REVIEWER=""; COMMENT=""; WORKSPACE="${CODENOOK_WORKSPACE:-}"
-JSON="0"
+JSON="0"; RAW="0"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -25,6 +25,7 @@ while [ $# -gt 0 ]; do
     --comment)   COMMENT="$2"; shift 2 ;;
     --workspace) WORKSPACE="$2"; shift 2 ;;
     --json)      JSON="1"; shift ;;
+    --raw)       RAW="1"; shift ;;
     -h|--help)
       sed -n '1,40p' "$(dirname "$0")/SKILL.md"; exit 0 ;;
     *) echo "terminal.sh: unknown arg: $1" >&2; exit 2 ;;
@@ -57,4 +58,5 @@ CN_REVIEWER="$REVIEWER" \
 CN_COMMENT="$COMMENT" \
 CN_WORKSPACE="$WORKSPACE" \
 CN_JSON="$JSON" \
+CN_RAW="$RAW" \
 exec python3 "$(dirname "$0")/_hitl.py"

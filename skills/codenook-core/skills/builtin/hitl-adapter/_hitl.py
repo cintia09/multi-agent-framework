@@ -79,7 +79,96 @@ def cmd_list(ws: Path, json_out: bool) -> int:
     return 0
 
 
-def cmd_show(ws: Path, eid: str) -> int:
+def _render_terminal(md: str, color: bool = True) -> str:
+    """Minimal markdown -> ANSI-styled text for terminal display.
+
+    Honors NO_COLOR and color=False by emitting plain text. Covers the
+    same constructs as _render_markdown: headers, fenced code blocks,
+    blockquotes, lists, paragraphs, plus inline code/bold/italic/links.
+    """
+    if not md:
+        return ""
+
+    if not color or os.environ.get("NO_COLOR"):
+        BOLD = DIM = RESET = ITAL = UND = ""
+        FG_CYAN = FG_BLUE = FG_MAGENTA = FG_GREEN = FG_YELLOW = FG_GREY = ""
+    else:
+        BOLD = "\033[1m"; DIM = "\033[2m"; ITAL = "\033[3m"
+        UND = "\033[4m"; RESET = "\033[0m"
+        FG_CYAN = "\033[36m"; FG_BLUE = "\033[34m"; FG_MAGENTA = "\033[35m"
+        FG_GREEN = "\033[32m"; FG_YELLOW = "\033[33m"; FG_GREY = "\033[90m"
+
+    def inline(text: str) -> str:
+        text = _INLINE_CODE_RE.sub(lambda m: f"{FG_GREEN}{m.group(1)}{RESET}", text)
+        text = _BOLD_RE.sub(lambda m: f"{BOLD}{m.group(1)}{RESET}", text)
+        text = _ITALIC_RE.sub(lambda m: f"{ITAL}{m.group(1)}{RESET}", text)
+        text = _LINK_RE.sub(lambda m: f"{UND}{m.group(1)}{RESET} {DIM}({m.group(2)}){RESET}", text)
+        return text
+
+    lines = md.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+
+        m = re.match(r"^```(\S*)\s*$", line)
+        if m:
+            lang = m.group(1)
+            label = f"{DIM}─── {lang or 'code'} ───{RESET}"
+            out.append(label)
+            i += 1
+            while i < len(lines) and not re.match(r"^```\s*$", lines[i]):
+                out.append(f"{FG_GREEN}{lines[i]}{RESET}")
+                i += 1
+            i += 1
+            out.append(f"{DIM}───{RESET}")
+            continue
+
+        if not stripped:
+            out.append("")
+            i += 1
+            continue
+
+        m = re.match(r"^(#{1,6})\s+(.+?)\s*#*\s*$", line)
+        if m:
+            level = len(m.group(1))
+            color_pick = (FG_CYAN, FG_BLUE, FG_MAGENTA, FG_YELLOW, FG_GREY, FG_GREY)[min(level - 1, 5)]
+            prefix = "#" * level
+            out.append(f"{BOLD}{color_pick}{prefix} {inline(m.group(2))}{RESET}")
+            i += 1
+            continue
+
+        if stripped.startswith(">"):
+            buf = []
+            while i < len(lines) and lines[i].strip().startswith(">"):
+                buf.append(re.sub(r"^\s*>\s?", "", lines[i]))
+                i += 1
+            for b in buf:
+                out.append(f"{FG_GREY}│ {inline(b)}{RESET}")
+            continue
+
+        m = re.match(r"^(\s*)[-*+]\s+(.*)$", line)
+        if m:
+            indent = m.group(1)
+            out.append(f"{indent}{FG_YELLOW}•{RESET} {inline(m.group(2))}")
+            i += 1
+            continue
+
+        m = re.match(r"^(\s*)(\d+)\.\s+(.*)$", line)
+        if m:
+            out.append(f"{m.group(1)}{FG_YELLOW}{m.group(2)}.{RESET} {inline(m.group(3))}")
+            i += 1
+            continue
+
+        out.append(inline(line))
+        i += 1
+
+    return "\n".join(out) + "\n"
+
+
+
+def cmd_show(ws: Path, eid: str, raw: bool = False) -> int:
     if not eid:
         print("terminal.sh: --id is required", file=sys.stderr); return 2
     _check_eid(eid)
@@ -102,7 +191,12 @@ def cmd_show(ws: Path, eid: str) -> int:
               file=sys.stderr); return 2
     if not target.is_file():
         print(f"terminal.sh: context file missing: {cp}", file=sys.stderr); return 1
-    sys.stdout.write(target.read_text(encoding="utf-8"))
+    text = target.read_text(encoding="utf-8")
+    if raw or not target.suffix.lower() in (".md", ".markdown"):
+        sys.stdout.write(text)
+    else:
+        use_color = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+        sys.stdout.write(_render_terminal(text, color=use_color))
     return 0
 
 
@@ -403,7 +497,8 @@ def main() -> None:
     if sub == "list":
         sys.exit(cmd_list(ws, os.environ.get("CN_JSON", "0") == "1"))
     if sub == "show":
-        sys.exit(cmd_show(ws, os.environ.get("CN_ID", "")))
+        sys.exit(cmd_show(ws, os.environ.get("CN_ID", ""),
+                          raw=os.environ.get("CN_RAW", "0") == "1"))
     if sub == "decide":
         sys.exit(cmd_decide(
             ws,
