@@ -1,3 +1,15 @@
+## v0.24.1 (2026-04-21)
+
+### Added
+- Bootloader gained a **mandatory boot ritual** preamble: on
+  first CodeNook invocation per session, the conductor MUST read
+  `state.json` + every `plugins/<id>/plugin.yaml` + `memory/index.yaml`
+  + `codenook status` in one batch (~15 KB total) before doing
+  anything. Cached for the rest of the session. Eliminates the
+  failure mode where the conductor invents tasks that already
+  exist or picks the wrong plugin because it never loaded the
+  workspace inventory.
+
 ## v0.24.0 (2026-04-21)  Eliminate kernel bash dependency (Windows-native)
 
 ### Rationale

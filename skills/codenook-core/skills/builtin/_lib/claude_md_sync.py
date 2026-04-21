@@ -81,6 +81,31 @@ new --plugin <id>` → `tick`. The conductor (you) reads the user's
 intent, picks the best-matching plugin, and creates the task with
 `--plugin` set explicitly.
 
+**Mandatory boot ritual (do this once per session, before any
+CodeNook action):**
+
+The first time the user mentions CodeNook in a session — or any
+time you are about to invoke a `<codenook>` subcommand and you
+have NOT yet loaded the workspace inventory in this conversation
+— you MUST first read **all** of the following in one batch:
+
+1. `.codenook/state.json` — kernel version + installed plugin ids
+2. `.codenook/plugins/<id>/plugin.yaml` for every id in (1)
+3. `.codenook/memory/index.yaml` — the workspace knowledge +
+   skill inventory (a few KB; cheap)
+4. `<codenook> status` — active tasks (phase / status / model /
+   exec mode for each)
+
+These four sources together are typically <15 KB and give you
+everything needed to: (a) recognise existing tasks the user may
+be referring to, (b) match the user's request to the right
+plugin, (c) surface relevant prior knowledge. Skipping this
+ritual leads to the conductor inventing tasks that already
+exist, picking the wrong plugin, or missing applicable memory
+— do not skip it. Cache the result for the rest of the session;
+re-read only when the user signals "something changed" (new
+install, new task, new memory entry).
+
 **What the conductor reads when picking a plugin / starting a task:**
 
 - `.codenook/state.json` — `installed_plugins` field is the
