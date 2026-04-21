@@ -14,11 +14,12 @@ from .config import CodenookContext, next_task_id
 
 
 HELP_TASK = """\
-codenook task <new|set|set-model>
+codenook task <new|set|set-model|set-exec>
 
   new        create a new T-NNN under .codenook/tasks/
   set        mutate a writable field on an existing task
   set-model  set or clear the per-task LLM model_override
+  set-exec   set the per-task execution_mode (sub-agent | inline)
 """
 
 HELP_SET = """\
@@ -50,6 +51,15 @@ Options:
   --model <name>          v0.18 — set per-task model_override (highest layer
                           in the C/B/A/D model resolution chain). Opaque
                           string forwarded verbatim to the conductor.
+  --exec <mode>           v0.19 — per-task execution mode. One of:
+                            sub-agent  (default) each phase dispatched as
+                                       a separate sub-agent via the
+                                       conductor's task tool.
+                            inline     conductor reads role.md inline in
+                                       its own session and writes the
+                                       phase output itself; no sub-agent
+                                       spawn. Best for chatty / serial
+                                       phases.
 """
 
 HELP_SET_MODEL = """\
@@ -58,6 +68,16 @@ Usage: codenook task set-model --task T-NNN (--model <name> | --clear)
   --model <name>   set the per-task model_override (opaque string).
   --clear          remove model_override; resolution falls through to the
                    phase / plugin / workspace defaults.
+"""
+
+HELP_SET_EXEC = """\
+Usage: codenook task set-exec --task T-NNN --mode <sub-agent|inline>
+
+  --mode sub-agent   default: each phase dispatched as a separate
+                     sub-agent via the conductor's task tool.
+  --mode inline      conductor reads role.md inline in its own session
+                     and writes the phase output itself; no sub-agent
+                     spawn.
 """
 
 ALLOWED = {
@@ -79,6 +99,8 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
         return _task_set(ctx, rest)
     if sub == "set-model":
         return _task_set_model(ctx, rest)
+    if sub == "set-exec":
+        return _task_set_exec(ctx, rest)
     sys.stderr.write(f"codenook task: unknown subcommand: {sub}\n")
     sys.stderr.write(HELP_TASK)
     return 2
@@ -97,6 +119,7 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
     accept_defaults = False
     task_id = ""
     model = ""
+    exec_mode_val = ""
 
     it = iter(args)
     try:
@@ -123,6 +146,8 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
                 task_id = next(it)
             elif a == "--model":
                 model = next(it)
+            elif a == "--exec":
+                exec_mode_val = next(it)
             else:
                 sys.stderr.write(f"codenook task new: unknown arg: {a}\n")
                 return 2
@@ -137,6 +162,11 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
         sys.stderr.write(
             f"codenook task new: invalid --priority '{priority}' "
             f"(allowed: P0|P1|P2|P3)\n")
+        return 2
+    if exec_mode_val and exec_mode_val not in ("sub-agent", "inline"):
+        sys.stderr.write(
+            f"codenook task new: invalid --exec '{exec_mode_val}' "
+            f"(allowed: sub-agent|inline)\n")
         return 2
 
     if not target_dir:
@@ -184,6 +214,8 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
         state["parent_id"] = parent
     if model:
         state["model_override"] = model
+    if exec_mode_val:
+        state["execution_mode"] = exec_mode_val
 
     (tdir / "state.json").write_text(
         json.dumps(state, indent=2), encoding="utf-8")
@@ -335,6 +367,50 @@ def _task_set_model(ctx: CodenookContext, args: list[str]) -> int:
         "task": state.get("task_id"),
         "field": "model_override",
         "value": result_value,
+    }))
+    return 0
+
+
+def _task_set_exec(ctx: CodenookContext, args: list[str]) -> int:
+    if args and args[0] in ("-h", "--help"):
+        print(HELP_SET_EXEC)
+        return 0
+
+    task = mode = ""
+    it = iter(args)
+    try:
+        for a in it:
+            if a == "--task":
+                task = next(it)
+            elif a == "--mode":
+                mode = next(it)
+            else:
+                sys.stderr.write(f"codenook task set-exec: unknown arg: {a}\n")
+                return 2
+    except StopIteration:
+        sys.stderr.write("codenook task set-exec: missing value for last flag\n")
+        return 2
+
+    if not task:
+        sys.stderr.write("codenook task set-exec: --task is required\n")
+        return 2
+    if mode not in ("sub-agent", "inline"):
+        sys.stderr.write(
+            "codenook task set-exec: --mode must be 'sub-agent' or 'inline'\n")
+        return 2
+
+    sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
+    if not sf.is_file():
+        sys.stderr.write(f"codenook task set-exec: no such task: {task}\n")
+        return 1
+
+    state = json.loads(sf.read_text(encoding="utf-8"))
+    state["execution_mode"] = mode
+    sf.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    print(json.dumps({
+        "task": state.get("task_id"),
+        "field": "execution_mode",
+        "value": mode,
     }))
     return 0
 

@@ -42,9 +42,10 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
             s = json.loads(sf.read_text(encoding="utf-8"))
             ph = s.get("phase") or "<none>"
             st = s.get("status") or "?"
+            ex = s.get("execution_mode") or "sub-agent"
         except Exception:
-            ph, st = "?", "?"
-        rows.append(f"  {d.name} phase={ph} status={st}")
+            ph, st, ex = "?", "?", "?"
+        rows.append(f"  {d.name} phase={ph} status={st} exec={ex}")
     if rows:
         print("Tasks:")
         print("\n".join(rows))

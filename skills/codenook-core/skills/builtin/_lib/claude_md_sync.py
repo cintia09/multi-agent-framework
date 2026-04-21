@@ -278,6 +278,42 @@ selection. The user configures models declaratively in
 kernel resolves the priority chain (task > phase > plugin >
 workspace) and surfaces the result here.
 
+### Execution mode in dispatch envelope
+
+`tick --json` may return one of two dispatch action values in the
+envelope:
+
+- `action: "phase_prompt"` — spawn a sub-agent via your task
+  tool using the envelope's `system_prompt_path` / `prompt_path`
+  / `model`. Default behavior; unchanged from v0.18.x.
+- `action: "inline_dispatch"` — DO NOT spawn a sub-agent. Read
+  the role file at `envelope.role_path` yourself, conduct the
+  work inline in this conversation, write the produced output
+  file to `envelope.output_path`, then call
+  `<codenook> tick --task <T-NNN>` again to advance state.
+
+When `action == "inline_dispatch"` the envelope also carries
+`execution_mode: "inline"` and the same `system_prompt_path` /
+`prompt_path` / `reply_path` triple as a normal dispatch
+envelope, so the conductor has every path it needs to do the
+work without re-querying the kernel. `role_path` and
+`output_path` are aliases for `system_prompt_path` and
+`reply_path` respectively, provided for clarity in the inline
+flow.
+
+The user opts into inline mode at task creation
+(`<codenook> task new --exec inline`) or post-hoc
+(`<codenook> task set-exec --task T-NNN --mode inline`).
+Inline is intended for chat-heavy or serial work where
+sub-agent spawn overhead is unwanted; sub-agent remains the
+default for isolation and parallelism. Tasks created before
+v0.19 (no `execution_mode` field in `state.json`) keep the
+historical sub-agent behaviour.
+
+The `model` field in inline-mode envelopes is informational
+only — the conductor cannot switch models mid-conversation.
+Treat it as a hint for which "voice" / role profile to adopt.
+
 ### CLI is the ONLY sanctioned entry point
 
 The `codenook` CLI is the canonical contract. Internal kernel scripts

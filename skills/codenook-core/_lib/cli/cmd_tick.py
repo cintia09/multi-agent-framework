@@ -13,6 +13,7 @@ from typing import Sequence
 from . import _subproc
 from .config import CodenookContext
 from .. import models
+from .. import exec_mode as _exec_mode
 
 
 def run(ctx: CodenookContext, args: Sequence[str]) -> int:
@@ -190,8 +191,16 @@ def _augment_envelope(ctx: CodenookContext, task: str, tick_out: str) -> str:
     prompt_rel = f".codenook/tasks/{task}/prompts/{prompt_p.name}"
     system_rel = f".codenook/plugins/{plugin}/roles/{role}.md"
 
+    # v0.19 — per-task execution_mode picks the dispatch action.
+    # Tasks without the field behave exactly as v0.18.x (sub-agent).
+    mode = _exec_mode.resolve_exec_mode(state)
+    if mode == "inline":
+        action = "inline_dispatch"
+    else:
+        action = "phase_prompt"
+
     envelope = {
-        "action": "phase_prompt",
+        "action": action,
         "task_id": task,
         "plugin": plugin,
         "phase": phase,
@@ -200,8 +209,19 @@ def _augment_envelope(ctx: CodenookContext, task: str, tick_out: str) -> str:
         "prompt_path": prompt_rel,
         "reply_path": reply_rel,
     }
+    if mode == "inline":
+        # Inline-mode envelopes carry an explicit role_path / output_path
+        # pair so the conductor has every path it needs to do the work
+        # without re-querying the kernel. system_prompt_path / reply_path
+        # remain for backward parity with sub-agent envelopes.
+        envelope["execution_mode"] = "inline"
+        envelope["role_path"] = system_rel
+        envelope["output_path"] = reply_rel
     # v0.18 — resolve model via C/B/A/D chain; omit key entirely when None
     # so the conductor falls back to its platform default (backward compat).
+    # In inline mode the field is informational only — the conductor cannot
+    # swap models mid-conversation — but we still surface it for symmetry
+    # and for future extensions that may dispatch across processes.
     resolved = models.resolve_model(ctx.workspace, plugin, phase, state)
     if resolved:
         envelope["model"] = resolved

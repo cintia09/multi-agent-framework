@@ -22,6 +22,7 @@ Subcommands:
                        [--accept-defaults] [--model <name>]
   task set --task T-NNN --field <field> --value <val>
   task set-model --task T-NNN (--model <name> | --clear)
+  task set-exec  --task T-NNN --mode <sub-agent|inline>
   router   --task T-NNN [--user-turn "…" | --user-turn-file <p> | --confirm]
                        [DEPRECATED — slated for removal in a future release;
                         prefer the conductor-driven `task new --plugin <id>`

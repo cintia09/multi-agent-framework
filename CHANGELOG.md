@@ -1,4 +1,55 @@
-## v0.18.1 (2026-04-23) — hotfix
+## v0.19.0 (2026-04-24) — per-task execution mode
+
+### Added
+- **`execution_mode` per task.** Each task's `state.json` now accepts
+  an optional `execution_mode` field with two valid values:
+  - `sub-agent` (default) — each phase is dispatched as a separate
+    sub-agent via the conductor's task tool. Historical v0.17/v0.18
+    behaviour. Best for heavy / parallelisable / context-isolated work.
+  - `inline` — the conductor reads `role.md` inline in its own
+    session, produces the phase output file itself, then calls `tick`
+    again to advance. No sub-agent spawn. Best for short / chatty /
+    serial phases (clarifier-style, doc review).
+
+  Backward compat: tasks without the field — i.e. every task created
+  before v0.19 — behave exactly as v0.18.x. Anything other than the
+  two valid mode strings is coerced to `sub-agent`.
+
+- **`_lib/exec_mode.py`** — `resolve_exec_mode(state) -> "sub-agent"
+  | "inline"`. v0.19.0 reads only the per-task field; the helper
+  documents a future extension hook for plugin- and workspace-default
+  fall-throughs (`plugin.yaml :: default_exec_mode`,
+  `config.yaml :: default_exec_mode`).
+
+- **CLI: `task new --exec {sub-agent,inline}`** — set the execution
+  mode at task creation time. Omit to keep the default.
+- **CLI: `task set-exec --task <T-NNN> --mode {sub-agent,inline}`** —
+  change the execution mode of an existing task.
+- **CLI: `status`** — per-task summary line now includes
+  `exec=<mode>` (defaults to `sub-agent` when the field is absent).
+
+- **Dispatch envelope: new `inline_dispatch` action.** When the
+  resolved execution mode is `inline`, `tick --json` returns an
+  envelope with `action: "inline_dispatch"` (instead of the existing
+  `phase_prompt`) and adds the fields `execution_mode: "inline"`,
+  `role_path` (alias of `system_prompt_path`), and `output_path`
+  (alias of `reply_path`) so the conductor has every path it needs
+  to do the work in-session without re-querying the kernel. The
+  optional `model` field from v0.18 is still emitted in inline mode
+  but is informational only — the conductor cannot switch models
+  mid-conversation.
+
+- **Bootloader (`claude_md_sync`)** — added an "Execution mode in
+  dispatch envelope" section after the v0.18 model-selection section,
+  documenting the two `action` values and the inline-mode protocol.
+
+### Tests
+- New `tests/python/test_exec_mode.py` (17 cases) covering the
+  resolver, both CLI subcommands, envelope wiring for both modes,
+  the model-field passthrough in inline mode, and the simulated
+  conductor-writes-output-then-tick contract.
+
+
 
 ### Fixed
 - **Transactional state mutation in `orchestrator-tick`.** Previously,
