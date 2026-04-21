@@ -293,7 +293,17 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
         # next_task_id() would otherwise both pass mkdir(exist_ok=True)
         # and the second would clobber the first's state.json. Retry
         # up to 16 times to absorb concurrent reservers.
-        slug_source = task_input or title or summary
+        # Slug source preference: --title wins because it is the
+        # human-curated short label (≤24 chars). --input is rejected
+        # as a slug source when it looks like multi-line interview
+        # answers — those produce meaningless first-24-char slugs
+        # like "数据来源-题库本地路径-volumes". Fallback chain is
+        # title → single-line input → summary.
+        single_line_input = (
+            task_input if task_input and "\n" not in task_input.strip()
+            else None
+        )
+        slug_source = title or single_line_input or summary
         slug = slugify(slug_source) if slug_source else ""
         tasks_root = ctx.workspace / ".codenook" / "tasks"
         tasks_root.mkdir(parents=True, exist_ok=True)

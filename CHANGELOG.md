@@ -1,3 +1,17 @@
+## v0.25.2 (2026-04-21)
+
+### Fixed
+- **Meaningless task slugs from multi-line `--input`.** v0.25.0
+  set slug source preference to `--input → --title → --summary`,
+  but `--input` is the multi-line interview answers (one Q+A per
+  line) — using its first 24 chars produced gibberish slugs like
+  `T-003-数据来源-题库本地路径-volumes`. Slug source preference is
+  now `--title → --input (single-line only) → --summary`. Multi-line
+  `--input` falls through to `--summary`. `--title` (the
+  human-curated short label) wins by design. Bootloader doc string
+  updated to match. (`_lib/cli/cmd_task.py:296-307`,
+  `skills/builtin/_lib/claude_md_sync.py:186`)
+
 ## v0.25.1 (2026-04-21)
 
 ### Changed

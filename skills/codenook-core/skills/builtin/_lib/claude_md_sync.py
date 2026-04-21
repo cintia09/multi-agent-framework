@@ -183,8 +183,9 @@ artifact interpretation, not orientation reads.
 #    (richer context the first role consumes). --accept-defaults
 #    fills dual_mode/priority/target_dir with sane values so no
 #    entry-question gate fires. Returns the new T-NNN-<slug> on
-#    stdout (slug derived from --input → --title → --summary in
-#    that order; CJK preserved).
+#    stdout (slug derived from --title → --input (single-line) →
+#    --summary in that order; multi-line --input is skipped to avoid
+#    meaningless concatenated slugs; CJK preserved).
 <codenook> task new --title "<short title>" \
                     --summary "<verbatim user request>" \
                     --input "<multi-line interview answers>" \
