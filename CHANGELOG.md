@@ -1,3 +1,57 @@
+## v0.27.2 (2026-04-21)
+
+CLAUDE.md bootloader rendering fixes. Three findings, one regression net.
+
+### Fixed
+- **High — Windows wrapper path was rendered with a stray backspace byte
+  (`\b` → `0x08`).** `claude_md_sync.render_block` used `f"""..."""`
+  for the bootloader template body. Inside a cooked f-string the
+  literal `\b` in the line `<ws>\.codenook\bin\codenook.cmd` was
+  interpreted as the backspace control character, so the rendered
+  CLAUDE.md byte stream actually contained `<ws>\.codenook\x08in\codenook.cmd`.
+  Most viewers either swallow the byte (showing `\.codenookin\codenook.cmd`)
+  or render a glyph; either way Windows users copying the path got an
+  invalid one. Switched the body to `rf"""..."""` (raw + f-string) and
+  collapsed the now-redundant `\\bin` double-escape in the same template.
+  (`skills/codenook-core/skills/builtin/_lib/claude_md_sync.py:21-91`)
+
+- **Medium — multi-line shell snippets in the bootloader collapsed
+  onto a single line.** Same root cause: in a cooked triple-quoted
+  string `\<newline>` is a Python source-level line continuation that
+  joins the lines and strips both characters, so `task new --title …
+  \\\n        --summary …` rendered as `task new --title …                --summary …`
+  with a blob of spaces. The raw-string switch makes `\<newline>` a
+  literal two-character sequence — exactly what bash wants for line
+  continuation. Three snippets restored (`task new`, `decide`, the HITL
+  `decide` example).
+
+- **Low — bootloader claimed only one plugin was installed.** The
+  template received the single `--plugin` argument from the most-
+  recent install command (e.g. "Workspace seeded with plugin:
+  **writing**") even when `state.json` listed three. `sync()` now reads
+  `.codenook/state.json` and surfaces the full sorted set
+  ("Workspace has plugins installed: **development**, **generic**,
+  **writing**"); falls back to the CLI flag when state.json is absent
+  (preserving the long-standing first-install / unit-test code path).
+  (`skills/codenook-core/skills/builtin/_lib/claude_md_sync.py:97-145`)
+
+### Tests
+- Added three regression tests in
+  `tests/v011_2-install-claude-md.bats`:
+  1. The rendered file contains no `\b`/`\t`/`\f`/`\v`/`\a` control
+     bytes and the literal Windows path is intact.
+  2. `task new` renders with at least four indented `--flag`
+     continuation lines (would be one if the join bug came back).
+  3. When `state.json` lists multiple plugins the seed line names all
+     of them, regardless of which single id was passed via `--plugin`.
+
+`bats tests/v011_2-install-claude-md.bats` 5/8 → 8/11 (the unrelated
+pre-existing `install.sh` failures, tests 1-3, are still red because
+that file was replaced by `install.py` in v0.14.0; out of scope here).
+`pytest tests/python/` 180 passed / 2 skipped, unchanged.
+
+---
+
 ## v0.27.1 (2026-04-21)
 
 Code-review follow-up on v0.27.0. Two findings.

@@ -11,6 +11,7 @@ Used by the top-level ``install.py`` (DR-006).
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -18,13 +19,30 @@ BEGIN = "<!-- codenook:begin -->"
 END = "<!-- codenook:end -->"
 
 
-def render_block(version: str, plugin: str) -> str:
-    seed_line = (
-        f"Workspace seeded with plugin: **{plugin}** "
-        f"(`task new --plugin <id>` may pick a different one per task).\n\n"
-        if plugin else ""
+def _render_seed_line(plugins: list[str]) -> str:
+    if not plugins:
+        return ""
+    if len(plugins) == 1:
+        names = f"**{plugins[0]}**"
+        verb = "Workspace has plugin installed:"
+    else:
+        names = ", ".join(f"**{p}**" for p in plugins)
+        verb = "Workspace has plugins installed:"
+    return (
+        f"{verb} {names} "
+        f"(the conductor picks one per task via `task new --plugin <id>`).\n\n"
     )
-    return f"""{BEGIN}
+
+
+def render_block(version: str, plugin) -> str:
+    if isinstance(plugin, str):
+        plugins = [plugin] if plugin else []
+    elif plugin is None:
+        plugins = []
+    else:
+        plugins = [p for p in plugin if p]
+    seed_line = _render_seed_line(plugins)
+    return rf"""{BEGIN}
 <!-- DO NOT EDIT BY HAND. Managed by `python install.py`. To remove this block,
      re-run install.py with --no-claude-md and delete the markers manually. -->
 
@@ -66,7 +84,7 @@ below with the form for your host shell):
 | Host shell        | `<codenook>` expands to                |
 |-------------------|----------------------------------------|
 | bash / zsh / sh   | `.codenook/bin/codenook`               |
-| PowerShell / cmd  | `.codenook\\bin\\codenook.cmd`           |
+| PowerShell / cmd  | `.codenook\bin\codenook.cmd`           |
 
 On Windows, do **not** spend time hunting for `bash.exe` or installing
 python — if the wrapper can't find them it will print a clear error
@@ -534,9 +552,33 @@ and `docs/architecture.md`.
 """
 
 
+def _resolve_installed_plugins(workspace: Path, *, fallback: str) -> list[str]:
+    """Return the full installed-plugin id list from ``state.json``.
+
+    Falls back to ``[fallback]`` when state.json is missing / unparseable
+    (e.g. first-ever install where the file isn't written yet, or unit
+    tests that call this helper before staging plugins).
+    """
+    state_file = workspace / ".codenook" / "state.json"
+    if state_file.is_file():
+        try:
+            data = json.loads(state_file.read_text(encoding="utf-8"))
+            ids = [
+                p["id"]
+                for p in data.get("installed_plugins") or []
+                if isinstance(p, dict) and p.get("id")
+            ]
+            if ids:
+                return sorted(set(ids))
+        except (OSError, ValueError):
+            pass
+    return [fallback] if fallback else []
+
+
 def sync(workspace: Path, version: str, plugin: str) -> None:
     claude = workspace / "CLAUDE.md"
-    block = render_block(version, plugin)
+    plugins = _resolve_installed_plugins(workspace, fallback=plugin)
+    block = render_block(version, plugins)
 
     if not claude.exists():
         claude.write_text(block + "\n", encoding="utf-8")
