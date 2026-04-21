@@ -1,5 +1,9 @@
-#!/usr/bin/env python3
+#!{{PY_EXE}}
 """codenook — workspace CLI shim (POSIX).
+
+The shebang above is rewritten by ``install.py`` to the absolute path
+of the python interpreter that ran the installer (``sys.executable``)
+so the shim works even when ``python3`` is not on ``PATH``.
 
 Installed by ``install.py`` into ``<workspace>/.codenook/bin/codenook``.
 Resolves the kernel via the ``codenook-core/`` snapshot stored next to

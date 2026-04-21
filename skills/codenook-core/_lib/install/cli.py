@@ -172,7 +172,7 @@ def main(argv: list[str] | None = None) -> int:
     # 4) Schemas + memory + bin shim seeding.
     seed_workspace.seed_schemas(staged, workspace)
     seed_workspace.seed_memory(staged, workspace)
-    seed_workspace.seed_bin(staged, workspace)
+    seed_workspace.seed_bin(staged, workspace, python_exe=sys.executable)
     print("  ✓ Seeded .codenook/{schemas,memory,bin/codenook}")
 
     # 5) Post-install assertion: state.json.kernel_version matches VERSION.

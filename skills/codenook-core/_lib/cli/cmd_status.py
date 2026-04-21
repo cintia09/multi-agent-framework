@@ -5,7 +5,7 @@ import json
 import sys
 from typing import Sequence
 
-from .config import CodenookContext
+from .config import CodenookContext, iter_active_task_dirs
 
 
 def run(ctx: CodenookContext, args: Sequence[str]) -> int:
@@ -35,20 +35,17 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
     sys.stdout.write("\n")
 
     tasks_dir = ctx.workspace / ".codenook" / "tasks"
-    if tasks_dir.is_dir():
-        rows = []
-        for d in sorted(tasks_dir.glob("T-*")):
-            sf = d / "state.json"
-            if not sf.is_file():
-                continue
-            try:
-                s = json.loads(sf.read_text(encoding="utf-8"))
-                ph = s.get("phase") or "<none>"
-                st = s.get("status") or "?"
-            except Exception:
-                ph, st = "?", "?"
-            rows.append(f"  {d.name} phase={ph} status={st}")
-        if rows:
-            print("Tasks:")
-            print("\n".join(rows))
+    rows = []
+    for d in iter_active_task_dirs(tasks_dir):
+        sf = d / "state.json"
+        try:
+            s = json.loads(sf.read_text(encoding="utf-8"))
+            ph = s.get("phase") or "<none>"
+            st = s.get("status") or "?"
+        except Exception:
+            ph, st = "?", "?"
+        rows.append(f"  {d.name} phase={ph} status={st}")
+    if rows:
+        print("Tasks:")
+        print("\n".join(rows))
     return 0

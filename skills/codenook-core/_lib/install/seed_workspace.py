@@ -50,16 +50,42 @@ def seed_memory(staged_kernel: Path, workspace: Path) -> None:
         src_cfg = staged_kernel / "templates" / "memory-config.yaml"
         if src_cfg.is_file():
             shutil.copyfile(src_cfg, cfg)
+    # v0.17.1 — seed an empty index.yaml so the conductor / kernel
+    # surfaces that read it never face a missing file. Idempotent: if a
+    # non-empty index already exists (e.g. populated by export_index_yaml)
+    # we leave it alone.
+    idx = mem / "index.yaml"
+    if not idx.is_file():
+        idx.write_text(
+            "version: 1\n"
+            "generated_at: null\n"
+            "skills: []\n"
+            "knowledge: []\n",
+            encoding="utf-8",
+        )
 
 
-def seed_bin(staged_kernel: Path, workspace: Path) -> None:
+def seed_bin(staged_kernel: Path, workspace: Path,
+             python_exe: str | None = None) -> None:
+    """Render the bin shims with the recorded python interpreter path.
+
+    *python_exe* is the absolute path of whatever python ran the
+    installer (typically ``sys.executable``). It is baked into both the
+    POSIX shebang and the Windows ``%PY_EXE_RECORDED%`` variable so the
+    shims work even when ``python`` / ``python3`` is not on ``PATH``.
+    """
     bin_dir = workspace / ".codenook" / "bin"
     bin_dir.mkdir(parents=True, exist_ok=True)
+
+    py_exe = python_exe or sys.executable or ""
 
     posix_src = staged_kernel / "templates" / "codenook-bin"
     if posix_src.is_file():
         dst = bin_dir / "codenook"
-        shutil.copyfile(posix_src, dst)
+        text = posix_src.read_text(encoding="utf-8").replace(
+            "{{PY_EXE}}", py_exe or "/usr/bin/env python3"
+        )
+        dst.write_text(text, encoding="utf-8")
         try:
             mode = dst.stat().st_mode
             dst.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
@@ -68,7 +94,10 @@ def seed_bin(staged_kernel: Path, workspace: Path) -> None:
 
     win_src = staged_kernel / "templates" / "codenook-bin.cmd"
     if win_src.is_file():
-        shutil.copyfile(win_src, bin_dir / "codenook.cmd")
+        text = win_src.read_text(encoding="utf-8").replace(
+            "{{PY_EXE}}", py_exe
+        )
+        (bin_dir / "codenook.cmd").write_text(text, encoding="utf-8")
 
 
 def sync_claude_md(

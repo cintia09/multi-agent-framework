@@ -1,3 +1,27 @@
+## v0.17.1 (2026-04-21)
+
+### Fixed
+- **Windows shim now finds Python when it is not on `PATH`.** `install.py`
+  records `sys.executable` (the absolute path of the interpreter that
+  ran the installer) and bakes it into both `bin/codenook.cmd` and
+  `bin/codenook` via a `{{PY_EXE}}` template substitution. The runtime
+  fallback chain becomes: recorded path → `python` on PATH → `py -3` →
+  helpful error. POSIX shim gets the recorded path as its shebang.
+- **Installer now seeds `.codenook/memory/index.yaml`** with the empty
+  `version: 1 / generated_at: null / skills: [] / knowledge: []`
+  schema. Previously the file was created lazily by `export_index_yaml`
+  on the first knowledge / skill write, but conductor and kernel
+  surfaces that read it directly errored with `Path does not exist` on
+  fresh workspaces. Idempotent — never overwrites an existing index.
+- **`codenook status` no longer crashes on archive task dirs.** Added
+  `is_active_task_dir(p)` / `iter_active_task_dirs(tasks_dir)` helpers
+  in `_lib/cli/config.py` that treat a missing `state.json` (and dirs
+  whose name starts with `.` or `_`, and non-directory entries) as
+  "not an active task" and skip them silently. `cmd_status` now uses
+  the helper so user-dropped legacy folders (e.g. `T-101..T-103` with
+  archived investigation docs but no state machine) are invisible
+  instead of fatal.
+
 ## v0.17.0 (2026-04-21)
 
 ### Changed — Simplify HITL: remove view-renderer + hitl prepare + hitl render; conductor renders both channels

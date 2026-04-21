@@ -128,3 +128,39 @@ def next_task_id(workspace: Path) -> str:
     while (tasks_dir / f"T-{n:03d}").is_dir():
         n += 1
     return f"T-{n:03d}"
+
+
+def is_active_task_dir(p: Path) -> bool:
+    """True iff *p* is an active task directory worth iterating.
+
+    A directory counts as active when:
+      * it is a directory (not a regular file or symlink to one)
+      * its name does not start with ``.`` or ``_`` (skips
+        ``.gitignore``, ``.archive/``, ``_pending/`` and friends)
+      * a ``state.json`` file exists inside it
+
+    Used by every kernel surface that walks ``.codenook/tasks/`` so a
+    user-dropped legacy folder (e.g. archived investigation notes
+    without state.json) never surfaces as an active task and never
+    crashes the iterator.
+    """
+    if not p.is_dir():
+        return False
+    name = p.name
+    if name.startswith(".") or name.startswith("_"):
+        return False
+    if not (p / "state.json").is_file():
+        return False
+    return True
+
+
+def iter_active_task_dirs(tasks_dir: Path):
+    """Yield active task directories under *tasks_dir* in sorted order.
+
+    Returns an empty iterator when ``tasks_dir`` does not exist.
+    """
+    if not tasks_dir.is_dir():
+        return
+    for d in sorted(tasks_dir.iterdir()):
+        if is_active_task_dir(d):
+            yield d

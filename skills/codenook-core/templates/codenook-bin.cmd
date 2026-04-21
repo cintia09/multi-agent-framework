@@ -14,14 +14,23 @@ if not exist "%ENTRY%" (
   exit /b 1
 )
 
-REM 1) Pick a python interpreter (PATH first, then Python launcher).
+REM 1) Pick a python interpreter:
+REM    a) The interpreter that ran install.py (baked in at install time).
+REM    b) python on PATH.
+REM    c) py -3 launcher.
 set "PY_EXE="
-where python >nul 2>&1 && set "PY_EXE=python"
+set "PY_EXE_RECORDED={{PY_EXE}}"
+if exist "%PY_EXE_RECORDED%" set PY_EXE="%PY_EXE_RECORDED%"
+if not defined PY_EXE (
+  where python >nul 2>&1 && set "PY_EXE=python"
+)
 if not defined PY_EXE (
   where py >nul 2>&1 && set "PY_EXE=py -3"
 )
 if not defined PY_EXE (
-  echo codenook.cmd: no python interpreter on PATH ^(install Python 3 from https://www.python.org/downloads/^) 1>&2
+  echo codenook.cmd: no python interpreter found 1>&2
+  echo           tried: "%PY_EXE_RECORDED%", python on PATH, py -3 1>&2
+  echo           install Python 3 from https://www.python.org/downloads/ 1>&2
   exit /b 127
 )
 
