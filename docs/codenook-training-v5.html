@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>CodeNook · 场景导览 · v0.25.5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --indigo:   #6366f1;
+    --indigo-d: #4338ca;
+    --cyan:     #06b6d4;
+    --emerald:  #10b981;
+    --amber:    #f59e0b;
+    --bg:       #fafbff;
+    --panel:    #ffffff;
+    --ink:      #1e293b;
+    --ink2:     #475569;
+    --muted:    #64748b;
+    --line:     #e2e8f0;
+    --line2:    #cbd5e1;
+    --code-bg:  #0f172a;
+    --code-ink: #e2e8f0;
+    --grad-main: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+    --grad-soft: linear-gradient(135deg, #eef2ff 0%, #ecfeff 100%);
+    --shadow-sm: 0 1px 3px rgba(15,23,42,.04);
+    --shadow-md: 0 4px 16px rgba(99,102,241,.08);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: "PingFang SC", "HarmonyOS Sans", "Microsoft YaHei", "Inter", system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+    font-size: 15.5px;
+  }
+  code, pre, .mono {
+    font-family: "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+  }
+  p code, li code, td code {
+    background: #eef2ff;
+    color: var(--indigo-d);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 88%;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    max-width: 1240px;
+    margin: 0 auto;
+  }
+
+  aside.sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 28px;
+    border-right: 1px solid var(--line);
+    background: #fff;
+  }
+  .sidebar .brand {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .04em;
+  }
+  .sidebar .brand .ver { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .sidebar .tagline { font-size: 12px; color: var(--muted); margin: 6px 0 28px; line-height: 1.5; }
+  .sidebar nav ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; font-size: 13.5px; }
+  .sidebar nav li { counter-increment: toc; }
+  .sidebar nav a {
+    display: block;
+    padding: 7px 10px 7px 32px;
+    color: var(--ink2);
+    text-decoration: none;
+    border-radius: 6px;
+    position: relative;
+    transition: background .15s, color .15s;
+  }
+  .sidebar nav a::before {
+    content: counter(toc, decimal-leading-zero);
+    position: absolute; left: 8px; top: 7px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: var(--line2); font-weight: 500;
+  }
+  .sidebar nav a:hover { background: #f1f5f9; color: var(--indigo-d); }
+  .sidebar nav a.active { background: var(--grad-soft); color: var(--indigo-d); font-weight: 600; }
+  .sidebar nav a.active::before { color: var(--indigo); }
+  .sidebar .meta-block {
+    margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--line);
+    font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--muted); line-height: 1.7;
+  }
+
+  main { padding: 48px 56px 120px; }
+  main > section { max-width: 780px; margin: 0 0 80px; scroll-margin-top: 24px; }
+  main > section:first-child { margin-top: 0; }
+
+  .section-tag {
+    display: inline-block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: var(--muted); letter-spacing: .15em;
+    margin-bottom: 12px; text-transform: uppercase;
+  }
+  h1 { font-size: 32px; font-weight: 700; margin: 0 0 14px; line-height: 1.25; letter-spacing: -.02em; }
+  h2 { font-size: 24px; font-weight: 600; margin: 0 0 18px; line-height: 1.3;
+       padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 16.5px; font-weight: 600; margin: 28px 0 10px; }
+  h4 { font-size: 13px; font-weight: 600; color: var(--ink2); margin: 20px 0 8px;
+       font-family: "JetBrains Mono", monospace; letter-spacing: .02em; }
+  p { color: var(--ink2); margin: 0 0 12px; }
+  ul, ol { color: var(--ink2); padding-left: 22px; margin: 0 0 12px; }
+  li { margin-bottom: 4px; }
+
+  .lede { font-size: 16px; color: var(--ink2); line-height: 1.7; margin: 0 0 18px; }
+
+  .header-band {
+    background: var(--grad-main);
+    color: #fff;
+    padding: 40px 36px 36px;
+    border-radius: 14px;
+    margin-bottom: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header-band::before {
+    content: ""; position: absolute;
+    width: 320px; height: 320px;
+    border-radius: 50%; filter: blur(80px);
+    opacity: .25; background: #fbbf24;
+    top: -160px; right: -120px;
+  }
+  .header-band h1 { color: #fff; font-size: 30px; margin: 0 0 12px; position: relative; }
+  .header-band p { color: rgba(255,255,255,.92); margin: 0; font-size: 15px; position: relative; max-width: 620px; }
+  .header-band .meta {
+    position: relative; margin-top: 22px;
+    font-family: "JetBrains Mono", monospace; font-size: 11.5px;
+    opacity: .82; letter-spacing: .08em;
+  }
+
+  /* Scenario card */
+  .scene {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 18px 0 28px;
+    box-shadow: var(--shadow-sm);
+  }
+  .scene .scene-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 4px;
+  }
+  .scene .scene-head .tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: var(--indigo);
+    letter-spacing: .1em;
+  }
+  .scene .scene-head h3 { margin: 0; font-size: 17px; }
+  .scene .blurb { color: var(--muted); font-size: 13.5px; margin: 0 0 14px; }
+  .scene figure { margin: 8px 0 14px; padding: 0; border: none; background: transparent; }
+  .scene figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+
+  /* Timeline */
+  .timeline { margin: 4px 0 0; padding: 0; list-style: none; }
+  .timeline li {
+    position: relative; padding: 8px 0 8px 92px; min-height: 28px;
+    border-top: 1px dashed var(--line);
+    color: var(--ink2); font-size: 14px; line-height: 1.6;
+  }
+  .timeline li:first-child { border-top: none; }
+  .timeline .when {
+    position: absolute; left: 0; top: 9px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: var(--muted);
+    letter-spacing: .04em;
+    width: 80px;
+  }
+  .timeline .who {
+    color: var(--indigo-d); font-weight: 600;
+  }
+  .timeline .who.user { color: var(--cyan); }
+  .timeline .who.sys  { color: var(--emerald); }
+
+  /* Figure (architecture / tick) */
+  figure.diagram {
+    margin: 22px 0 26px; padding: 22px;
+    background: #fff; border: 1px solid var(--line); border-radius: 10px;
+  }
+  figure.diagram svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption {
+    margin-top: 12px; font-size: 12px; color: var(--muted);
+    font-family: "JetBrains Mono", monospace; letter-spacing: .03em;
+    text-align: center;
+  }
+
+  /* Tables */
+  .tbl-wrap { overflow-x: auto; margin: 14px 0 22px; }
+  table {
+    width: 100%; border-collapse: collapse; font-size: 13.5px;
+    border: 1px solid var(--line); background: #fff;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 9px 12px;
+    text-align: left; vertical-align: top;
+    color: var(--ink2); line-height: 1.55;
+  }
+  th { background: #f8fafc; color: var(--ink); font-weight: 600; font-size: 12.5px; }
+  td code { font-size: 12.5px; }
+
+  /* Code */
+  pre {
+    background: var(--code-bg); color: var(--code-ink);
+    padding: 14px 16px; border-radius: 8px;
+    font-size: 12.5px; line-height: 1.7;
+    overflow-x: auto; margin: 14px 0 20px;
+    border: 1px solid #1e293b;
+  }
+  pre .c { color: #64748b; font-style: italic; }
+  pre .p { color: #06b6d4; }
+  pre .v { color: #fbbf24; }
+  pre .s { color: #86efac; }
+
+  /* Three-up cards (architecture layers) */
+  .three {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+    margin: 18px 0 8px;
+  }
+  .three .card {
+    background: #fff; border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px 18px;
+  }
+  .three .card .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: var(--indigo);
+    letter-spacing: .1em; margin-bottom: 6px;
+  }
+  .three .card h4 { margin: 0 0 6px; font-family: inherit; font-size: 14.5px; color: var(--ink); letter-spacing: 0; }
+  .three .card p { margin: 0; font-size: 13.5px; line-height: 1.6; }
+
+  details.detail {
+    background: #fff; border: 1px solid var(--line);
+    border-radius: 8px; padding: 0; margin: 12px 0;
+  }
+  details.detail > summary {
+    cursor: pointer; padding: 12px 18px;
+    font-weight: 600; color: var(--ink); font-size: 14px;
+    list-style: none;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  details.detail > summary::after {
+    content: "+"; color: var(--muted);
+    font-family: "JetBrains Mono", monospace; font-size: 16px;
+  }
+  details.detail[open] > summary::after { content: "−"; }
+  details.detail > .body { padding: 4px 18px 16px; }
+
+  /* Dot nav */
+  .dot-nav {
+    position: fixed; right: 22px; bottom: 28px;
+    display: flex; flex-direction: column; gap: 8px;
+    background: rgba(255,255,255,.92); backdrop-filter: blur(10px);
+    padding: 10px 8px; border-radius: 14px;
+    border: 1px solid var(--line); box-shadow: var(--shadow-md);
+    z-index: 100;
+  }
+  .dot-nav a { width: 8px; height: 8px; border-radius: 50%; background: #cbd5e1; transition: all .2s ease; display: block; }
+  .dot-nav a:hover { background: var(--indigo); transform: scale(1.3); }
+  .dot-nav a.active { background: var(--grad-main); height: 22px; border-radius: 4px; }
+
+  footer.doc-footer {
+    margin-top: 60px; padding-top: 22px;
+    border-top: 1px solid var(--line);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px; color: var(--muted); letter-spacing: .05em;
+  }
+
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.sidebar { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+    main { padding: 28px 22px 80px; }
+    .dot-nav { display: none; }
+    .three { grid-template-columns: 1fr; }
+    .timeline li { padding-left: 78px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+<aside class="sidebar">
+  <div class="brand">CodeNook<span class="ver">v0.25.5</span></div>
+  <div class="tagline">场景导览 · scenario-first walkthrough</div>
+  <nav>
+    <ol>
+      <li><a href="#s1" class="active">起点 Hero</a></li>
+      <li><a href="#s2">使用场景 Scenarios</a></li>
+      <li><a href="#s3">架构总览 Architecture</a></li>
+      <li><a href="#s4">核心机制 How it works</a></li>
+      <li><a href="#s5">细节参考 Details</a></li>
+    </ol>
+  </nav>
+  <div class="meta-block">
+    KERNEL · python3<br/>
+    LICENSE · MIT<br/>
+    STATE · plain-text<br/>
+    DEPS · stdlib only
+  </div>
+</aside>
+
+<main>
+
+<!-- ============================== §1 Hero ============================== -->
+<section id="s1">
+  <div class="header-band">
+    <h1>把 AI 助手会话钉进文件系统</h1>
+    <p>CodeNook 是一个装在工作目录里的多智能体任务编排器，让 Claude Code、Copilot CLI 这类命令行 AI 助手按工程化的阶段流水线干活，而不是开一次对话掉一次记忆。</p>
+    <div class="meta">VERSION 0.25.5 · KERNEL python3 · LICENSE MIT</div>
+  </div>
+  <p class="lede">
+    本页按"先看场景，再看架构，最后查细节"的顺序组织。如果你只有五分钟，看完第二节的三个场景就够了。
+  </p>
+</section>
+
+<!-- ============================== §2 Use Scenarios ============================== -->
+<section id="s2">
+  <div class="section-tag">// 02 — Use Scenarios</div>
+  <h2>三个真实场景</h2>
+  <p>
+    场景的关键不是"AI 帮你做了什么"，而是"会话中断之后，活儿还在不在"。
+    下面三段时间线展示了 session 关掉、换机器、换助手客户端这三种常见的中断方式。
+  </p>
+
+  <!-- ---------------- Scenario 1 ---------------- -->
+  <div class="scene">
+    <div class="scene-head">
+      <span class="tag">SCENARIO 01</span>
+      <h3>写一篇技术博客</h3>
+    </div>
+    <p class="blurb">writing 插件 · outline → draft → review → revise → publish · session 中途关掉</p>
+
+    <figure>
+      <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="作者与笔记本电脑场景">
+        <defs>
+          <linearGradient id="sc1g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="100%" stop-color="#06b6d4"/>
+          </linearGradient>
+        </defs>
+        <!-- person -->
+        <circle cx="110" cy="76" r="20" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.5"/>
+        <path d="M80 150 Q110 110 140 150 L138 170 L82 170 Z" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.5"/>
+        <!-- laptop -->
+        <rect x="200" y="56" width="220" height="120" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+        <rect x="200" y="56" width="220" height="20" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+        <circle cx="212" cy="66" r="3" fill="#cbd5e1"/>
+        <circle cx="222" cy="66" r="3" fill="#cbd5e1"/>
+        <circle cx="232" cy="66" r="3" fill="#cbd5e1"/>
+        <text x="310" y="110" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">writing/T-101-blog</text>
+        <text x="310" y="132" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" fill="#1e293b">phase: draft</text>
+        <text x="310" y="152" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#94a3b8">status: in_progress</text>
+        <rect x="200" y="178" width="220" height="6" rx="2" fill="#cbd5e1"/>
+        <!-- arrow -->
+        <path d="M440 116 L520 116" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <path d="M516 112 L524 116 L516 120 Z" fill="#94a3b8"/>
+        <!-- file -->
+        <rect x="540" y="56" width="140" height="120" rx="8" fill="url(#sc1g)" opacity=".12" stroke="#6366f1" stroke-width="1.5"/>
+        <text x="610" y="92" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#4338ca">.codenook/</text>
+        <text x="610" y="110" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">tasks/T-101/</text>
+        <text x="610" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">state.json</text>
+        <text x="610" y="142" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">outputs/</text>
+        <text x="610" y="158" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">prompts/</text>
+      </svg>
+    </figure>
+
+    <ul class="timeline">
+      <li><span class="when">DAY 1 · 10:00</span><span class="who user">你：</span>"用 codenook 帮我写一篇讲单元测试覆盖率的博客。"</li>
+      <li><span class="when">10:01</span><span class="who">助手：</span>挑 writing 插件，问几个问题：受众、字数、风格。回答记入 <code>state.summary</code>。</li>
+      <li><span class="when">10:05</span><span class="who sys">系统：</span><code>tick</code> 推进到 <code>outline</code> phase，派 outliner sub-agent 写大纲，落到 <code>outputs/phase-1-outliner.md</code>。</li>
+      <li><span class="when">10:30</span><span class="who">助手：</span>HITL gate <code>outline_signoff</code>，把大纲 verbatim 给你看。你回 approve，<code>tick</code> 推进到 draft。</li>
+      <li><span class="when">11:00</span><span class="who user">你：</span>开会前关掉终端。</li>
+      <li><span class="when">DAY 2 · 09:00</span><span class="who user">你：</span>新开 Claude Code 窗口，"continue T-101"。</li>
+      <li><span class="when">09:00</span><span class="who">助手：</span>读 <code>state.json</code>，看到 <code>phase: draft, status: in_progress</code>，直接接着 tick；不需要重铺背景。</li>
+      <li><span class="when">11:30</span><span class="who sys">系统：</span>review → revise → publish 全跑完，<code>status: done</code>。整段经历沉淀到 <code>memory/knowledge/</code>。</li>
+    </ul>
+  </div>
+
+  <!-- ---------------- Scenario 2 ---------------- -->
+  <div class="scene">
+    <div class="scene-head">
+      <span class="tag">SCENARIO 02</span>
+      <h3>调研一个开源项目</h3>
+    </div>
+    <p class="blurb">generic 插件 · 多轮探索 · 公司机器跑一半 → 家里机器接着跑</p>
+
+    <figure>
+      <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="跨机器迁移场景">
+        <defs>
+          <linearGradient id="sc2g" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="100%" stop-color="#06b6d4"/>
+          </linearGradient>
+        </defs>
+        <!-- machine A -->
+        <rect x="40" y="50" width="200" height="120" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+        <rect x="40" y="50" width="200" height="20" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+        <text x="140" y="64" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">work-laptop</text>
+        <text x="140" y="100" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#1e293b">T-202-explore-foo</text>
+        <text x="140" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">phase 3 / 6</text>
+        <text x="140" y="138" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">notes: 12 files</text>
+        <rect x="40" y="170" width="200" height="6" rx="2" fill="#cbd5e1"/>
+        <!-- person small -->
+        <circle cx="140" cy="190" r="6" fill="#e0e7ff" stroke="#6366f1" stroke-width="1"/>
+        <!-- transfer arrow with label -->
+        <path d="M250 110 L470 110" stroke="url(#sc2g)" stroke-width="2" stroke-dasharray="6 4"/>
+        <path d="M464 104 L476 110 L464 116 Z" fill="#06b6d4"/>
+        <text x="360" y="94" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#4338ca">git push · scp · tar</text>
+        <text x="360" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#94a3b8">.codenook/  整个目录</text>
+        <!-- machine B -->
+        <rect x="480" y="50" width="200" height="120" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+        <rect x="480" y="50" width="200" height="20" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+        <text x="580" y="64" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">home-laptop</text>
+        <text x="580" y="100" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#1e293b">T-202-explore-foo</text>
+        <text x="580" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">phase 3 / 6</text>
+        <text x="580" y="138" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">notes: 12 files</text>
+        <rect x="480" y="170" width="200" height="6" rx="2" fill="#cbd5e1"/>
+        <circle cx="580" cy="190" r="6" fill="#e0e7ff" stroke="#6366f1" stroke-width="1"/>
+      </svg>
+    </figure>
+
+    <ul class="timeline">
+      <li><span class="when">周三下午</span><span class="who user">你：</span>"用 codenook 调研一下 foo 这个仓库，先看架构再列 API 表。"</li>
+      <li><span class="when">14:00–17:30</span><span class="who sys">系统：</span>跑了 3 个 phase，sub-agent 把要点写到 <code>tasks/T-202/notes/</code>，记忆抽取沉到 <code>memory/knowledge/foo-arch.md</code>。</li>
+      <li><span class="when">下班</span><span class="who user">你：</span>把整个项目目录 <code>git push</code>。</li>
+      <li><span class="when">晚上</span><span class="who user">你：</span>家里 <code>git pull</code>，开 Copilot CLI。</li>
+      <li><span class="when">21:00</span><span class="who">助手：</span>读 <code>.codenook/state.json</code> 和 <code>memory/index.yaml</code>，列出"workspace 中有 1 个 in_progress 任务：T-202"，直接接 phase 4 继续。</li>
+      <li><span class="when">23:00</span><span class="who sys">系统：</span><code>status: done</code>。所有调研产物都还在仓库里，下次想翻随时翻。</li>
+    </ul>
+  </div>
+
+  <!-- ---------------- Scenario 3 ---------------- -->
+  <div class="scene">
+    <div class="scene-head">
+      <span class="tag">SCENARIO 03</span>
+      <h3>重构一个旧模块</h3>
+    </div>
+    <p class="blurb">development 插件 · feature profile · clarify → design → plan → implement → test · 中途换 AI 客户端</p>
+
+    <figure>
+      <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="跨助手切换场景">
+        <defs>
+          <linearGradient id="sc3g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="100%" stop-color="#10b981"/>
+          </linearGradient>
+        </defs>
+        <!-- assistant A -->
+        <rect x="40" y="40" width="180" height="60" rx="10" fill="#fff" stroke="#6366f1" stroke-width="1.5"/>
+        <text x="130" y="62" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#4338ca">Claude Code</text>
+        <text x="130" y="82" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">conductor</text>
+        <!-- arrow down to file -->
+        <path d="M130 100 L130 130" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <path d="M126 126 L130 134 L134 126 Z" fill="#94a3b8"/>
+        <!-- assistant B -->
+        <rect x="500" y="40" width="180" height="60" rx="10" fill="#fff" stroke="#06b6d4" stroke-width="1.5"/>
+        <text x="590" y="62" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#0e7490">Copilot CLI</text>
+        <text x="590" y="82" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">conductor</text>
+        <path d="M590 100 L590 130" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <path d="M586 126 L590 134 L594 126 Z" fill="#94a3b8"/>
+        <!-- shared file -->
+        <rect x="240" y="130" width="240" height="64" rx="10" fill="url(#sc3g)" opacity=".15" stroke="#6366f1" stroke-width="1.5"/>
+        <text x="360" y="156" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#4338ca">.codenook/tasks/T-303/</text>
+        <text x="360" y="176" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#475569">state.json · prompts · outputs</text>
+        <!-- side connectors -->
+        <path d="M130 134 Q 200 162 240 162" stroke="#94a3b8" stroke-width="1.5" fill="none"/>
+        <path d="M590 134 Q 520 162 480 162" stroke="#94a3b8" stroke-width="1.5" fill="none"/>
+      </svg>
+    </figure>
+
+    <ul class="timeline">
+      <li><span class="when">10:00</span><span class="who user">你：</span>在 Claude Code 里说"用 codenook 重构 auth 模块，把 session 改成 JWT"。</li>
+      <li><span class="when">10:15</span><span class="who">助手：</span>clarify phase 跑完，HITL gate <code>requirements_signoff</code> 弹出。你 approve。</li>
+      <li><span class="when">11:30</span><span class="who sys">系统：</span>design + plan 跑完，进入 implement。implementer sub-agent 改了 7 个文件。</li>
+      <li><span class="when">14:00</span><span class="who user">你：</span>Claude 用量到顶。切到 Copilot CLI 同一目录。</li>
+      <li><span class="when">14:00</span><span class="who">助手：</span>读 <code>CLAUDE.md</code> 里的 codenook bootloader 块，认得这个协议。<code>codenook status</code> 列出 T-303 在 implement phase。</li>
+      <li><span class="when">14:01</span><span class="who user">你：</span>"continue T-303."</li>
+      <li><span class="when">15:30</span><span class="who sys">系统：</span>test phase 跑完，HITL gate <code>ship_signoff</code> 弹出，你 approve，任务 done。整个流程不依赖任何一家厂商的会话状态。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================== §3 Architecture ============================== -->
+<section id="s3">
+  <div class="section-tag">// 03 — Architecture</div>
+  <h2>三层结构</h2>
+  <p>
+    场景背后的机制只有三层：上面是 AI 助手 (conductor)，中间是一个用 Python 写的内核 (kernel)，下面是工作目录里的文本文件 (workspace state)。三层通过 <code>state.json</code>、role 输出文件、HITL queue 三种 artefact 通讯。
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 760 320" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="archg" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0%" stop-color="#6366f1"/>
+          <stop offset="100%" stop-color="#06b6d4"/>
+        </linearGradient>
+      </defs>
+      <rect x="40" y="30" width="680" height="64" rx="10" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+      <text x="60" y="58" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#1e293b">AI 助手 · Claude Code / Copilot CLI / ...</text>
+      <text x="60" y="78" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">conductor — 读 envelope · 派 sub-agent · 回 tick · 转述 HITL prompt</text>
+
+      <path d="M380 100 L380 130" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 3"/>
+      <path d="M376 126 L380 134 L384 126 Z" fill="#94a3b8"/>
+
+      <rect x="40" y="140" width="680" height="64" rx="10" fill="url(#archg)"/>
+      <text x="60" y="168" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#fff">codenook 内核 · Python3 stdlib only</text>
+      <text x="60" y="188" font-family="JetBrains Mono, monospace" font-size="11" fill="#e0e7ff">tick · decide · phase 状态机 · HITL gate · 记忆抽取 · 插件加载</text>
+
+      <path d="M380 210 L380 240" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 3"/>
+      <path d="M376 236 L380 244 L384 236 Z" fill="#94a3b8"/>
+
+      <rect x="40" y="250" width="680" height="64" rx="10" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+      <text x="60" y="278" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#1e293b">工作目录 · &lt;workspace&gt;/.codenook/</text>
+      <text x="60" y="298" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">tasks/ · plugins/ · memory/ · hitl-queue/ · state.json</text>
+    </svg>
+    <figcaption>FIG.1  三层结构 — 助手在上 / 内核在中 / 文件在下</figcaption>
+  </figure>
+
+  <div class="three">
+    <div class="card">
+      <div class="lbl">LAYER 1</div>
+      <h4>Kernel</h4>
+      <p>插件无关、版本固定。提供 <code>codenook</code> CLI、状态机、HITL adapter、记忆抽取器、安装管线，全部 Python stdlib，无第三方依赖。</p>
+    </div>
+    <div class="card">
+      <div class="lbl">LAYER 2</div>
+      <h4>Plugins</h4>
+      <p>三个一方插件：<code>development</code>（11 phase / 7 profile）、<code>writing</code>、<code>generic</code>。每个插件就是一个目录，含 <code>phases.yaml</code>、<code>roles/</code>、<code>manifest-templates/</code>。</p>
+    </div>
+    <div class="card">
+      <div class="lbl">LAYER 3</div>
+      <h4>Workspace</h4>
+      <p>纯文本运行时状态：每个任务一个目录，跨任务的 knowledge / skills / configs 沉到 <code>memory/</code>。可 diff、可 git、可 tar。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== §4 How it works ============================== -->
+<section id="s4">
+  <div class="section-tag">// 04 — How it works</div>
+  <h2>tick 循环</h2>
+  <p>
+    一个任务的执行就是反复调 <code>codenook tick</code>。每 tick 一次，状态机推进至多一个 phase：要么派一个 sub-agent 去干活，要么读上一次 sub-agent 的产物决定下一步。
+  </p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 280" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ah5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#6366f1"/>
+        </marker>
+      </defs>
+      <circle cx="360" cy="140" r="58" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="360" y="135" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#4338ca">tick</text>
+      <text x="360" y="155" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#6366f1">phase 状态机</text>
+
+      <g font-family="Inter, sans-serif" font-size="12" fill="#1e293b">
+        <rect x="40"  y="40"  width="150" height="44" rx="8" fill="#fff" stroke="#cbd5e1"/>
+        <text x="115" y="60"  text-anchor="middle" font-weight="600">1. conductor 调 tick</text>
+        <text x="115" y="76"  text-anchor="middle" fill="#64748b" font-size="11">codenook tick --json</text>
+
+        <rect x="530" y="40"  width="150" height="44" rx="8" fill="#fff" stroke="#cbd5e1"/>
+        <text x="605" y="60"  text-anchor="middle" font-weight="600">2. 返回 envelope</text>
+        <text x="605" y="76"  text-anchor="middle" fill="#64748b" font-size="11">{ phase, prompt, out }</text>
+
+        <rect x="530" y="200" width="150" height="44" rx="8" fill="#fff" stroke="#cbd5e1"/>
+        <text x="605" y="220" text-anchor="middle" font-weight="600">3. 派 sub-agent</text>
+        <text x="605" y="236" text-anchor="middle" fill="#64748b" font-size="11">写 verdict 产出</text>
+
+        <rect x="40"  y="200" width="150" height="44" rx="8" fill="#fff" stroke="#cbd5e1"/>
+        <text x="115" y="220" text-anchor="middle" font-weight="600">4. 再次 tick</text>
+        <text x="115" y="236" text-anchor="middle" fill="#64748b" font-size="11">读产出 · 推下一阶段</text>
+      </g>
+
+      <path d="M190 70 Q 280 80, 305 115"   stroke="#6366f1" stroke-width="1.5" fill="none" marker-end="url(#ah5)"/>
+      <path d="M415 115 Q 480 80, 530 70"   stroke="#6366f1" stroke-width="1.5" fill="none" marker-end="url(#ah5)"/>
+      <path d="M605 84 L605 200"            stroke="#6366f1" stroke-width="1.5" fill="none" marker-end="url(#ah5)"/>
+      <path d="M530 222 Q 480 200, 415 165" stroke="#6366f1" stroke-width="1.5" fill="none" marker-end="url(#ah5)"/>
+      <path d="M305 165 Q 240 200, 190 222" stroke="#6366f1" stroke-width="1.5" fill="none" marker-end="url(#ah5)"/>
+      <path d="M115 200 L115 84"            stroke="#6366f1" stroke-width="1.5" fill="none" marker-end="url(#ah5)"/>
+    </svg>
+    <figcaption>FIG.2  tick 循环 — 一次推进一个 phase</figcaption>
+  </figure>
+
+  <h3>四个关键术语</h3>
+  <ul>
+    <li><strong>Phase</strong>：流水线上的一段，比如 <code>clarify</code>、<code>design</code>、<code>implement</code>。每个 phase 绑一个 role。</li>
+    <li><strong>Role</strong>：sub-agent 的人格设定 (system prompt)，定义在 <code>plugins/&lt;id&gt;/roles/&lt;role&gt;.md</code>。</li>
+    <li><strong>Sub-agent</strong>：被 conductor 派出去执行单个 phase 的子会话，写一份 <code>verdict</code> 标注的产出文件后退出。</li>
+    <li><strong>HITL gate</strong>：phase 之间的人审闸口，把产出 verbatim 给你看，等 <code>approve / reject / needs_changes</code>。</li>
+  </ul>
+
+  <p>
+    一次完整的派发凭一份 envelope：<code>{ task_id, phase, role, system_prompt_path, prompt_path, reply_path, model }</code>。conductor 按这份 envelope 调起 sub-agent，sub-agent 把答复写到 <code>reply_path</code>，conductor 再回头 tick。整套协议没有任何全局状态，全部存在工作目录里。
+  </p>
+</section>
+
+<!-- ============================== §5 Details ============================== -->
+<section id="s5">
+  <div class="section-tag">// 05 — Details</div>
+  <h2>细节参考</h2>
+  <p>下面五个折叠块分别是 CLI、文件结构、记忆系统、并发模型、扩展指引。需要查的时候打开看。</p>
+
+  <details class="detail">
+    <summary>5.1 · CLI 命令一览</summary>
+    <div class="body">
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>命令</th><th>用途</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>codenook task new --plugin &lt;id&gt; --title …</code></td><td>新建任务，分配 <code>T-NNN-&lt;slug&gt;</code>，写初始 <code>state.json</code>。</td></tr>
+            <tr><td><code>codenook tick --task T --json</code></td><td>状态机推进一步，返回派发 envelope 或 done/blocked/waiting。</td></tr>
+            <tr><td><code>codenook decide --task T --phase &lt;id&gt; --decision &lt;verb&gt;</code></td><td>解决一个 HITL gate。<code>--decision</code> 取 <code>approve / reject / needs_changes</code>。</td></tr>
+            <tr><td><code>codenook hitl &lt;list|show|render|decide&gt;</code></td><td>查看 / 渲染 / 决议待审 gate；<code>render</code> 输出独立 HTML。</td></tr>
+            <tr><td><code>codenook status [--task T]</code></td><td>列出 workspace 全部任务或单个任务的当前状态。</td></tr>
+            <tr><td><code>codenook extract --task T --reason &lt;r&gt;</code></td><td>手动触发记忆抽取（一般 phase 完成后自动跑）。</td></tr>
+            <tr><td><code>codenook chain link / show / detach</code></td><td>管理父子任务链。</td></tr>
+            <tr><td><code>codenook preflight</code></td><td>校验 <code>.codenook/</code> 安装是否完好。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>退出码：<code>0</code> 成功 · <code>1</code> 运行错 · <code>2</code> 用法错 / 缺 entry-question · <code>3</code> 无变化。</p>
+    </div>
+  </details>
+
+  <details class="detail">
+    <summary>5.2 · 工作目录结构</summary>
+    <div class="body">
+<pre><span class="c"># 安装后 workspace 多出来的就这一个目录</span>
+&lt;workspace&gt;/.codenook/
+├── codenook-core/          <span class="c">← 内核 (CLI + builtin skills)</span>
+├── plugins/&lt;id&gt;/           <span class="c">← 已装插件 (read-only)</span>
+├── bin/codenook(.cmd)      <span class="c">← Python shim</span>
+├── tasks/&lt;T-NNN&gt;/          <span class="c">← 每任务一个目录</span>
+│     ├── state.json          <span class="c">← 任务状态 (schema 校验)</span>
+│     ├── prompts/            <span class="c">← 渲染好的 manifest</span>
+│     ├── outputs/            <span class="c">← sub-agent 产物 (verdict)</span>
+│     └── audit/dispatch.jsonl
+├── memory/                 <span class="c">← 跨任务沉淀</span>
+│     ├── knowledge/&lt;topic&gt;.md
+│     ├── skills/&lt;name&gt;/SKILL.md
+│     ├── configs/&lt;entry&gt;.md
+│     └── index.yaml
+├── hitl-queue/             <span class="c">← 待审 gate</span>
+└── extraction-log.jsonl    <span class="c">← 记忆写入审计</span></pre>
+      <p>所有文件都是 JSON / YAML / Markdown。可 git 提交、可 tar 打包、可 scp 拷贝；没有数据库，没有后台进程。</p>
+    </div>
+  </details>
+
+  <details class="detail">
+    <summary>5.3 · 记忆系统</summary>
+    <div class="body">
+      <p>每个 phase 跑完后 <code>extractor-batch</code> 自动跑一次，把产出里有复用价值的东西分三类沉淀：</p>
+      <ul>
+        <li><strong>knowledge</strong>：声明式工程事实（决策、约定、环境注记），落到 <code>memory/knowledge/&lt;topic&gt;.md</code>。</li>
+        <li><strong>skills</strong>：可执行的小技能（重复出现的 CLI / 脚本模式），落到 <code>memory/skills/&lt;name&gt;/SKILL.md</code>。</li>
+        <li><strong>configs</strong>：配置决定，落到 <code>memory/configs/&lt;entry&gt;.md</code>。</li>
+      </ul>
+      <p>三类共用一份 <code>memory/index.yaml</code> 作为目录索引。下次开任务时 conductor 先读这份索引，知道这个仓库以前做过什么、踩过什么坑。每次写入都进 <code>extraction-log.jsonl</code>，可审计。</p>
+    </div>
+  </details>
+
+  <details class="detail">
+    <summary>5.4 · 并发模型</summary>
+    <div class="body">
+      <p>三个正交机制，可组合：</p>
+      <ul>
+        <li><strong>Iteration</strong>：<code>supports_iteration: true</code> 的 phase，verdict 为 <code>needs_revision</code> 或 <code>post_validate</code> 失败时，同 phase 重派，<code>iteration += 1</code>，达到 <code>max_iterations</code>（默认 3）转 blocked。</li>
+        <li><strong>Fanout</strong>：<code>allows_fanout: true</code> 的 role 在产出里写 <code>decomposed: true</code> 时，tick 拉子任务列表，seed 子 task，父任务 <code>status: waiting</code> 直到子任务全部落地。</li>
+        <li><strong>Dual-mode</strong>：<code>dual_mode_compatible: true</code> 的 phase 在 <code>dual_mode: parallel</code> 任务上会派 N 个 sub-agent 并行（默认 N=3），按多数 verdict 收敛。</li>
+      </ul>
+    </div>
+  </details>
+
+  <details class="detail">
+    <summary>5.5 · 扩展指引</summary>
+    <div class="body">
+      <p>新增插件就是一个目录：</p>
+<pre>plugins/&lt;id&gt;/
+├── plugin.yaml              <span class="c">← id / version / 路由优先级</span>
+├── phases.yaml              <span class="c">← phase 目录 + profile 列表</span>
+├── hitl-gates.yaml          <span class="c">← gate id → trigger phase</span>
+├── roles/&lt;role&gt;.md          <span class="c">← role 系统提示 (sub-agent 看)</span>
+├── manifest-templates/      <span class="c">← 每 phase 一份模板</span>
+└── README.md / CHANGELOG.md</pre>
+      <p>装入 workspace 用同一个入口：</p>
+<pre><span class="p">$</span> python3 install.py --target ~/code/my-project --plugin &lt;id&gt; --yes</pre>
+      <p>可选附加目录：<code>knowledge/</code>（随插件出货的领域知识）、<code>skills/</code>（可执行小技能，例如 test-runner）、<code>validators/</code>（<code>post_validate</code> 脚本）。详细字段参见 <code>docs/architecture.md §3</code>。</p>
+    </div>
+  </details>
+</section>
+
+<footer class="doc-footer">
+  CODENOOK · v0.25.5 · scenario-first walkthrough · MIT
+</footer>
+
+</main>
+</div>
+
+<nav class="dot-nav" aria-label="Section nav">
+  <a href="#s1" class="active"></a>
+  <a href="#s2"></a>
+  <a href="#s3"></a>
+  <a href="#s4"></a>
+  <a href="#s5"></a>
+</nav>
+
+<script>
+  const dots = document.querySelectorAll('.dot-nav a');
+  const sideLinks = document.querySelectorAll('.sidebar nav a');
+  const sections = document.querySelectorAll('main > section');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const i = [...sections].indexOf(e.target);
+        dots.forEach(d => d.classList.remove('active'));
+        sideLinks.forEach(d => d.classList.remove('active'));
+        if (dots[i]) dots[i].classList.add('active');
+        if (sideLinks[i]) sideLinks[i].classList.add('active');
+      }
+    });
+  }, { threshold: 0.35 });
+  sections.forEach(s => io.observe(s));
+</script>
+
+</body>
+</html>

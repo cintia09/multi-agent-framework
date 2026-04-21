@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>CodeNook · Technical Documentation · v0.25.5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --indigo:   #6366f1;
+    --indigo-d: #4338ca;
+    --cyan:     #06b6d4;
+    --emerald:  #10b981;
+    --amber:    #f59e0b;
+    --bg:       #fafbff;
+    --panel:    #ffffff;
+    --ink:      #1e293b;
+    --ink2:     #475569;
+    --muted:    #64748b;
+    --line:     #e2e8f0;
+    --line2:    #cbd5e1;
+    --code-bg:  #0f172a;
+    --code-ink: #e2e8f0;
+    --grad-main: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+    --grad-soft: linear-gradient(135deg, #eef2ff 0%, #ecfeff 100%);
+    --shadow-sm: 0 1px 3px rgba(15,23,42,.04);
+    --shadow-md: 0 4px 16px rgba(99,102,241,.08);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: "PingFang SC", "HarmonyOS Sans", "Microsoft YaHei", "Inter", system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+    font-size: 15.5px;
+  }
+  code, pre, .mono {
+    font-family: "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+  }
+  p code, li code, td code {
+    background: #eef2ff;
+    color: var(--indigo-d);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 88%;
+  }
+
+  /* ---------- Layout ---------- */
+  .layout {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 0;
+  }
+
+  /* ---------- Sidebar ---------- */
+  aside.sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 24px 32px 32px;
+    border-right: 1px solid var(--line);
+    background: #fff;
+  }
+  .sidebar .brand {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: .04em;
+    margin-bottom: 4px;
+  }
+  .sidebar .brand .ver {
+    color: var(--muted);
+    font-weight: 400;
+    margin-left: 6px;
+  }
+  .sidebar .tagline {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }
+  .sidebar nav { font-size: 13.5px; }
+  .sidebar nav ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  .sidebar nav li {
+    counter-increment: toc;
+    margin: 0;
+  }
+  .sidebar nav a {
+    display: block;
+    padding: 7px 10px 7px 32px;
+    color: var(--ink2);
+    text-decoration: none;
+    border-radius: 6px;
+    position: relative;
+    transition: background .15s, color .15s;
+    line-height: 1.4;
+  }
+  .sidebar nav a::before {
+    content: counter(toc, decimal-leading-zero);
+    position: absolute;
+    left: 8px;
+    top: 7px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--line2);
+    font-weight: 500;
+  }
+  .sidebar nav a:hover {
+    background: #f1f5f9;
+    color: var(--indigo-d);
+  }
+  .sidebar nav a.active {
+    background: var(--grad-soft);
+    color: var(--indigo-d);
+    font-weight: 600;
+  }
+  .sidebar nav a.active::before { color: var(--indigo); }
+
+  .sidebar .meta-block {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+
+  /* ---------- Main content ---------- */
+  main {
+    padding: 56px 56px 120px;
+    max-width: 100%;
+  }
+  main > section {
+    max-width: 760px;
+    margin: 0 0 88px;
+    scroll-margin-top: 24px;
+  }
+  main > section:first-child { margin-top: 0; }
+
+  .section-tag {
+    display: inline-block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: .15em;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+  h1 {
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 0 0 16px;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 20px;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 36px 0 12px;
+  }
+  h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink2);
+    margin: 24px 0 8px;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .02em;
+  }
+  p { color: var(--ink2); margin: 0 0 14px; }
+  p + p { margin-top: 14px; }
+  ul, ol { color: var(--ink2); padding-left: 24px; margin: 0 0 14px; }
+  li { margin-bottom: 6px; }
+
+  .lede {
+    font-size: 16.5px;
+    color: var(--ink2);
+    line-height: 1.7;
+    margin: 0 0 20px;
+  }
+  .meta-line {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: .04em;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  .meta-line span + span { margin-left: 16px; }
+
+  /* ---------- Tables ---------- */
+  .tbl-wrap { overflow-x: auto; margin: 18px 0 22px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    border: 1px solid var(--line);
+    background: #fff;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 10px 14px;
+    text-align: left;
+    vertical-align: top;
+    color: var(--ink2);
+    line-height: 1.55;
+  }
+  th {
+    background: #f8fafc;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: .01em;
+  }
+  td code { font-size: 12.5px; }
+
+  /* ---------- Code blocks ---------- */
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 16px 18px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    line-height: 1.7;
+    overflow-x: auto;
+    margin: 16px 0 22px;
+    border: 1px solid #1e293b;
+  }
+  pre code { background: transparent; color: inherit; padding: 0; font-size: inherit; }
+  pre .c  { color: #64748b; font-style: italic; }
+  pre .k  { color: #c084fc; }
+  pre .s  { color: #86efac; }
+  pre .n  { color: #fbbf24; }
+  pre .p  { color: #06b6d4; }
+  pre .v  { color: #fca5a5; }
+
+  /* ---------- Figures ---------- */
+  figure {
+    margin: 24px 0 28px;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption {
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .03em;
+    text-align: center;
+  }
+
+  /* ---------- Callout ---------- */
+  .note {
+    background: #f8fafc;
+    border-left: 3px solid var(--indigo);
+    padding: 12px 16px;
+    margin: 16px 0 22px;
+    border-radius: 0 6px 6px 0;
+    font-size: 14px;
+    color: var(--ink2);
+  }
+  .note .label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--indigo-d);
+    letter-spacing: .08em;
+    margin-right: 8px;
+    font-weight: 600;
+  }
+  .warn { border-left-color: var(--amber); }
+  .warn .label { color: #b45309; }
+
+  /* ---------- Term list ---------- */
+  dl.terms { margin: 16px 0 22px; }
+  dl.terms dt {
+    font-weight: 600;
+    color: var(--ink);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13.5px;
+    margin-top: 16px;
+    margin-bottom: 4px;
+  }
+  dl.terms dt:first-child { margin-top: 0; }
+  dl.terms dt .zh {
+    font-family: "PingFang SC", system-ui, sans-serif;
+    font-weight: 500;
+    color: var(--muted);
+    font-size: 13px;
+    margin-left: 6px;
+  }
+  dl.terms dd { margin: 0 0 8px; color: var(--ink2); font-size: 14.5px; }
+
+  /* ---------- Dot nav ---------- */
+  .dot-nav {
+    position: fixed;
+    right: 22px;
+    bottom: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 100;
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(10px);
+    padding: 10px 8px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-md);
+  }
+  .dot-nav a {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    transition: all .2s ease;
+    display: block;
+  }
+  .dot-nav a:hover { background: var(--indigo); transform: scale(1.3); }
+  .dot-nav a.active {
+    background: var(--grad-main);
+    height: 22px;
+    border-radius: 4px;
+  }
+
+  /* ---------- Header band ---------- */
+  .header-band {
+    background: var(--grad-main);
+    color: #fff;
+    padding: 36px 32px 32px;
+    border-radius: 12px;
+    margin-bottom: 36px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header-band::before {
+    content: "";
+    position: absolute;
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: .25;
+    background: #fbbf24;
+    top: -160px; right: -120px;
+  }
+  .header-band h1 {
+    color: #fff;
+    font-size: 32px;
+    margin: 0 0 10px;
+    position: relative;
+  }
+  .header-band p {
+    color: rgba(255,255,255,.92);
+    margin: 0;
+    font-size: 15px;
+    position: relative;
+    max-width: 640px;
+  }
+  .header-band .meta {
+    position: relative;
+    margin-top: 18px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    opacity: .8;
+    letter-spacing: .08em;
+  }
+
+  /* ---------- Footer ---------- */
+  footer.doc-footer {
+    margin-top: 80px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    color: var(--muted);
+    letter-spacing: .05em;
+  }
+
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.sidebar {
+      position: static;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--line);
+    }
+    main { padding: 32px 24px 80px; }
+    .dot-nav { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+<!-- ============================================================ -->
+<!-- Sidebar TOC                                                  -->
+<!-- ============================================================ -->
+<aside class="sidebar">
+  <div class="brand">CodeNook<span class="ver">v0.25.5</span></div>
+  <div class="tagline">Multi-agent task orchestrator · Technical documentation</div>
+  <nav>
+    <ol>
+      <li><a href="#s1" class="active">概述 Overview</a></li>
+      <li><a href="#s2">设计动机 Motivation</a></li>
+      <li><a href="#s3">架构 Architecture</a></li>
+      <li><a href="#s4">核心概念 Concepts</a></li>
+      <li><a href="#s5">执行流程 Execution Flow</a></li>
+      <li><a href="#s6">数据模型 Data Model</a></li>
+      <li><a href="#s7">记忆系统 Memory System</a></li>
+      <li><a href="#s8">CLI 参考 CLI Reference</a></li>
+      <li><a href="#s9">扩展机制 Extensibility</a></li>
+      <li><a href="#s10">附录 Appendix</a></li>
+    </ol>
+  </nav>
+  <div class="meta-block">
+    KERNEL · python3<br/>
+    LICENSE · MIT<br/>
+    PIPELINE · phase-gated<br/>
+    STATE · plain-text
+  </div>
+</aside>
+
+<!-- ============================================================ -->
+<!-- Main content                                                 -->
+<!-- ============================================================ -->
+<main>
+
+<!-- ============================== §1 ============================== -->
+<section id="s1">
+  <div class="header-band">
+    <h1>CodeNook 技术文档</h1>
+    <p>装在工作目录里的多智能体任务编排器 (multi-agent task orchestrator)。本文档面向工程师同行，描述 CodeNook v0.25.5 的架构、数据模型、执行流程与扩展接口。</p>
+    <div class="meta">VERSION 0.25.5 · KERNEL python3 · LICENSE MIT</div>
+  </div>
+
+  <div class="section-tag">// 01 — Overview</div>
+  <h2>概述</h2>
+  <p class="lede">
+    CodeNook 是一个由 CLI 形态的 AI 助手 (Claude Code、Copilot CLI 等) 驱动的、相阶段门 (phase-gated) 的任务流水线编排器。它将助手会话定位为纯指挥者 (conductor)，把状态机、子代理派发 (sub-agent dispatch) 与人工审批闸门 (HITL gate) 下沉到一个 Python 内核 (kernel)，所有运行时状态以 JSON / YAML / Markdown 落盘到 <code>&lt;workspace&gt;/.codenook/</code>。
+  </p>
+  <div class="meta-line">
+    <span>STATUS · stable</span>
+    <span>STORAGE · plain-text</span>
+    <span>RUNTIME · python3 ≥ 3.9</span>
+    <span>DEPS · zero (stdlib only)</span>
+  </div>
+</section>
+
+<!-- ============================== §2 ============================== -->
+<section id="s2">
+  <div class="section-tag">// 02 — Motivation</div>
+  <h2>设计动机</h2>
+  <p>
+    在 Claude Code、Copilot CLI 等命令行 AI 助手上做工程化协作，会反复撞到三个结构性问题。CodeNook 针对每个问题给出确定性的解法，三者共同构成本项目的存在理由。
+  </p>
+
+  <div class="tbl-wrap">
+  <table>
+    <thead>
+      <tr><th style="width:24%">问题 (Problem)</th><th style="width:38%">表现 (Symptom)</th><th>解法 (Solution)</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Session 易失性<br/><span class="mono" style="color:var(--muted);font-size:11px;">session volatility</span></td>
+        <td>会话窗口关闭即丢失上下文；下次启动需重述背景、目标、决议、未决问题。</td>
+        <td>任务状态外置到 <code>tasks/&lt;T-NNN&gt;/state.json</code>。新会话由内核读取该文件恢复执行点。</td>
+      </tr>
+      <tr>
+        <td>上下文受限<br/><span class="mono" style="color:var(--muted);font-size:11px;">context window pressure</span></td>
+        <td>长任务在 token 上限附近触发 <code>/compact</code>，关键决议被压缩或遗忘。</td>
+        <td>分阶段派发子代理 (sub-agent)，每阶段在独立上下文中执行；产出落盘后由 <code>extractor-batch</code> 抽取到 <code>memory/</code>。</td>
+      </tr>
+      <tr>
+        <td>工作空间耦合<br/><span class="mono" style="color:var(--muted);font-size:11px;">workspace coupling</span></td>
+        <td>受限环境 (公司机器、跳板机) 装不上助手 GUI；记忆/插件依附于全局账户，不随仓库迁移。</td>
+        <td>所有内核、插件、状态、队列、记忆均位于工作目录下 <code>.codenook/</code>，纯文本，可 <code>git</code> / <code>tar</code> 携带。</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note">
+    <span class="label">NOTE</span>
+    CodeNook 不解决模型本身的幻觉、跑题、能力上限等问题。其目标是把 AI 助手的临时会话状态强约束为可审计、可恢复的文件系统状态。
+  </div>
+</section>
+
+<!-- ============================== §3 ============================== -->
+<section id="s3">
+  <div class="section-tag">// 03 — Architecture</div>
+  <h2>架构</h2>
+  <p>
+    CodeNook 采用三层架构。各层通过窄接口通信：内核不感知阶段 (phase) 与角色 (role) 的语义；插件不感知 HITL 队列与状态机；工作空间状态对两者均为只读契约。三层共用三个落地物：角色输出文件的 <code>verdict</code> frontmatter、<code>phases.yaml</code> 中的 <code>gate:</code> 字段、以及 <code>state.json</code>。
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 720 380" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="kg" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#6366f1"/>
+          <stop offset="100%" stop-color="#06b6d4"/>
+        </linearGradient>
+        <marker id="arr1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+        </marker>
+      </defs>
+
+      <!-- Layer 1: Conductor -->
+      <rect x="40" y="20" width="640" height="70" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.2"/>
+      <text x="60" y="46" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#1e293b">指挥者 Conductor</text>
+      <text x="60" y="66" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">Claude Code / Copilot CLI · 读 envelope · 派 sub-agent · 回 tick · 中转 HITL</text>
+      <text x="640" y="46" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="#94a3b8">LLM session</text>
+
+      <path d="M360 92 L360 118" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#arr1)"/>
+
+      <!-- Layer 2: Kernel -->
+      <rect x="40" y="125" width="640" height="80" rx="8" fill="url(#kg)"/>
+      <text x="60" y="151" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#fff">内核 Kernel — codenook-core/ (plugin-agnostic)</text>
+      <text x="60" y="171" font-family="JetBrains Mono, monospace" font-size="11" fill="#e0e7ff">CLI: tick · decide · status · extract · hitl · preflight</text>
+      <text x="60" y="189" font-family="JetBrains Mono, monospace" font-size="11" fill="#e0e7ff">state machine · HITL adapter · memory extractors · install pipeline</text>
+      <text x="660" y="151" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="#fff" opacity=".75">python3</text>
+
+      <path d="M200 207 L200 233" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#arr1)"/>
+      <path d="M520 207 L520 233" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#arr1)"/>
+
+      <!-- Layer 3a: Plugins -->
+      <rect x="40" y="240" width="300" height="120" rx="8" fill="#fff" stroke="#6366f1" stroke-width="1.2"/>
+      <text x="60" y="266" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#1e293b">插件 Plugins — plugins/&lt;id&gt;/</text>
+      <text x="60" y="286" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">phases.yaml · hitl-gates.yaml</text>
+      <text x="60" y="302" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">roles/ · manifest-templates/</text>
+      <text x="60" y="318" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">knowledge/ · skills/ · validators/</text>
+      <text x="60" y="342" font-family="Inter, sans-serif" font-size="11" fill="#94a3b8">development · writing · generic</text>
+
+      <!-- Layer 3b: Workspace state -->
+      <rect x="380" y="240" width="300" height="120" rx="8" fill="#fff" stroke="#06b6d4" stroke-width="1.2"/>
+      <text x="400" y="266" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#1e293b">工作空间状态 Workspace state</text>
+      <text x="400" y="286" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">tasks/&lt;T-NNN&gt;/state.json</text>
+      <text x="400" y="302" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">memory/ · hitl-queue/</text>
+      <text x="400" y="318" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">extraction-log.jsonl</text>
+      <text x="400" y="342" font-family="Inter, sans-serif" font-size="11" fill="#94a3b8">resumable · auditable · diff-able</text>
+    </svg>
+    <figcaption>FIG.1  三层架构 — 指挥者驱动内核，内核消费插件契约并写入工作空间状态</figcaption>
+  </figure>
+
+  <h3>3.1 内核 Kernel</h3>
+  <p>
+    位于 <code>&lt;ws&gt;/.codenook/codenook-core/</code>，与领域无关 (plugin-agnostic)。导出唯一的 CLI 入口 <code>codenook</code> (经 <code>.codenook/bin/codenook</code> 薄壳转发到 <code>codenook-core/_lib/cli/</code>)。承载状态机引擎 (<code>orchestrator-tick/_tick.py</code>)、HITL 适配器、三个记忆抽取器 (<code>knowledge/skill/config-extractor</code>) 与安装流水线。可通过 <code>python3 install.py --upgrade</code> 原地升级。
+  </p>
+
+  <h3>3.2 插件 Plugins</h3>
+  <p>
+    位于 <code>&lt;ws&gt;/.codenook/plugins/&lt;id&gt;/</code>，承载领域知识。插件用 <code>phases.yaml</code> 声明阶段目录 (catalogue) 与画像 (profile)，用 <code>hitl-gates.yaml</code> 声明审批闸门，用 <code>roles/&lt;role&gt;.md</code> 声明子代理的引导提示，用 <code>manifest-templates/phase-N-&lt;role&gt;.md</code> 声明每次派发渲染的工单模板。插件目录在安装后只读。
+  </p>
+
+  <h3>3.3 工作空间状态 Workspace state</h3>
+  <p>
+    位于 <code>&lt;ws&gt;/.codenook/{tasks,memory,hitl-queue}/</code>。所有运行时数据均为纯文本 JSON / YAML / Markdown，可被 <code>git diff</code> 审阅、<code>tar</code> 打包、<code>scp</code> 转移。任务跨会话、跨机器、跨助手客户端可恢复。
+  </p>
+</section>
+
+<!-- ============================== §4 ============================== -->
+<section id="s4">
+  <div class="section-tag">// 04 — Concepts</div>
+  <h2>核心概念</h2>
+  <p>
+    本节定义贯穿全文档的术语。每条术语在语义上互不重叠；在代码中对应的实体名、字段名亦严格遵循此处命名。
+  </p>
+
+  <dl class="terms">
+
+    <dt>Plugin <span class="zh">插件</span></dt>
+    <dd>领域工作流的可装载单元。一个插件声明一组阶段 (phases) 与一组画像 (profiles)；同一仓库可并存多个插件。一等公民插件：<code>development</code> (软件工程，11 阶段 7 画像)、<code>writing</code> (长文写作，5 阶段)、<code>generic</code> (低优先级兜底)。</dd>
+
+    <dt>Phase <span class="zh">阶段</span></dt>
+    <dd>流水线中的一个原子步骤。每个阶段绑定一个角色 (<code>role</code>)、一个产出文件 (<code>produces</code>)，可选地绑定一个闸门 (<code>gate</code>) 与若干迭代/扇出/双模标记 (<code>supports_iteration</code> / <code>allows_fanout</code> / <code>dual_mode_compatible</code>)。</dd>
+    <dd>
+<pre><code><span class="k">implement</span>:
+  role: <span class="s">implementer</span>
+  produces: <span class="s">outputs/phase-4-implementer.md</span>
+  supports_iteration: <span class="n">true</span>
+  allows_fanout: <span class="n">true</span>
+  dual_mode_compatible: <span class="n">true</span>
+  post_validate: <span class="s">validators/post-implement.sh</span></code></pre>
+    </dd>
+
+    <dt>Role <span class="zh">角色</span></dt>
+    <dd>子代理的引导画像，定义为 <code>plugins/&lt;id&gt;/roles/&lt;role&gt;.md</code>。同一角色可被多个阶段复用 (例如 <code>reviewer</code> 在 <code>review</code> 与 <code>ship</code> 两阶段都担任)。角色文件声明输出契约 (<code>frontmatter_required</code>) 与单行职责。</dd>
+
+    <dt>Sub-agent <span class="zh">子代理</span></dt>
+    <dd>由指挥者按内核派发指令启动的、独立上下文窗口的 LLM 调用。每次派发对应一个阶段；子代理读取角色文件 (system prompt) 与渲染后的工单 (user message)，将其响应写入 <code>tasks/&lt;T&gt;/outputs/phase-N-&lt;role&gt;.md</code>。</dd>
+
+    <dt>HITL Gate <span class="zh">人工审批闸门</span></dt>
+    <dd>Human-in-the-loop。绑定到具体阶段的同步审批点。阶段产出消费完成后，若该阶段配置了 <code>gate:</code>，<code>tick</code> 在 <code>hitl-queue/&lt;task&gt;-&lt;gate&gt;.json</code> 写入待决条目，任务状态置为 <code>waiting</code>，直到 <code>codenook decide</code> 写入 <code>approve | reject | needs_changes</code> 决议。</dd>
+
+    <dt>Envelope <span class="zh">派发信封</span></dt>
+    <dd>
+      <code>tick --json</code> 在派发子代理时返回的 JSON 对象。指挥者据此知道：派给谁、用哪个 system prompt、用哪个 user prompt、产出写到哪个文件、用什么模型。
+<pre><code>{
+  <span class="s">"status"</span>: <span class="s">"advanced"</span>,
+  <span class="s">"next_action"</span>: <span class="s">"dispatched implementer"</span>,
+  <span class="s">"dispatched_agent_id"</span>: <span class="s">"ag_T-001_implement_1"</span>,
+  <span class="s">"envelope"</span>: {
+    <span class="s">"action"</span>: <span class="s">"phase_prompt"</span>,
+    <span class="s">"task_id"</span>: <span class="s">"T-001"</span>,
+    <span class="s">"phase"</span>: <span class="s">"implement"</span>,
+    <span class="s">"role"</span>: <span class="s">"implementer"</span>,
+    <span class="s">"system_prompt_path"</span>: <span class="s">".codenook/plugins/development/roles/implementer.md"</span>,
+    <span class="s">"prompt_path"</span>: <span class="s">".codenook/tasks/T-001/prompts/phase-4-implementer.md"</span>,
+    <span class="s">"reply_path"</span>: <span class="s">".codenook/tasks/T-001/outputs/phase-4-implementer.md"</span>,
+    <span class="s">"model"</span>: <span class="s">"claude-sonnet-4.6"</span>
+  }
+}</code></pre>
+    </dd>
+
+    <dt>Tick <span class="zh">时钟推进</span></dt>
+    <dd>状态机的单步推进操作，由 <code>codenook tick --task &lt;T&gt;</code> 触发。每次调用至多消费一个阶段产出并至多派发一个新阶段；返回 <code>advanced | waiting | done | blocked | error</code> 之一。指挥者循环调用直至 <code>done</code> 或 <code>blocked</code>。</dd>
+
+    <dt>Verdict <span class="zh">裁定</span></dt>
+    <dd>角色输出文件 frontmatter 中必填的字段。常见取值：<code>ok</code> (正常推进)、<code>needs_revision</code> (触发同阶段重派，<code>iteration += 1</code>)、<code>blocked</code> (终止)。<code>tick</code> 据此决定下一步动作。</dd>
+
+    <dt>Conductor <span class="zh">指挥者</span></dt>
+    <dd>用户面对的 LLM 会话本身。它的职责被严格收窄为：识别用户意图、调用 <code>codenook</code> CLI、消费 envelope、派发子代理、中转 HITL prompt 给用户、提交决议。指挥者不解释阶段产出、不挑选插件外的执行路径。</dd>
+
+  </dl>
+</section>
+
+<!-- ============================== §5 ============================== -->
+<section id="s5">
+  <div class="section-tag">// 05 — Execution Flow</div>
+  <h2>执行流程</h2>
+  <p>
+    任务的全生命周期由 <code>codenook tick</code> 状态机驱动。下图描绘一次 tick 内的判定与转移 (transition)；箭头上的标签为触发条件。
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 760 460" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#6366f1"/>
+        </marker>
+        <marker id="arrR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#f59e0b"/>
+        </marker>
+      </defs>
+
+      <!-- Start -->
+      <ellipse cx="380" cy="34" rx="46" ry="20" fill="#0f172a"/>
+      <text x="380" y="39" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#fff">tick start</text>
+
+      <!-- Decision: terminal? -->
+      <polygon points="380,80 470,130 380,180 290,130" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/>
+      <text x="380" y="125" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#1e293b">status ∈</text>
+      <text x="380" y="140" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#475569">{done, blocked}?</text>
+
+      <!-- Terminal exit -->
+      <rect x="540" y="115" width="160" height="32" rx="6" fill="#fef3c7" stroke="#f59e0b"/>
+      <text x="620" y="135" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" fill="#78350f">emit summary · exit</text>
+
+      <!-- Decision: in_flight_agent? -->
+      <polygon points="380,210 480,260 380,310 280,260" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/>
+      <text x="380" y="255" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#1e293b">in_flight_agent</text>
+      <text x="380" y="270" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#475569">set?</text>
+
+      <!-- Consume reply path -->
+      <rect x="40" y="245" width="200" height="100" rx="8" fill="#eef2ff" stroke="#6366f1"/>
+      <text x="140" y="266" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#3730a3">消费上一阶段产出</text>
+      <text x="140" y="284" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#475569">read outputs/phase-N.md</text>
+      <text x="140" y="300" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#475569">parse verdict frontmatter</text>
+      <text x="140" y="316" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#475569">run post_validate</text>
+      <text x="140" y="332" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#475569">fire extractor-batch</text>
+
+      <!-- Dispatch new phase -->
+      <rect x="520" y="245" width="200" height="100" rx="8" fill="#ecfeff" stroke="#06b6d4"/>
+      <text x="620" y="266" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#155e75">派发当前阶段</text>
+      <text x="620" y="284" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#475569">resolve role</text>
+      <text x="620" y="300" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#475569">render manifest</text>
+      <text x="620" y="316" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#475569">set in_flight_agent</text>
+      <text x="620" y="332" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#475569">emit envelope</text>
+
+      <!-- Decision: gate? -->
+      <polygon points="140,375 220,415 140,455 60,415" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/>
+      <text x="140" y="412" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#1e293b">gate set?</text>
+
+      <!-- Outcomes -->
+      <rect x="270" y="395" width="160" height="32" rx="6" fill="#fef3c7" stroke="#f59e0b"/>
+      <text x="350" y="415" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" fill="#78350f">waiting · write hitl</text>
+
+      <rect x="270" y="435" width="160" height="22" rx="6" fill="#dcfce7" stroke="#10b981"/>
+      <text x="350" y="450" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#065f46">advance to next phase</text>
+
+      <!-- Arrows -->
+      <path d="M380 54 L380 80" stroke="#6366f1" stroke-width="1.2" fill="none" marker-end="url(#arr2)"/>
+      <text x="392" y="72" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">read state.json</text>
+
+      <path d="M470 130 L540 131" stroke="#6366f1" stroke-width="1.2" fill="none" marker-end="url(#arr2)"/>
+      <text x="478" y="124" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">yes</text>
+
+      <path d="M380 180 L380 210" stroke="#6366f1" stroke-width="1.2" fill="none" marker-end="url(#arr2)"/>
+      <text x="392" y="200" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">no</text>
+
+      <path d="M280 260 L240 260" stroke="#6366f1" stroke-width="1.2" fill="none" marker-end="url(#arr2)"/>
+      <text x="248" y="252" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">yes</text>
+
+      <path d="M480 260 L520 260" stroke="#6366f1" stroke-width="1.2" fill="none" marker-end="url(#arr2)"/>
+      <text x="486" y="252" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">no</text>
+
+      <path d="M140 345 L140 375" stroke="#6366f1" stroke-width="1.2" fill="none" marker-end="url(#arr2)"/>
+      <path d="M220 415 L270 411" stroke="#6366f1" stroke-width="1.2" fill="none" marker-end="url(#arr2)"/>
+      <text x="226" y="406" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">yes</text>
+
+      <path d="M140 455 L140 445 L270 445" stroke="#6366f1" stroke-width="1.2" fill="none" marker-end="url(#arr2)"/>
+      <text x="146" y="455" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">no</text>
+
+      <!-- Re-dispatch loop on needs_revision -->
+      <path d="M40 295 Q 10 200, 60 130 L 290 130" stroke="#f59e0b" stroke-width="1.2" fill="none" stroke-dasharray="4 3" marker-end="url(#arrR)"/>
+      <text x="20" y="200" font-family="JetBrains Mono, monospace" font-size="10" fill="#b45309">needs_revision</text>
+      <text x="20" y="214" font-family="JetBrains Mono, monospace" font-size="10" fill="#b45309">iter += 1</text>
+    </svg>
+    <figcaption>FIG.2  tick 状态机 — 单次推进至多消费一个产出并派发一个新阶段</figcaption>
+  </figure>
+
+  <h3>5.1 dispatch → reply → next phase 步骤化</h3>
+
+  <ol>
+    <li><b>读取状态。</b><code>tick</code> 原子读取 <code>tasks/&lt;T&gt;/state.json</code>，校验 schema。若 <code>status ∈ {done, blocked, cancelled, error}</code>，输出摘要并退出。</li>
+    <li><b>消费在飞产出 (若有)。</b>当 <code>state.in_flight_agent</code> 非空，<code>tick</code> 读取 <code>outputs/phase-N-&lt;role&gt;.md</code>，解析 frontmatter 中的 <code>verdict</code>。<code>verdict == needs_revision</code> 且阶段 <code>supports_iteration</code> 时重派同阶段并自增 <code>iteration</code>，达到 <code>max_iterations</code> 时置 <code>blocked</code>。</li>
+    <li><b>运行 post_validate。</b>若阶段声明了 <code>post_validate</code> 脚本，按其退出码决定推进或同上回到 (2) 的迭代分支。</li>
+    <li><b>触发记忆抽取。</b>同步调用 <code>extractor-batch.sh --reason after_phase</code>，将本阶段产出中的可复用条目分流到 <code>memory/{knowledge,skills,configs}/</code>。</li>
+    <li><b>评估闸门。</b>若当前阶段有 <code>gate</code>，写 <code>hitl-queue/&lt;task&gt;-&lt;gate&gt;.json</code>，置 <code>status = waiting</code>，退出。指挥者收到 <code>waiting</code> 后中转 prompt 到用户，调用 <code>codenook decide</code> 写入决议。</li>
+    <li><b>派发下一阶段。</b>从 <code>phases.yaml</code> 加载 <code>role</code>，将 <code>manifest-templates/phase-N-&lt;role&gt;.md</code> 渲染到 <code>tasks/&lt;T&gt;/prompts/</code>，置 <code>state.in_flight_agent</code>，输出 envelope。指挥者据此派发子代理。</li>
+    <li><b>持久化。</b>原子写回 <code>state.json</code>，输出 ≤ 500 字节的 JSON 摘要。</li>
+  </ol>
+
+  <h3>5.2 调用样例</h3>
+<pre><code><span class="c"># 1. 创建任务，指定插件与画像</span>
+<span class="p">$</span> codenook task new --plugin development --profile feature \
+    --title <span class="s">"add --tag filter to xueba list"</span> --accept-defaults
+<span class="c"># → T-009-add-tag-filter-to-xueba-list</span>
+
+<span class="c"># 2. 推进状态机，得到 envelope</span>
+<span class="p">$</span> codenook tick --task T-009 --json
+<span class="c"># → { status: advanced, envelope: { ... role: clarifier ... } }</span>
+
+<span class="c"># 3. 指挥者派发子代理写 reply_path 后再次 tick</span>
+<span class="p">$</span> codenook tick --task T-009 --json
+<span class="c"># → { status: waiting, hitl: requirements_signoff }</span>
+
+<span class="c"># 4. 解决 HITL 闸门</span>
+<span class="p">$</span> codenook decide --task T-009 --phase clarify \
+    --decision approve --comment <span class="s">"scope ok"</span>
+
+<span class="c"># 5. 循环至 done</span>
+<span class="p">$</span> codenook tick --task T-009 --json   <span class="c"># → advanced ...</span>
+<span class="p">$</span> codenook tick --task T-009 --json   <span class="c"># → done</span></code></pre>
+</section>
+
+<!-- ============================== §6 ============================== -->
+<section id="s6">
+  <div class="section-tag">// 06 — Data Model</div>
+  <h2>数据模型</h2>
+  <p>
+    所有运行时状态由四类文件承载。schema 位于 <code>codenook-core/schemas/</code>，<code>cmd_task.set</code> 与 <code>orchestrator-tick</code> 写入前均执行 JSON-Schema 校验。
+  </p>
+
+  <div class="tbl-wrap">
+  <table>
+    <thead>
+      <tr><th style="width:32%">文件 / 路径</th><th style="width:18%">格式</th><th>职责</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>tasks/&lt;T&gt;/state.json</code></td>
+        <td>JSON</td>
+        <td>单个任务的规范状态：当前阶段、画像、迭代计数、状态枚举、子任务链、在飞代理记录、历史日志。</td>
+      </tr>
+      <tr>
+        <td><code>plugins/&lt;id&gt;/phases.yaml</code></td>
+        <td>YAML</td>
+        <td>阶段目录 (catalogue) + 画像 (profiles)。<code>tick</code> 据画像解析阶段链。</td>
+      </tr>
+      <tr>
+        <td><code>plugins/&lt;id&gt;/hitl-gates.yaml</code></td>
+        <td>YAML</td>
+        <td>闸门定义：<code>trigger</code> 阶段、<code>required_reviewers</code>、人类可读描述。</td>
+      </tr>
+      <tr>
+        <td><code>plugins/&lt;id&gt;/transitions.yaml</code></td>
+        <td>YAML</td>
+        <td>v0.1 旧格式遗存；v0.2 起由 <code>profiles</code> 派生。新插件可省略。</td>
+      </tr>
+      <tr>
+        <td><code>hitl-queue/&lt;task&gt;-&lt;gate&gt;.json</code></td>
+        <td>JSON</td>
+        <td>待决审批条目：<code>prompt</code>、<code>context_files</code>、<code>decision</code>、<code>decided_at</code>、<code>decided_by</code>。</td>
+      </tr>
+      <tr>
+        <td><code>memory/index.yaml</code></td>
+        <td>YAML</td>
+        <td>跨任务记忆的人类可读索引。每次抽取后由 <code>knowledge_query</code> 重新生成。</td>
+      </tr>
+      <tr>
+        <td><code>extraction-log.jsonl</code></td>
+        <td>JSONL</td>
+        <td>记忆写入审计 (timestamp, task, phase, extractor, target, action)。</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>6.1 <code>state.json</code> 关键字段</h3>
+
+  <div class="tbl-wrap">
+  <table>
+    <thead>
+      <tr><th style="width:24%">字段 (Field)</th><th style="width:24%">类型 (Type)</th><th>语义 (Semantics)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>task_id</code></td><td>string</td><td>形如 <code>T-NNN-&lt;slug&gt;</code>。slug 由 <code>--input</code> / <code>--title</code> 派生。</td></tr>
+      <tr><td><code>plugin</code></td><td>string</td><td>已选插件 id (development / writing / generic / ...)。</td></tr>
+      <tr><td><code>phase</code></td><td>string \| null</td><td>当前阶段 id；首次派发前为 null。</td></tr>
+      <tr><td><code>profile</code></td><td>string</td><td>解析后的画像名 (feature / hotfix / refactor / ...)。</td></tr>
+      <tr><td><code>iteration</code> / <code>max_iterations</code></td><td>int / int</td><td>当前阶段迭代次数及上限。默认上限 3。</td></tr>
+      <tr><td><code>dual_mode</code></td><td>enum</td><td><code>serial</code> (默认) 或 <code>parallel</code>；后者触发并行 N 路派发。</td></tr>
+      <tr><td><code>status</code></td><td>enum</td><td><code>pending \| in_progress \| waiting \| blocked \| done \| cancelled \| error</code>。</td></tr>
+      <tr><td><code>in_flight_agent</code></td><td>object \| null</td><td><code>{agent_id, role, dispatched_at, expected_output}</code>，子代理在飞期间非空。</td></tr>
+      <tr><td><code>subtasks</code> / <code>depends_on</code> / <code>decomposed</code></td><td>array / array / bool</td><td>扇出 (fanout) 链路：父任务被 planner 分解后挂起，等待子任务全部 done。</td></tr>
+      <tr><td><code>history</code></td><td>array</td><td>追加式事件日志。</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>6.2 <code>state.json</code> 样例</h3>
+<pre><code>{
+  <span class="s">"task_id"</span>: <span class="s">"T-009-add-tag-filter"</span>,
+  <span class="s">"plugin"</span>: <span class="s">"development"</span>,
+  <span class="s">"phase"</span>: <span class="s">"implement"</span>,
+  <span class="s">"profile"</span>: <span class="s">"feature"</span>,
+  <span class="s">"task_type"</span>: <span class="s">"feature"</span>,
+  <span class="s">"iteration"</span>: <span class="n">1</span>,
+  <span class="s">"max_iterations"</span>: <span class="n">3</span>,
+  <span class="s">"dual_mode"</span>: <span class="s">"serial"</span>,
+  <span class="s">"status"</span>: <span class="s">"in_progress"</span>,
+  <span class="s">"in_flight_agent"</span>: {
+    <span class="s">"agent_id"</span>: <span class="s">"ag_T-009_implement_1"</span>,
+    <span class="s">"role"</span>: <span class="s">"implementer"</span>,
+    <span class="s">"dispatched_at"</span>: <span class="s">"2025-01-12T03:14:22Z"</span>,
+    <span class="s">"expected_output"</span>: <span class="s">"outputs/phase-4-implementer.md"</span>
+  },
+  <span class="s">"history"</span>: [ ... ]
+}</code></pre>
+
+  <div class="note warn">
+    <span class="label">CONSTRAINT</span>
+    指挥者禁止直接编辑 <code>state.json</code> 或 <code>draft-config.yaml</code>。所有变更必须经 CLI (<code>codenook task set</code> / <code>tick</code> / <code>decide</code>)，由内核执行原子写入与 schema 校验。
+  </div>
+</section>
+
+<!-- ============================== §7 ============================== -->
+<section id="s7">
+  <div class="section-tag">// 07 — Memory System</div>
+  <h2>记忆系统</h2>
+  <p>
+    每次阶段产出消费完成后，<code>tick</code> 同步触发 <code>extractor-batch</code> 流程。三个抽取器并行运行，按 <b>secret-scan → hash dedupe → similarity check → LLM judge → write/patch → index regen → audit log</b> 流程将可复用条目分流写入 <code>memory/</code>。下次任务启动时，指挥者读取 <code>memory/index.yaml</code> 作为初始上下文。
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 720 320" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="fg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#a5b4fc"/>
+          <stop offset="100%" stop-color="#6366f1"/>
+        </linearGradient>
+        <marker id="arrM" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+        </marker>
+      </defs>
+
+      <!-- Source: phase output -->
+      <rect x="40" y="20" width="640" height="38" rx="6" fill="#fff" stroke="#cbd5e1"/>
+      <text x="60" y="44" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#1e293b">phase output (raw)</text>
+      <text x="660" y="44" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="11" fill="#94a3b8">tasks/&lt;T&gt;/outputs/phase-N.md</text>
+
+      <!-- Funnel -->
+      <path d="M80 80 L640 80 L460 150 L460 200 L260 200 L260 150 Z"
+            fill="url(#fg)" opacity=".18" stroke="#6366f1" stroke-width="1.1"/>
+      <text x="360" y="105" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#475569">extractor-batch · 并行 dispatch</text>
+      <text x="360" y="125" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">secret-scan → dedupe → similarity → LLM judge</text>
+      <text x="360" y="180" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#3730a3">write / patch · regen index · audit</text>
+
+      <!-- Three buckets -->
+      <g font-family="Inter, sans-serif" font-size="12" fill="#1e293b">
+        <rect x="60"  y="225" width="180" height="60" rx="8" fill="#fff" stroke="#6366f1"/>
+        <text x="150" y="248" text-anchor="middle" font-weight="600">knowledge/</text>
+        <text x="150" y="265" text-anchor="middle" fill="#64748b" font-size="11">declarative · 决议 / 约定</text>
+        <text x="150" y="278" text-anchor="middle" fill="#94a3b8" font-size="10">&lt;topic&gt;.md</text>
+
+        <rect x="270" y="225" width="180" height="60" rx="8" fill="#fff" stroke="#06b6d4"/>
+        <text x="360" y="248" text-anchor="middle" font-weight="600">skills/</text>
+        <text x="360" y="265" text-anchor="middle" fill="#64748b" font-size="11">procedural · 可复用脚本</text>
+        <text x="360" y="278" text-anchor="middle" fill="#94a3b8" font-size="10">&lt;name&gt;/SKILL.md</text>
+
+        <rect x="480" y="225" width="180" height="60" rx="8" fill="#fff" stroke="#10b981"/>
+        <text x="570" y="248" text-anchor="middle" font-weight="600">configs/</text>
+        <text x="570" y="265" text-anchor="middle" fill="#64748b" font-size="11">配置决议 · schema-bound</text>
+        <text x="570" y="278" text-anchor="middle" fill="#94a3b8" font-size="10">&lt;entry&gt;.md</text>
+      </g>
+
+      <text x="360" y="307" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">→ memory/index.yaml · extraction-log.jsonl</text>
+    </svg>
+    <figcaption>FIG.3  记忆抽取漏斗 — 阶段产出经分流沉淀到三类持久存储</figcaption>
+  </figure>
+
+  <h3>7.1 三个抽取器</h3>
+  <div class="tbl-wrap">
+  <table>
+    <thead>
+      <tr><th style="width:24%">Extractor</th><th style="width:36%">捕获对象</th><th>写入路径与 frontmatter</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>knowledge-extractor</code></td>
+        <td>陈述性发现 — 决议、约定、环境注记。</td>
+        <td><code>memory/knowledge/&lt;topic&gt;.md</code> · <code>topic, source_task, source_phase, tags, hash, version</code></td>
+      </tr>
+      <tr>
+        <td><code>skill-extractor</code></td>
+        <td>重复出现的命令/脚本模式，足以提炼为可复用技能。</td>
+        <td><code>memory/skills/&lt;name&gt;/SKILL.md</code> + 入口脚本</td>
+      </tr>
+      <tr>
+        <td><code>config-extractor</code></td>
+        <td>受 schema 约束的配置变更 (默认分支策略、测试运行器等)。</td>
+        <td><code>memory/configs/&lt;entry&gt;.md</code></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>7.2 调用契约</h3>
+<pre><code><span class="p">$</span> extractor-batch.sh \
+    --task-id <span class="n">T-009</span> \
+    --reason <span class="n">after_phase</span> \
+    --workspace <span class="s">/path/to/ws</span> \
+    --phase <span class="n">implement</span>
+
+<span class="c"># 输出</span>
+{
+  <span class="s">"enqueued_jobs"</span>: [<span class="s">"knowledge"</span>, <span class="s">"skill"</span>],
+  <span class="s">"skipped"</span>: [{<span class="s">"name"</span>: <span class="s">"config"</span>, <span class="s">"reason"</span>: <span class="s">"no schema-bound change"</span>}]
+}</code></pre>
+
+  <div class="note">
+    <span class="label">非阻塞模式</span>
+    当 <code>--reason context-pressure</code> 时，<code>extractor-batch</code> 后台化子抽取器并在 ≤ 200 ms 内返回，使指挥者可在 token 水位线触发抽取而不阻塞当前回合。
+  </div>
+</section>
+
+<!-- ============================== §8 ============================== -->
+<section id="s8">
+  <div class="section-tag">// 08 — CLI Reference</div>
+  <h2>CLI 参考</h2>
+  <p>
+    所有指挥者操作经由唯一入口 <code>codenook</code> (POSIX 壳 <code>.codenook/bin/codenook</code>，Windows 壳 <code>.codenook\bin\codenook.cmd</code>)。直接调用 <code>codenook-core/skills/builtin/</code> 下的内部脚本不在受支持契约内。
+  </p>
+
+  <div class="tbl-wrap">
+  <table>
+    <thead>
+      <tr><th style="width:36%">命令 (Command)</th><th>说明 (Description)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>codenook task new --plugin &lt;id&gt; --title &lt;s&gt; [--profile &lt;p&gt;] [--input &lt;text&gt;]</code></td><td>分配新任务 ID 并写入初始 <code>state.json</code>。<code>--input</code> 派生 slug 与首阶段上下文。</td></tr>
+      <tr><td><code>codenook task set --task &lt;T&gt; --field &lt;F&gt; --value &lt;V&gt;</code></td><td>原子修改 <code>state.json</code> 中的白名单字段，写入前 schema 校验。</td></tr>
+      <tr><td><code>codenook task set-profile --task &lt;T&gt; --profile &lt;p&gt;</code></td><td>切换画像。仅在首个阶段产出消费前可用。</td></tr>
+      <tr><td><code>codenook tick --task &lt;T&gt; [--json]</code></td><td>推进状态机一步。<code>--json</code> 模式输出含 envelope 的结构化结果。</td></tr>
+      <tr><td><code>codenook decide --task &lt;T&gt; --phase &lt;p\|gate&gt; --decision &lt;approve\|reject\|needs_changes&gt; [--comment &lt;s&gt;]</code></td><td>解决 HITL 闸门。<code>--phase</code> 接受阶段 id 或闸门 id。</td></tr>
+      <tr><td><code>codenook status [--task &lt;T&gt;]</code></td><td>工作空间或单任务状态快照 (含 model / exec mode / phase / status)。</td></tr>
+      <tr><td><code>codenook hitl &lt;list\|show\|render\|decide&gt;</code></td><td>列出/查看/渲染/决议待审条目。<code>render</code> 产出自包含 HTML 文件。</td></tr>
+      <tr><td><code>codenook extract --task &lt;T&gt; --reason &lt;r&gt; [--phase &lt;P&gt;]</code></td><td>手动触发 <code>extractor-batch</code> (一般由 <code>tick</code> 自动调用)。</td></tr>
+      <tr><td><code>codenook knowledge list [--plugin &lt;id&gt;]</code></td><td>枚举 <code>memory/index.yaml</code> 中的条目。</td></tr>
+      <tr><td><code>codenook knowledge search &lt;query&gt;</code></td><td>按标签/标题/摘要打分排序。</td></tr>
+      <tr><td><code>codenook knowledge reindex</code></td><td>重建 <code>memory/index.yaml</code> (装机与升级时自动执行)。</td></tr>
+      <tr><td><code>codenook chain &lt;link\|show\|detach&gt;</code></td><td>父子任务链管理。<code>chain_root</code> 字段由内核自动维护。</td></tr>
+      <tr><td><code>codenook preflight</code></td><td>校验当前 <code>.codenook/</code> 安装的完整性 (路径、schema、权限)。</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>8.1 退出码</h3>
+  <ul>
+    <li><code>0</code> — 成功。</li>
+    <li><code>1</code> — 运行时失败 (内核异常、文件 IO、子进程非零退出)。</li>
+    <li><code>2</code> — 用法错误或入口问题缺失 (entry-question 未应答)。</li>
+    <li><code>3</code> — 已附加 / 未修改 (幂等命令的 no-op 退出)。</li>
+  </ul>
+</section>
+
+<!-- ============================== §9 ============================== -->
+<section id="s9">
+  <div class="section-tag">// 09 — Extensibility</div>
+  <h2>扩展机制</h2>
+  <p>
+    新增插件即新增一个目录。安装流水线 (<code>install-orchestrator</code>) 在 G02–G07 共 12 个安全闸门下校验 <code>plugin.yaml</code> schema、id 唯一性、版本约束、签名、依赖与子系统声明，校验通过后将插件目录原子复制到工作空间。
+  </p>
+
+  <h3>9.1 插件目录布局</h3>
+
+  <figure>
+    <svg viewBox="0 0 700 360" xmlns="http://www.w3.org/2000/svg">
+      <g font-family="JetBrains Mono, monospace" font-size="12" fill="#1e293b">
+        <text x="20" y="30">plugins/&lt;id&gt;/</text>
+        <text x="40" y="55">├── plugin.yaml</text>            <text x="320" y="55" fill="#64748b">— 身份 + 路由 + 打包契约 (REQUIRED)</text>
+        <text x="40" y="80">├── phases.yaml</text>            <text x="320" y="80" fill="#64748b">— 阶段目录 + 画像 (REQUIRED)</text>
+        <text x="40" y="105">├── hitl-gates.yaml</text>       <text x="320" y="105" fill="#64748b">— 闸门定义</text>
+        <text x="40" y="130">├── roles/</text>                 <text x="320" y="130" fill="#64748b">— 子代理引导画像 (一文件一角色)</text>
+        <text x="60" y="150">│   ├── clarifier.md</text>
+        <text x="60" y="170">│   ├── designer.md</text>
+        <text x="60" y="190">│   └── ...</text>
+        <text x="40" y="215">├── manifest-templates/</text>    <text x="320" y="215" fill="#64748b">— 阶段派发工单模板</text>
+        <text x="60" y="235">│   └── phase-N-&lt;role&gt;.md</text>
+        <text x="40" y="260">├── knowledge/</text>             <text x="320" y="260" fill="#64748b">— 插件自带的领域知识 (可选)</text>
+        <text x="40" y="285">├── skills/</text>                <text x="320" y="285" fill="#64748b">— 插件自带的可执行技能 (可选)</text>
+        <text x="40" y="310">├── validators/</text>            <text x="320" y="310" fill="#64748b">— post_validate 脚本 (可选)</text>
+        <text x="40" y="335">└── config-schema.yaml</text>     <text x="320" y="335" fill="#64748b">— 配置项 schema + defaults (可选)</text>
+      </g>
+    </svg>
+    <figcaption>FIG.4  插件目录布局 — 安装后只读</figcaption>
+  </figure>
+
+  <h3>9.2 <code>plugin.yaml</code> schema 摘要</h3>
+
+<pre><code><span class="c"># M2 install-pipeline contract (REQUIRED) ─────────────────────</span>
+id: <span class="s">my-domain</span>
+version: <span class="s">"0.1.0"</span>
+type: <span class="s">domain</span>
+entry_points:
+  install: <span class="s">phases.yaml</span>
+declared_subsystems:
+  - <span class="s">domain/my-domain</span>
+requires:
+  core_version: <span class="s">"&gt;=0.5.0-m5,&lt;1.0.0"</span>
+
+<span class="c"># Routing / packaging surface ─────────────────────────────────</span>
+name: <span class="s">my-domain</span>
+applies_to: [<span class="s">data-pipeline</span>, <span class="s">etl</span>]
+keywords: [<span class="s">airflow</span>, <span class="s">dbt</span>, <span class="s">数据管道</span>]
+examples:
+  - <span class="s">"add a backfill job for orders fact"</span>
+anti_examples:
+  - <span class="s">"refactor the React UI"</span>
+supports_dual_mode: <span class="n">false</span>
+supports_fanout: <span class="n">true</span>
+routing:
+  priority: <span class="n">5</span>
+available_skills: [<span class="s">dbt-test</span>, <span class="s">airflow-dryrun</span>]</code></pre>
+
+  <h3>9.3 <code>phases.yaml</code> 最小样例</h3>
+
+<pre><code>phases:
+  intake:
+    role: <span class="s">intaker</span>
+    produces: <span class="s">outputs/phase-1-intaker.md</span>
+    gate: <span class="s">intake_signoff</span>
+
+  build:
+    role: <span class="s">builder</span>
+    produces: <span class="s">outputs/phase-2-builder.md</span>
+    supports_iteration: <span class="n">true</span>
+    post_validate: <span class="s">validators/post-build.sh</span>
+
+  ship:
+    role: <span class="s">shipper</span>
+    produces: <span class="s">outputs/phase-3-shipper.md</span>
+    gate: <span class="s">ship_signoff</span>
+
+profiles:
+  default: { phases: [<span class="s">intake</span>, <span class="s">build</span>, <span class="s">ship</span>] }</code></pre>
+
+  <h3>9.4 安装与升级</h3>
+
+<pre><code><span class="c"># 安装 (单个插件)</span>
+<span class="p">$</span> python3 install.py --target ~/code/my-project \
+    --plugin my-domain --yes
+
+<span class="c"># 升级现有工作空间</span>
+<span class="p">$</span> python3 install.py --target ~/code/my-project --upgrade
+
+<span class="c"># 离线校验 (不写文件)</span>
+<span class="p">$</span> python3 install.py --check --plugin my-domain</code></pre>
+
+  <div class="note">
+    <span class="label">CONTRACT</span>
+    <code>install.py</code> 是唯一受支持的安装入口 (since v0.14.0)。无 shell 包装、无平台分支、无手工 <code>cp</code> 步骤。
+  </div>
+</section>
+
+<!-- ============================== §10 ============================== -->
+<section id="s10">
+  <div class="section-tag">// 10 — Appendix</div>
+  <h2>附录：版本与限制</h2>
+
+  <h3>10.1 v0.25.5 当前能力</h3>
+  <ul>
+    <li>三个一等公民插件：<code>development</code> v0.2.0 (11 阶段 / 7 画像)、<code>writing</code> v0.1.1、<code>generic</code> v0.1.2。</li>
+    <li>三种正交并发机制：迭代 (<code>supports_iteration</code>)、扇出 (<code>allows_fanout</code>)、双模 (<code>dual_mode_compatible</code>)。三者可组合。</li>
+    <li>HITL 双通道：终端 prompt + 自包含 HTML 渲染 (<code>codenook hitl render</code>)。</li>
+    <li>四级模型解析优先级：task &gt; phase &gt; plugin &gt; workspace。</li>
+    <li>记忆系统：单一持久目的地 <code>memory/</code> (<code>knowledge / skills / configs</code>)，附 <code>index.yaml</code> 与 <code>extraction-log.jsonl</code> 审计。</li>
+    <li>双执行模式：<code>sub-agent</code> (默认，独立上下文) 与 <code>inline</code> (指挥者会话内执行，省去派发开销，适用对话密集型阶段)。</li>
+    <li>跨平台：POSIX shell 与 Windows cmd 双壳，依赖仅 Python 3.9+ 标准库。</li>
+  </ul>
+
+  <h3>10.2 已知限制</h3>
+  <ul>
+    <li>不解决 LLM 本身的幻觉、跑题、能力上限。CodeNook 只规约状态形态。</li>
+    <li>无内置并发锁。多个指挥者并发 <code>tick</code> 同一任务会触发文件竞态；预期单指挥者驱动单任务。</li>
+    <li><code>router-agent</code> 子系统已被弃用 (since v0.14.0)，将于下一个 major 版本移除。当前流程由指挥者直接驱动 <code>codenook</code> CLI。</li>
+    <li>双模并行 (<code>parallel_n</code>) 默认上限 3；超出需修改 plugin 的 <code>config-schema.yaml</code>。</li>
+    <li><code>dual_mode = parallel</code> 与 <code>allows_fanout = true</code> 组合在 planner 阶段会产生 N×M 子任务图，资源消耗需评估。</li>
+    <li>记忆抽取依赖 LLM 判官 (LLM judge) 步骤，对极小阶段产出可能误判为无可抽取条目。</li>
+  </ul>
+
+  <h3>10.3 文档地图</h3>
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th style="width:32%">文档</th><th>内容</th></tr></thead>
+    <tbody>
+      <tr><td><code>README.md</code></td><td>项目概览、安装步骤、三层架构图速览。</td></tr>
+      <tr><td><code>PIPELINE.md</code></td><td><code>development</code> 插件 <code>feature</code> 画像的端到端运行时演练。</td></tr>
+      <tr><td><code>docs/architecture.md</code></td><td>三层架构深度展开：内核内部、插件契约、工作空间 schema、并发模型、bootloader。</td></tr>
+      <tr><td><code>docs/memory-and-extraction.md</code></td><td>记忆层、三个抽取器、上下文压力路径、审计日志。</td></tr>
+      <tr><td><code>docs/skills-mechanism.md</code></td><td>内置 / 插件 / 抽取技能的发现与派发。</td></tr>
+      <tr><td><code>docs/task-chains.md</code></td><td>任务链、画像、迭代、扇出、双模的工作样例。</td></tr>
+      <tr><td><code>CHANGELOG.md</code></td><td>版本历史。</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <footer class="doc-footer">
+    END · CODENOOK v0.25.5 · TECHNICAL DOCUMENTATION
+  </footer>
+</section>
+
+</main>
+</div>
+
+<!-- Floating dot nav -->
+<nav class="dot-nav" aria-label="section dots">
+  <a href="#s1" class="active"></a>
+  <a href="#s2"></a>
+  <a href="#s3"></a>
+  <a href="#s4"></a>
+  <a href="#s5"></a>
+  <a href="#s6"></a>
+  <a href="#s7"></a>
+  <a href="#s8"></a>
+  <a href="#s9"></a>
+  <a href="#s10"></a>
+</nav>
+
+<script>
+  const tocLinks = document.querySelectorAll('.sidebar nav a');
+  const dotLinks = document.querySelectorAll('.dot-nav a');
+  const sections = document.querySelectorAll('main > section');
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const id = e.target.id;
+        tocLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
+        dotLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
+      }
+    });
+  }, { rootMargin: '-20% 0px -60% 0px', threshold: 0 });
+
+  sections.forEach(s => io.observe(s));
+</script>
+
+</body>
+</html>

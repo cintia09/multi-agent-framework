@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>CodeNook · Slide Deck · v0.25.5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --indigo:   #6366f1;
+    --indigo-d: #4338ca;
+    --cyan:     #06b6d4;
+    --emerald:  #10b981;
+    --amber:    #f59e0b;
+    --bg:       #fafbff;
+    --panel:    #ffffff;
+    --ink:      #1e293b;
+    --ink2:     #475569;
+    --muted:    #64748b;
+    --line:     #e2e8f0;
+    --line2:    #cbd5e1;
+    --grad-main: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+    --grad-soft: linear-gradient(135deg, #eef2ff 0%, #ecfeff 100%);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0f172a; }
+  body {
+    font-family: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  code, pre, .mono { font-family: "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace; }
+
+  /* Top progress bar */
+  .progress {
+    position: fixed; top: 0; left: 0; height: 3px; width: 0;
+    background: var(--grad-main);
+    z-index: 100; transition: width .25s ease;
+  }
+
+  /* Stage = 16:9 viewport, scaled */
+  .stage {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: #f1f5f9;
+  }
+  .deck {
+    position: relative;
+    width: 1280px; height: 720px;
+    background: var(--bg);
+    box-shadow: 0 20px 60px rgba(15,23,42,.25);
+    transform-origin: center center;
+    overflow: hidden;
+  }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    padding: 60px 80px 70px;
+  }
+  .slide.active { display: flex; }
+
+  /* Hero / dark slides */
+  .slide.hero {
+    background: linear-gradient(135deg, #312e81 0%, #4338ca 45%, #0e7490 100%);
+    color: #fff;
+    justify-content: center; align-items: flex-start;
+  }
+  .slide.hero::before {
+    content: ""; position: absolute;
+    width: 600px; height: 600px; border-radius: 50%;
+    filter: blur(120px); opacity: .35; background: #fbbf24;
+    top: -250px; right: -200px;
+  }
+  .slide.hero::after {
+    content: ""; position: absolute;
+    width: 500px; height: 500px; border-radius: 50%;
+    filter: blur(120px); opacity: .25; background: #06b6d4;
+    bottom: -200px; left: -150px;
+  }
+  .slide.hero .h-eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 14px; letter-spacing: .25em; text-transform: uppercase;
+    color: rgba(255,255,255,.65); margin-bottom: 32px; position: relative;
+  }
+  .slide.hero h1 {
+    font-size: 120px; font-weight: 800; line-height: 1; margin: 0 0 28px;
+    letter-spacing: -.04em; position: relative;
+    background: linear-gradient(135deg, #fff 0%, #c7d2fe 60%, #a5f3fc 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .slide.hero .h-sub {
+    font-size: 28px; line-height: 1.45; max-width: 900px;
+    color: rgba(255,255,255,.92); font-weight: 400; margin: 0 0 36px;
+    position: relative;
+  }
+  .slide.hero .h-meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 14px; letter-spacing: .12em;
+    color: rgba(255,255,255,.7); position: relative;
+  }
+
+  /* Standard slide title block */
+  .eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--indigo); margin-bottom: 12px;
+  }
+  .slide h2.title {
+    font-size: 56px; font-weight: 700; line-height: 1.1;
+    margin: 0 0 8px; letter-spacing: -.02em;
+    color: var(--ink);
+  }
+  .slide h2.title .accent {
+    background: var(--grad-main);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .slide .subtitle {
+    font-size: 22px; color: var(--ink2); line-height: 1.5;
+    margin: 0 0 40px; max-width: 1000px;
+  }
+  .slide .body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+  /* Footer of every slide */
+  .badge {
+    position: absolute; left: 28px; bottom: 22px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; letter-spacing: .12em;
+    color: var(--muted);
+  }
+  .slide.hero .badge { color: rgba(255,255,255,.6); }
+
+  /* Chapter number on chapter slides */
+  .chapter-num {
+    position: absolute; right: 80px; top: 60px;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 90px; line-height: 1;
+    background: var(--grad-main);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    opacity: .9;
+  }
+
+  /* Agenda slide */
+  .agenda {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 26px;
+    margin-top: 12px;
+  }
+  .agenda .item {
+    border: 1px solid var(--line);
+    border-radius: 14px; padding: 28px 30px;
+    background: #fff;
+    display: flex; gap: 22px; align-items: flex-start;
+  }
+  .agenda .num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 36px; font-weight: 700;
+    background: var(--grad-main);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1;
+  }
+  .agenda .item h3 { margin: 0 0 6px; font-size: 24px; font-weight: 600; color: var(--ink); }
+  .agenda .item p  { margin: 0; font-size: 16px; color: var(--muted); }
+
+  /* Pain points slide: split */
+  .split { display: grid; grid-template-columns: 1.1fr .9fr; gap: 50px; flex: 1; min-height: 0; }
+  .pain { display: flex; flex-direction: column; gap: 22px; }
+  .pain .row {
+    border-left: 4px solid var(--indigo);
+    padding: 16px 22px;
+    background: var(--grad-soft);
+    border-radius: 0 10px 10px 0;
+  }
+  .pain .row h4 { margin: 0 0 6px; font-size: 22px; color: var(--ink); font-weight: 600; }
+  .pain .row p  { margin: 0; font-size: 17px; color: var(--ink2); line-height: 1.55; }
+
+  /* Scenario slide layout */
+  .scn { display: grid; grid-template-columns: 1.05fr .95fr; gap: 40px; flex: 1; min-height: 0; }
+  .scn .timeline { list-style: none; padding: 0; margin: 0; }
+  .scn .timeline li {
+    padding: 12px 0 12px 110px; position: relative;
+    border-top: 1px dashed var(--line);
+    color: var(--ink2); font-size: 15.5px; line-height: 1.55;
+  }
+  .scn .timeline li:first-child { border-top: none; }
+  .scn .timeline .when {
+    position: absolute; left: 0; top: 13px; width: 100px;
+    font-family: "JetBrains Mono", monospace; font-size: 12px;
+    color: var(--muted); letter-spacing: .04em;
+  }
+  .scn .timeline .who { color: var(--indigo-d); font-weight: 600; }
+  .scn .timeline .who.user { color: var(--cyan); }
+  .scn .timeline .who.sys  { color: var(--emerald); }
+  .scn code {
+    background: #eef2ff; color: var(--indigo-d);
+    padding: 1px 6px; border-radius: 4px; font-size: 90%;
+  }
+  .scn .figure {
+    display: flex; align-items: center; justify-content: center;
+    background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 22px;
+  }
+  .scn .figure svg { width: 100%; height: auto; }
+
+  /* Summary slide */
+  .summary-line {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    text-align: center;
+  }
+  .summary-line .big {
+    font-size: 54px; font-weight: 700; line-height: 1.35;
+    letter-spacing: -.01em;
+  }
+  .summary-line .big span {
+    background: var(--grad-main);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .summary-line .sm { margin-top: 26px; font-size: 20px; color: var(--muted); }
+
+  /* Architecture slide */
+  .arch { display: grid; grid-template-columns: 1.4fr 1fr; gap: 40px; flex: 1; min-height: 0; align-items: center; }
+  .arch .figure { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 26px; }
+  .arch .figure svg { width: 100%; height: auto; }
+  .arch ul { list-style: none; padding: 0; margin: 0; }
+  .arch ul li {
+    padding: 16px 0; border-bottom: 1px solid var(--line);
+    font-size: 17px; color: var(--ink2); line-height: 1.55;
+  }
+  .arch ul li:last-child { border-bottom: none; }
+  .arch ul li b { color: var(--indigo-d); font-weight: 600; }
+
+  /* 4-card grid */
+  .cards4 {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px;
+    flex: 1; min-height: 0; align-content: center;
+  }
+  .cards4 .card {
+    background: #fff; border: 1px solid var(--line);
+    border-radius: 14px; padding: 28px 24px;
+    display: flex; flex-direction: column; gap: 12px;
+    box-shadow: 0 1px 3px rgba(15,23,42,.04);
+  }
+  .cards4 .card .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; letter-spacing: .15em; color: var(--indigo); text-transform: uppercase;
+  }
+  .cards4 .card h4 { margin: 0; font-size: 26px; font-weight: 700; color: var(--ink); }
+  .cards4 .card p  { margin: 0; font-size: 16px; color: var(--ink2); line-height: 1.55; }
+
+  /* Tick slide */
+  .tick { display: grid; grid-template-columns: 1.05fr .95fr; gap: 40px; flex: 1; min-height: 0; align-items: center; }
+  .tick .figure { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 24px; }
+  .tick .figure svg { width: 100%; height: auto; }
+  .tick ol { padding-left: 0; margin: 0; list-style: none; counter-reset: stp; }
+  .tick ol li {
+    counter-increment: stp;
+    position: relative; padding: 14px 0 14px 56px;
+    font-size: 17px; color: var(--ink2); line-height: 1.55;
+    border-bottom: 1px solid var(--line);
+  }
+  .tick ol li:last-child { border-bottom: none; }
+  .tick ol li::before {
+    content: counter(stp, decimal-leading-zero);
+    position: absolute; left: 0; top: 14px;
+    font-family: "JetBrains Mono", monospace; font-weight: 700;
+    font-size: 18px;
+    background: var(--grad-main);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .tick ol li b { color: var(--indigo-d); font-weight: 600; }
+
+  /* HITL slide */
+  .hitl { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; flex: 1; min-height: 0; align-items: center; }
+  .hitl p { font-size: 19px; color: var(--ink2); line-height: 1.65; margin: 0 0 16px; }
+  .hitl .figure { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 26px; }
+
+  /* Memory slide */
+  .mem { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; flex: 1; min-height: 0; align-items: center; }
+  .mem .figure { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 24px; }
+  .mem .tags { display: flex; flex-direction: column; gap: 18px; }
+  .mem .tag {
+    border-left: 4px solid var(--indigo);
+    padding: 14px 22px; background: var(--grad-soft); border-radius: 0 10px 10px 0;
+  }
+  .mem .tag h4 { margin: 0 0 4px; font-size: 22px; color: var(--ink); font-weight: 600; }
+  .mem .tag h4 code { font-family: "JetBrains Mono", monospace; font-size: 16px; color: var(--indigo-d); background: none; padding: 0; }
+  .mem .tag p  { margin: 0; font-size: 15.5px; color: var(--ink2); line-height: 1.55; }
+
+  /* CLI table */
+  .cli-table { width: 100%; border-collapse: collapse; font-size: 16px; margin-top: 8px; }
+  .cli-table th, .cli-table td {
+    text-align: left; padding: 16px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  .cli-table th {
+    font-size: 12px; letter-spacing: .15em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+  }
+  .cli-table td.cmd { font-family: "JetBrains Mono", monospace; color: var(--indigo-d); width: 46%; }
+  .cli-table td.desc { color: var(--ink2); line-height: 1.55; }
+  .cli-table tbody tr:hover { background: #f8fafc; }
+
+  /* Adopt slide */
+  .adopt { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 36px; justify-content: center; }
+  .adopt .one-liner {
+    font-size: 36px; line-height: 1.4; color: var(--ink); font-weight: 600;
+    text-align: center;
+  }
+  .adopt .one-liner code {
+    font-family: "JetBrains Mono", monospace; font-weight: 600;
+    background: var(--grad-soft); color: var(--indigo-d);
+    padding: 4px 14px; border-radius: 8px; font-size: 30px;
+  }
+  .adopt .flow {
+    display: grid; grid-template-columns: repeat(4, 1fr) ; gap: 20px; align-items: stretch;
+  }
+  .adopt .step {
+    background: #fff; border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px; text-align: left; position: relative;
+  }
+  .adopt .step .n {
+    font-family: "JetBrains Mono", monospace; font-size: 12px;
+    color: var(--indigo); letter-spacing: .15em; margin-bottom: 8px;
+  }
+  .adopt .step h4 { margin: 0 0 6px; font-size: 19px; color: var(--ink); font-weight: 600; }
+  .adopt .step p  { margin: 0; font-size: 14.5px; color: var(--muted); line-height: 1.55; }
+
+  /* Limits slide */
+  .limits { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; flex: 1; min-height: 0; align-items: center; }
+  .limits .col h3 {
+    font-family: "JetBrains Mono", monospace; font-size: 13px;
+    color: var(--indigo); letter-spacing: .15em; margin: 0 0 18px; text-transform: uppercase;
+  }
+  .limits ul { padding-left: 22px; margin: 0; }
+  .limits li { font-size: 18px; color: var(--ink2); line-height: 1.7; margin-bottom: 10px; }
+
+  /* Indicator dots + counter */
+  .nav-dots {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+    display: flex; gap: 8px; z-index: 50;
+    background: rgba(15,23,42,.6); padding: 8px 14px; border-radius: 20px;
+    backdrop-filter: blur(8px);
+  }
+  .nav-dots button {
+    width: 8px; height: 8px; border-radius: 50%;
+    border: none; background: rgba(255,255,255,.3); padding: 0;
+    cursor: pointer; transition: all .2s;
+  }
+  .nav-dots button:hover { background: rgba(255,255,255,.6); }
+  .nav-dots button.active {
+    background: #fff; width: 22px; border-radius: 4px;
+  }
+  .counter {
+    position: fixed; right: 18px; bottom: 16px; z-index: 50;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px; color: rgba(255,255,255,.85);
+    background: rgba(15,23,42,.6); padding: 6px 12px; border-radius: 12px;
+    backdrop-filter: blur(8px); letter-spacing: .08em;
+  }
+  .help {
+    position: fixed; left: 18px; bottom: 16px; z-index: 50;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: rgba(255,255,255,.6);
+    background: rgba(15,23,42,.5); padding: 6px 10px; border-radius: 10px;
+    backdrop-filter: blur(8px); letter-spacing: .05em;
+  }
+
+  /* Click edges */
+  .edge {
+    position: fixed; top: 0; bottom: 0; width: 80px; z-index: 40; cursor: pointer;
+  }
+  .edge.l { left: 0; }
+  .edge.r { right: 0; }
+
+  @media print {
+    html, body { overflow: visible; background: #fff; }
+    .stage { position: static; display: block; background: #fff; }
+    .deck { box-shadow: none; transform: none !important; }
+    .slide { position: static; display: flex !important; page-break-after: always; }
+    .nav-dots, .counter, .help, .edge, .progress { display: none !important; }
+    @page { size: 1280px 720px; margin: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="edge l" data-nav="prev"></div>
+<div class="edge r" data-nav="next"></div>
+
+<div class="stage">
+  <div class="deck" id="deck">
+
+    <!-- ============================ Slide 1: Cover ============================ -->
+    <section class="slide hero active">
+      <div class="h-eyebrow">Training Deck · 2025</div>
+      <h1>CodeNook</h1>
+      <p class="h-sub">task-driven multi-agent orchestrator for AI coding sessions —— 把 AI 助手会话钉进文件系统</p>
+      <div class="h-meta">VERSION 0.25.5 · KERNEL python3 · LICENSE MIT</div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ Slide 2: Agenda ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// Agenda</div>
+      <h2 class="title">这次讲<span class="accent">四件事</span></h2>
+      <p class="subtitle">先看为什么，再看场景，然后拆架构，最后查命令。</p>
+      <div class="body">
+        <div class="agenda">
+          <div class="item"><div class="num">01</div><div><h3>Why · 痛点</h3><p>会话易失、上下文受限、工作空间耦合。</p></div></div>
+          <div class="item"><div class="num">02</div><div><h3>Scenarios · 场景</h3><p>三个真实场景：博客、调研、重构。</p></div></div>
+          <div class="item"><div class="num">03</div><div><h3>Architecture · 架构</h3><p>三层结构、tick 循环、HITL、记忆系统。</p></div></div>
+          <div class="item"><div class="num">04</div><div><h3>Adopt · 接入</h3><p>CLI 速查、如何接入、限制与展望。</p></div></div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ Slide 3: Pain points ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 01 — Why</div>
+      <h2 class="title">AI 编码会话<span class="accent">三件麻烦事</span></h2>
+      <p class="subtitle">单纯把 AI 当聊天框用，会话一关，活儿基本就丢了。</p>
+      <div class="body">
+        <div class="split">
+          <div class="pain">
+            <div class="row">
+              <h4>会话易失</h4>
+              <p>关了终端就忘干到哪了；第二天重开要重铺一遍背景。</p>
+            </div>
+            <div class="row">
+              <h4>上下文受限</h4>
+              <p>窗口塞满之后开始幻觉；长任务需要不断手动归纳。</p>
+            </div>
+            <div class="row">
+              <h4>工作空间耦合</h4>
+              <p>换机器、换 AI 客户端、换厂商，状态都得重新建立。</p>
+            </div>
+          </div>
+          <div class="figure" style="display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid var(--line);border-radius:14px;padding:30px;">
+            <svg viewBox="0 0 360 360" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+              <defs>
+                <linearGradient id="pg" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#6366f1"/>
+                  <stop offset="100%" stop-color="#06b6d4"/>
+                </linearGradient>
+              </defs>
+              <!-- chat window -->
+              <rect x="40" y="50" width="280" height="200" rx="14" fill="#fff" stroke="#cbd5e1" stroke-width="2"/>
+              <rect x="40" y="50" width="280" height="30" rx="14" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="2"/>
+              <circle cx="58" cy="65" r="4" fill="#ef4444"/>
+              <circle cx="74" cy="65" r="4" fill="#f59e0b"/>
+              <circle cx="90" cy="65" r="4" fill="#10b981"/>
+              <text x="180" y="69" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">ai-session</text>
+              <!-- chat bubbles -->
+              <rect x="60" y="100" width="160" height="22" rx="8" fill="#eef2ff"/>
+              <rect x="60" y="130" width="220" height="22" rx="8" fill="#eef2ff"/>
+              <rect x="140" y="160" width="160" height="22" rx="8" fill="#ecfeff"/>
+              <rect x="60" y="190" width="200" height="22" rx="8" fill="#eef2ff"/>
+              <!-- big X across chat -->
+              <line x1="80" y1="90" x2="290" y2="240" stroke="#ef4444" stroke-width="3" opacity=".6"/>
+              <line x1="290" y1="90" x2="80" y2="240" stroke="#ef4444" stroke-width="3" opacity=".6"/>
+              <!-- dust / loss -->
+              <text x="180" y="295" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#94a3b8">session closed</text>
+              <text x="180" y="318" text-anchor="middle" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="url(#pg)">— context lost —</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ Slide 4: Scenario 1 ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 02 — Scenario 01</div>
+      <h2 class="title">写一篇<span class="accent">技术博客</span></h2>
+      <p class="subtitle">writing 插件 · outline → draft → review → revise → publish · session 中途关掉</p>
+      <div class="body">
+        <div class="scn">
+          <ul class="timeline">
+            <li><span class="when">DAY 1 · 10:00</span><span class="who user">你：</span>"用 codenook 帮我写一篇讲单元测试覆盖率的博客。"</li>
+            <li><span class="when">10:01</span><span class="who">助手：</span>挑 writing 插件，问几个问题：受众、字数、风格。回答记入 <code>state.summary</code>。</li>
+            <li><span class="when">10:05</span><span class="who sys">系统：</span><code>tick</code> 推进到 outline，派 outliner sub-agent 写大纲。</li>
+            <li><span class="when">10:30</span><span class="who">助手：</span>HITL gate 把大纲 verbatim 给你看。回 approve，推进到 draft。</li>
+            <li><span class="when">11:00</span><span class="who user">你：</span>开会前关掉终端。</li>
+            <li><span class="when">DAY 2 · 09:00</span><span class="who user">你：</span>新开 Claude Code，"continue T-101"。</li>
+            <li><span class="when">09:00</span><span class="who">助手：</span>读 <code>state.json</code>，看到 draft 还在跑，直接接 tick。</li>
+            <li><span class="when">11:30</span><span class="who sys">系统：</span>review → revise → publish 跑完，沉到 <code>memory/knowledge/</code>。</li>
+          </ul>
+          <div class="figure">
+            <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="作者与笔记本电脑场景">
+              <defs>
+                <linearGradient id="sc1g" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#6366f1"/>
+                  <stop offset="100%" stop-color="#06b6d4"/>
+                </linearGradient>
+              </defs>
+              <circle cx="110" cy="76" r="20" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.5"/>
+              <path d="M80 150 Q110 110 140 150 L138 170 L82 170 Z" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.5"/>
+              <rect x="200" y="56" width="220" height="120" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+              <rect x="200" y="56" width="220" height="20" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+              <circle cx="212" cy="66" r="3" fill="#cbd5e1"/>
+              <circle cx="222" cy="66" r="3" fill="#cbd5e1"/>
+              <circle cx="232" cy="66" r="3" fill="#cbd5e1"/>
+              <text x="310" y="110" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">writing/T-101-blog</text>
+              <text x="310" y="132" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" fill="#1e293b">phase: draft</text>
+              <text x="310" y="152" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#94a3b8">status: in_progress</text>
+              <rect x="200" y="178" width="220" height="6" rx="2" fill="#cbd5e1"/>
+              <path d="M440 116 L520 116" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 4"/>
+              <path d="M516 112 L524 116 L516 120 Z" fill="#94a3b8"/>
+              <rect x="540" y="56" width="140" height="120" rx="8" fill="url(#sc1g)" opacity=".12" stroke="#6366f1" stroke-width="1.5"/>
+              <text x="610" y="92" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#4338ca">.codenook/</text>
+              <text x="610" y="110" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">tasks/T-101/</text>
+              <text x="610" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">state.json</text>
+              <text x="610" y="142" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">outputs/</text>
+              <text x="610" y="158" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">prompts/</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ Slide 5: Scenario 2 ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 02 — Scenario 02</div>
+      <h2 class="title">调研一个<span class="accent">开源项目</span></h2>
+      <p class="subtitle">generic 插件 · 多轮探索 · 公司机器跑一半，回家接着跑</p>
+      <div class="body">
+        <div class="scn">
+          <ul class="timeline">
+            <li><span class="when">周三下午</span><span class="who user">你：</span>"用 codenook 调研一下 foo 这个仓库，先看架构再列 API 表。"</li>
+            <li><span class="when">14:00–17:30</span><span class="who sys">系统：</span>跑了 3 个 phase，sub-agent 把要点写到 <code>tasks/T-202/notes/</code>。</li>
+            <li><span class="when">下班</span><span class="who user">你：</span>把整个项目目录 <code>git push</code>。</li>
+            <li><span class="when">晚上</span><span class="who user">你：</span>家里 <code>git pull</code>，开 Copilot CLI。</li>
+            <li><span class="when">21:00</span><span class="who">助手：</span>读 <code>state.json</code> + <code>memory/index.yaml</code>，列出待办，直接接 phase 4。</li>
+            <li><span class="when">23:00</span><span class="who sys">系统：</span><code>status: done</code>。所有调研产物都在仓库里。</li>
+          </ul>
+          <div class="figure">
+            <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="跨机器迁移场景">
+              <defs>
+                <linearGradient id="sc2g" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#6366f1"/>
+                  <stop offset="100%" stop-color="#06b6d4"/>
+                </linearGradient>
+              </defs>
+              <rect x="40" y="50" width="200" height="120" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+              <rect x="40" y="50" width="200" height="20" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+              <text x="140" y="64" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">work-laptop</text>
+              <text x="140" y="100" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#1e293b">T-202-explore-foo</text>
+              <text x="140" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">phase 3 / 6</text>
+              <text x="140" y="138" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">notes: 12 files</text>
+              <rect x="40" y="170" width="200" height="6" rx="2" fill="#cbd5e1"/>
+              <circle cx="140" cy="190" r="6" fill="#e0e7ff" stroke="#6366f1" stroke-width="1"/>
+              <path d="M250 110 L470 110" stroke="url(#sc2g)" stroke-width="2" stroke-dasharray="6 4"/>
+              <path d="M464 104 L476 110 L464 116 Z" fill="#06b6d4"/>
+              <text x="360" y="94" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#4338ca">git push · scp · tar</text>
+              <text x="360" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#94a3b8">.codenook/  整个目录</text>
+              <rect x="480" y="50" width="200" height="120" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+              <rect x="480" y="50" width="200" height="20" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+              <text x="580" y="64" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">home-laptop</text>
+              <text x="580" y="100" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#1e293b">T-202-explore-foo</text>
+              <text x="580" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">phase 3 / 6</text>
+              <text x="580" y="138" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">notes: 12 files</text>
+              <rect x="480" y="170" width="200" height="6" rx="2" fill="#cbd5e1"/>
+              <circle cx="580" cy="190" r="6" fill="#e0e7ff" stroke="#6366f1" stroke-width="1"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ Slide 6: Scenario 3 ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 02 — Scenario 03</div>
+      <h2 class="title">重构一个<span class="accent">旧模块</span></h2>
+      <p class="subtitle">development · feature profile · clarify → design → plan → implement → test · 中途换 AI 客户端</p>
+      <div class="body">
+        <div class="scn">
+          <ul class="timeline">
+            <li><span class="when">10:00</span><span class="who user">你：</span>在 Claude Code 里说"用 codenook 重构 auth 模块，把 session 改成 JWT"。</li>
+            <li><span class="when">10:15</span><span class="who">助手：</span>clarify 跑完，HITL gate <code>requirements_signoff</code> 弹出，你 approve。</li>
+            <li><span class="when">11:30</span><span class="who sys">系统：</span>design + plan 跑完，进入 implement，改了 7 个文件。</li>
+            <li><span class="when">14:00</span><span class="who user">你：</span>Claude 用量到顶。切到 Copilot CLI 同一目录。</li>
+            <li><span class="when">14:00</span><span class="who">助手：</span>读 <code>CLAUDE.md</code> bootloader，认得协议。<code>codenook status</code> 列出 T-303。</li>
+            <li><span class="when">14:01</span><span class="who user">你：</span>"continue T-303."</li>
+            <li><span class="when">15:30</span><span class="who sys">系统：</span>test 跑完，<code>ship_signoff</code> approve，任务 done。</li>
+          </ul>
+          <div class="figure">
+            <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="跨助手切换场景">
+              <defs>
+                <linearGradient id="sc3g" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#6366f1"/>
+                  <stop offset="100%" stop-color="#10b981"/>
+                </linearGradient>
+              </defs>
+              <rect x="40" y="40" width="180" height="60" rx="10" fill="#fff" stroke="#6366f1" stroke-width="1.5"/>
+              <text x="130" y="62" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#4338ca">Claude Code</text>
+              <text x="130" y="82" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">conductor</text>
+              <path d="M130 100 L130 130" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 3"/>
+              <path d="M126 126 L130 134 L134 126 Z" fill="#94a3b8"/>
+              <rect x="500" y="40" width="180" height="60" rx="10" fill="#fff" stroke="#06b6d4" stroke-width="1.5"/>
+              <text x="590" y="62" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#0e7490">Copilot CLI</text>
+              <text x="590" y="82" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#64748b">conductor</text>
+              <path d="M590 100 L590 130" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 3"/>
+              <path d="M586 126 L590 134 L594 126 Z" fill="#94a3b8"/>
+              <rect x="240" y="130" width="240" height="64" rx="10" fill="url(#sc3g)" opacity=".15" stroke="#6366f1" stroke-width="1.5"/>
+              <text x="360" y="156" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#4338ca">.codenook/tasks/T-303/</text>
+              <text x="360" y="176" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#475569">state.json · prompts · outputs</text>
+              <path d="M130 134 Q 200 162 240 162" stroke="#94a3b8" stroke-width="1.5" fill="none"/>
+              <path d="M590 134 Q 520 162 480 162" stroke="#94a3b8" stroke-width="1.5" fill="none"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ Slide 7: Summary ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 02 — Recap</div>
+      <h2 class="title">三个场景<span class="accent">一句话</span></h2>
+      <div class="body">
+        <div class="summary-line">
+          <div>
+            <div class="big">session 关了 → <span>任务还在</span>；<br/>换电脑 → <span>继续</span>；换 AI → <span>继续</span>。</div>
+            <div class="sm">关键不是"AI 帮你做了什么"，而是"中断之后，活儿还在不在"。</div>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ Slide 8: Architecture ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 03 — Architecture</div>
+      <h2 class="title">三层<span class="accent">结构</span></h2>
+      <p class="subtitle">上面是 AI 助手 (conductor)，中间是 Python 内核 (kernel)，下面是工作目录里的文本文件。</p>
+      <div class="body">
+        <div class="arch">
+          <div class="figure">
+            <svg viewBox="0 0 760 320" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="archg" x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0%" stop-color="#6366f1"/>
+                  <stop offset="100%" stop-color="#06b6d4"/>
+                </linearGradient>
+              </defs>
+              <rect x="40" y="30" width="680" height="64" rx="10" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+              <text x="60" y="58" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#1e293b">AI 助手 · Claude Code / Copilot CLI / ...</text>
+              <text x="60" y="78" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">conductor — 读 envelope · 派 sub-agent · 回 tick · 转述 HITL prompt</text>
+              <path d="M380 100 L380 130" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 3"/>
+              <path d="M376 126 L380 134 L384 126 Z" fill="#94a3b8"/>
+              <rect x="40" y="140" width="680" height="64" rx="10" fill="url(#archg)"/>
+              <text x="60" y="168" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#fff">codenook 内核 · Python3 stdlib only</text>
+              <text x="60" y="188" font-family="JetBrains Mono, monospace" font-size="11" fill="#e0e7ff">tick · decide · phase 状态机 · HITL gate · 记忆抽取 · 插件加载</text>
+              <path d="M380 210 L380 240" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 3"/>
+              <path d="M376 236 L380 244 L384 236 Z" fill="#94a3b8"/>
+              <rect x="40" y="250" width="680" height="64" rx="10" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+              <text x="60" y="278" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#1e293b">工作目录 · &lt;workspace&gt;/.codenook/</text>
+              <text x="60" y="298" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">tasks/ · plugins/ · memory/ · hitl-queue/ · state.json</text>
+            </svg>
+          </div>
+          <ul>
+            <li><b>Kernel</b> — 插件无关，Python stdlib，提供 CLI、状态机、HITL adapter、记忆抽取器。</li>
+            <li><b>Plugins</b> — 域知识，<code>development</code> / <code>writing</code> / <code>generic</code>，每个就是一个目录。</li>
+            <li><b>Workspace</b> — 纯文本运行时状态，可 diff、可 git、可 tar。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ Slide 9: 4 cards ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 03 — Concepts</div>
+      <h2 class="title">四个<span class="accent">关键术语</span></h2>
+      <p class="subtitle">看懂这四个词，就能读懂任何一份 dispatch envelope。</p>
+      <div class="body">
+        <div class="cards4">
+          <div class="card">
+            <div class="lbl">Plugin</div>
+            <h4>Plugin</h4>
+            <p>一个目录形态的域包，含 <code>phases.yaml</code> / <code>roles/</code> / <code>manifest-templates/</code>。</p>
+          </div>
+          <div class="card">
+            <div class="lbl">Phase</div>
+            <h4>Phase</h4>
+            <p>流水线上的一段，比如 <code>clarify</code>、<code>design</code>、<code>implement</code>，每段绑一个 role。</p>
+          </div>
+          <div class="card">
+            <div class="lbl">Role</div>
+            <h4>Role</h4>
+            <p>sub-agent 的人格设定，定义在 <code>plugins/&lt;id&gt;/roles/&lt;role&gt;.md</code>。</p>
+          </div>
+          <div class="card">
+            <div class="lbl">Sub-agent</div>
+            <h4>Sub-agent</h4>
+            <p>conductor 派出去执行单个 phase 的子会话，写一份 verdict 标注的产出后退出。</p>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ Slide 10: Tick loop ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 03 — Execution</div>
+      <h2 class="title">tick <span class="accent">循环</span></h2>
+      <p class="subtitle">一个任务的执行就是反复调 <code style="font-family:'JetBrains Mono',monospace;background:#eef2ff;color:var(--indigo-d);padding:1px 8px;border-radius:4px;font-size:18px;">codenook tick</code>，每次推进至多一个 phase。</p>
+      <div class="body">
+        <div class="tick">
+          <div class="figure">
+            <svg viewBox="0 0 720 280" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ah5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#6366f1"/>
+                </marker>
+              </defs>
+              <circle cx="360" cy="140" r="58" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5"/>
+              <text x="360" y="135" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#4338ca">tick</text>
+              <text x="360" y="155" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#6366f1">phase 状态机</text>
+              <g font-family="Inter, sans-serif" font-size="12" fill="#1e293b">
+                <rect x="40"  y="40"  width="150" height="44" rx="8" fill="#fff" stroke="#cbd5e1"/>
+                <text x="115" y="60"  text-anchor="middle" font-weight="600">1. conductor 调 tick</text>
+                <text x="115" y="76"  text-anchor="middle" fill="#64748b" font-size="11">codenook tick --json</text>
+                <rect x="530" y="40"  width="150" height="44" rx="8" fill="#fff" stroke="#cbd5e1"/>
+                <text x="605" y="60"  text-anchor="middle" font-weight="600">2. 返回 envelope</text>
+                <text x="605" y="76"  text-anchor="middle" fill="#64748b" font-size="11">{ phase, prompt, out }</text>
+                <rect x="530" y="200" width="150" height="44" rx="8" fill="#fff" stroke="#cbd5e1"/>
+                <text x="605" y="220" text-anchor="middle" font-weight="600">3. 派 sub-agent</text>
+                <text x="605" y="236" text-anchor="middle" fill="#64748b" font-size="11">写 verdict 产出</text>
+                <rect x="40"  y="200" width="150" height="44" rx="8" fill="#fff" stroke="#cbd5e1"/>
+                <text x="115" y="220" text-anchor="middle" font-weight="600">4. 再次 tick</text>
+                <text x="115" y="236" text-anchor="middle" fill="#64748b" font-size="11">读产出 · 推下一阶段</text>
+              </g>
+              <path d="M190 70 Q 280 80, 305 115"   stroke="#6366f1" stroke-width="1.5" fill="none" marker-end="url(#ah5)"/>
+              <path d="M415 115 Q 480 80, 530 70"   stroke="#6366f1" stroke-width="1.5" fill="none" marker-end="url(#ah5)"/>
+              <path d="M605 84 L605 200"            stroke="#6366f1" stroke-width="1.5" fill="none" marker-end="url(#ah5)"/>
+              <path d="M530 222 Q 480 200, 415 165" stroke="#6366f1" stroke-width="1.5" fill="none" marker-end="url(#ah5)"/>
+              <path d="M305 165 Q 240 200, 190 222" stroke="#6366f1" stroke-width="1.5" fill="none" marker-end="url(#ah5)"/>
+              <path d="M115 200 L115 84"            stroke="#6366f1" stroke-width="1.5" fill="none" marker-end="url(#ah5)"/>
+            </svg>
+          </div>
+          <ol>
+            <li><b>conductor 调 tick</b>：<code>codenook tick --json</code> 让状态机推进。</li>
+            <li><b>返回 envelope</b>：含 <code>phase / role / system_prompt_path / reply_path / model</code>。</li>
+            <li><b>派 sub-agent</b>：按 envelope 调起子会话，子会话写 verdict 产出后退出。</li>
+            <li><b>再次 tick</b>：内核读产出、跑 post_validate、抽取记忆，推进或停。</li>
+          </ol>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ Slide 11: HITL ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 03 — HITL Gate</div>
+      <h2 class="title">人审<span class="accent">闸口</span></h2>
+      <p class="subtitle">phase 之间挡一道。系统把产出 verbatim 给你看，等你 approve / reject / needs_changes。</p>
+      <div class="body">
+        <div class="hitl">
+          <div>
+            <p>当某个 phase 配了 gate，<code>tick</code> 会把任务停在 <code>status: waiting</code>，写一条 entry 进 <code>hitl-queue/</code>。</p>
+            <p>conductor 把 prompt verbatim 转给你；你回的 <code>approve</code> / <code>reject</code> / <code>needs_changes</code> 通过 <code>codenook decide --task T --phase &lt;id&gt; --decision &lt;verb&gt;</code> 回写。</p>
+            <p>tick 再继续。整个回路没有任何全局服务，全部存在工作目录里。</p>
+          </div>
+          <div class="figure">
+            <svg viewBox="0 0 380 280" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="hg" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#6366f1"/>
+                  <stop offset="100%" stop-color="#06b6d4"/>
+                </linearGradient>
+              </defs>
+              <rect x="20" y="20" width="340" height="200" rx="14" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+              <rect x="20" y="20" width="340" height="34" rx="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+              <text x="40" y="42" font-family="JetBrains Mono, monospace" font-size="12" fill="#475569">hitl-queue/T-303-design_signoff</text>
+              <rect x="40" y="74" width="300" height="80" rx="8" fill="#eef2ff"/>
+              <text x="56" y="98" font-family="JetBrains Mono, monospace" font-size="11" fill="#4338ca">phase: design</text>
+              <text x="56" y="118" font-family="Inter, sans-serif" font-size="13" fill="#1e293b">design 产出已就绪，请审阅。</text>
+              <text x="56" y="138" font-family="Inter, sans-serif" font-size="12" fill="#64748b">verdict: ok · 7 files affected</text>
+              <rect x="40" y="170" width="92" height="34" rx="6" fill="url(#hg)"/>
+              <text x="86" y="192" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="600" fill="#fff">approve</text>
+              <rect x="142" y="170" width="92" height="34" rx="6" fill="#fff" stroke="#cbd5e1"/>
+              <text x="188" y="192" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" fill="#475569">changes</text>
+              <rect x="244" y="170" width="92" height="34" rx="6" fill="#fff" stroke="#cbd5e1"/>
+              <text x="290" y="192" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" fill="#475569">reject</text>
+              <text x="190" y="248" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">codenook decide --task T-303 --phase design --decision approve</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ Slide 12: Memory ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 03 — Memory</div>
+      <h2 class="title">记忆<span class="accent">系统</span></h2>
+      <p class="subtitle">每个 phase 跑完后 <code style="font-family:'JetBrains Mono',monospace;background:#eef2ff;color:var(--indigo-d);padding:1px 8px;border-radius:4px;font-size:18px;">extractor-batch</code> 自动跑一次，把有复用价值的东西分三类沉淀。</p>
+      <div class="body">
+        <div class="mem">
+          <div class="figure">
+            <svg viewBox="0 0 380 320" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="mg" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#6366f1"/>
+                  <stop offset="100%" stop-color="#06b6d4"/>
+                </linearGradient>
+              </defs>
+              <!-- funnel -->
+              <path d="M40 30 L340 30 L260 160 L260 280 L120 280 L120 160 Z" fill="url(#mg)" opacity=".12" stroke="#6366f1" stroke-width="1.5"/>
+              <text x="190" y="58" text-anchor="middle" font-family="Inter, sans-serif" font-size="14" font-weight="600" fill="#4338ca">phase outputs</text>
+              <text x="190" y="78" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">tasks/T-NNN/outputs/</text>
+              <!-- divider -->
+              <line x1="120" y1="160" x2="260" y2="160" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="4 4"/>
+              <text x="190" y="150" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#4338ca">extractor-batch</text>
+              <!-- three slots at bottom -->
+              <rect x="130" y="180" width="120" height="22" rx="4" fill="#fff" stroke="#6366f1"/>
+              <text x="190" y="195" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#4338ca">memory/knowledge/</text>
+              <rect x="130" y="210" width="120" height="22" rx="4" fill="#fff" stroke="#06b6d4"/>
+              <text x="190" y="225" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0e7490">memory/skills/</text>
+              <rect x="130" y="240" width="120" height="22" rx="4" fill="#fff" stroke="#10b981"/>
+              <text x="190" y="255" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#047857">memory/configs/</text>
+              <text x="190" y="300" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">+ index.yaml · extraction-log.jsonl</text>
+            </svg>
+          </div>
+          <div class="tags">
+            <div class="tag">
+              <h4><code>knowledge/</code></h4>
+              <p>声明式工程事实：决策、约定、环境注记。落到 <code>memory/knowledge/&lt;topic&gt;.md</code>。</p>
+            </div>
+            <div class="tag">
+              <h4><code>skills/</code></h4>
+              <p>可执行的小技能：重复出现的 CLI / 脚本模式。落到 <code>memory/skills/&lt;name&gt;/SKILL.md</code>。</p>
+            </div>
+            <div class="tag">
+              <h4><code>configs/</code></h4>
+              <p>配置决定，落到 <code>memory/configs/&lt;entry&gt;.md</code>。三类共用 <code>index.yaml</code>，下次任务先读它。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ Slide 13: CLI cheatsheet ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 04 — CLI</div>
+      <h2 class="title">CLI <span class="accent">速查</span></h2>
+      <p class="subtitle">日常操作就这几条；conductor 会替你调，知道在干什么就够了。</p>
+      <div class="body">
+        <table class="cli-table">
+          <thead>
+            <tr><th>命令</th><th>用途</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="cmd">codenook task new --plugin &lt;id&gt; --title …</td><td class="desc">新建任务，分配 <code>T-NNN-&lt;slug&gt;</code>，写初始 <code>state.json</code>。</td></tr>
+            <tr><td class="cmd">codenook tick --task T --json</td><td class="desc">状态机推进一步，返回派发 envelope 或 done / blocked / waiting。</td></tr>
+            <tr><td class="cmd">codenook decide --task T --phase X --decision V</td><td class="desc">解决一个 HITL gate。<code>V</code> 取 <code>approve / reject / needs_changes</code>。</td></tr>
+            <tr><td class="cmd">codenook hitl &lt;list|show|render|decide&gt;</td><td class="desc">查看 / 渲染 / 决议待审 gate；<code>render</code> 输出独立 HTML。</td></tr>
+            <tr><td class="cmd">codenook status [--task T]</td><td class="desc">列出 workspace 全部任务或单个任务的当前状态。</td></tr>
+            <tr><td class="cmd">codenook extract --task T --reason &lt;r&gt;</td><td class="desc">手动触发记忆抽取（一般 phase 完成后自动跑）。</td></tr>
+            <tr><td class="cmd">codenook preflight</td><td class="desc">校验 <code>.codenook/</code> 安装是否完好。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ Slide 14: Adopt ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 04 — Adopt</div>
+      <h2 class="title">如何<span class="accent">接入</span></h2>
+      <p class="subtitle">没有全局守护进程、没有数据库、没有外服。</p>
+      <div class="body">
+        <div class="adopt">
+          <div class="one-liner">把 <code>.codenook/</code> 放进任何一个工作空间，AI 助手就懂这个协议。</div>
+          <div class="flow">
+            <div class="step">
+              <div class="n">STEP 01</div>
+              <h4>克隆仓库</h4>
+              <p><code style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--indigo-d);">git clone CodeNook</code></p>
+            </div>
+            <div class="step">
+              <div class="n">STEP 02</div>
+              <h4>装内核 + 插件</h4>
+              <p><code style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--indigo-d);">python3 install.py --target ~/ws --plugin development --yes</code></p>
+            </div>
+            <div class="step">
+              <div class="n">STEP 03</div>
+              <h4>开 AI 助手</h4>
+              <p>Claude Code 或 Copilot CLI 打开同一目录，bootloader 自动生效。</p>
+            </div>
+            <div class="step">
+              <div class="n">STEP 04</div>
+              <h4>开口说话</h4>
+              <p>"用 codenook 帮我 …"，conductor 会自己挑插件、起任务、tick。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ Slide 15: Limits ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 04 — Limits & Roadmap</div>
+      <h2 class="title">限制 与 <span class="accent">展望</span></h2>
+      <p class="subtitle">坦白讲清楚边界，比夸大有用。</p>
+      <div class="body">
+        <div class="limits">
+          <div class="col">
+            <h3>当前限制</h3>
+            <ul>
+              <li>conductor 只在支持子会话派发的 CLI 上跑得顺：Claude Code、Copilot CLI 验证过。</li>
+              <li>插件目前三个：development / writing / generic，覆盖面有限。</li>
+              <li>记忆抽取靠 sub-agent 自报，质量取决于 role prompt。</li>
+              <li>并发模型保守：iteration / fanout / dual-mode 各有上限，避免失控。</li>
+            </ul>
+          </div>
+          <div class="col">
+            <h3>路线展望</h3>
+            <ul>
+              <li>更多一方插件（review / spec / data-pipeline）。</li>
+              <li>跨任务的记忆检索增强，<code>index.yaml</code> 升级为可查询索引。</li>
+              <li>dual-mode 投票策略可配，支持自定义收敛函数。</li>
+              <li>web HITL UI 收敛到内核，独立 HTML 渲染外可挂浏览器。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ Slide 16: Closing ============================ -->
+    <section class="slide hero">
+      <div class="h-eyebrow">Thanks for watching</div>
+      <h1>CodeNook</h1>
+      <p class="h-sub">Session 易失，文件不会。把 AI 助手会话钉进文件系统，让活儿真正落地。</p>
+      <div class="h-meta">github.com/cintia09/CodeNook · MIT · v0.25.5</div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+  </div>
+</div>
+
+<nav class="nav-dots" id="dots" aria-label="slide indicator"></nav>
+<div class="counter" id="counter">1 / 16</div>
+<div class="help">← / → · Space · F fullscreen</div>
+
+<script>
+(function () {
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const dotsHost = document.getElementById('dots');
+  const counter = document.getElementById('counter');
+  const progress = document.getElementById('progress');
+  const deck = document.getElementById('deck');
+
+  // Build dots
+  slides.forEach((_, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+    b.addEventListener('click', (e) => { e.stopPropagation(); go(i); });
+    dotsHost.appendChild(b);
+  });
+  const dots = Array.from(dotsHost.querySelectorAll('button'));
+
+  let cur = 0;
+
+  function clamp(n) { return Math.max(0, Math.min(slides.length - 1, n)); }
+
+  function go(n) {
+    n = clamp(n);
+    slides[cur].classList.remove('active');
+    dots[cur].classList.remove('active');
+    cur = n;
+    slides[cur].classList.add('active');
+    dots[cur].classList.add('active');
+    counter.textContent = (cur + 1) + ' / ' + slides.length;
+    progress.style.width = ((cur + 1) / slides.length * 100) + '%';
+    if (location.hash !== '#' + (cur + 1)) {
+      history.replaceState(null, '', '#' + (cur + 1));
+    }
+  }
+
+  function next() { go(cur + 1); }
+  function prev() { go(cur - 1); }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault(); next();
+    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      e.preventDefault(); prev();
+    } else if (e.key === 'Home') {
+      e.preventDefault(); go(0);
+    } else if (e.key === 'End') {
+      e.preventDefault(); go(slides.length - 1);
+    } else if (e.key === 'f' || e.key === 'F') {
+      e.preventDefault();
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+
+  // Click anywhere on the deck → next; click left edge → prev
+  document.querySelectorAll('.edge').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (el.dataset.nav === 'prev') prev(); else next();
+    });
+  });
+  deck.addEventListener('click', (e) => {
+    // ignore clicks on interactive controls
+    if (e.target.closest('a, button, input, textarea, select')) return;
+    next();
+  });
+
+  // hash sync
+  function fromHash() {
+    const m = (location.hash || '').match(/^#(\d+)$/);
+    if (m) {
+      const n = clamp(parseInt(m[1], 10) - 1);
+      if (n !== cur) go(n);
+    }
+  }
+  window.addEventListener('hashchange', fromHash);
+
+  // Responsive scaling: keep 1280x720 deck centered, fit viewport
+  function scale() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const s = Math.min(w / 1280, h / 720);
+    deck.style.transform = 'scale(' + s + ')';
+  }
+  window.addEventListener('resize', scale);
+  scale();
+
+  // init
+  dots[0].classList.add('active');
+  progress.style.width = (1 / slides.length * 100) + '%';
+  fromHash();
+})();
+</script>
+
+</body>
+</html>
