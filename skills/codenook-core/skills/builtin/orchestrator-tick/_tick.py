@@ -571,18 +571,6 @@ def _render_hitl_prompt(workspace: Path, state: dict, phase: dict,
     parts.extend([
         f"**Review the role's output before deciding:**",
         f"- `{context_path}`",
-        "",
-        "**Decide one of:**",
-        "- `approve` — accept and continue to the next phase.",
-        "- `needs_changes` — send the role back for another iteration.",
-        "- `reject` — block the task; cannot continue without operator action.",
-        "",
-        "Submit via:",
-        "```",
-        f"<codenook> decide --task {state.get('task_id','?')} "
-        f"--phase {phase_id} --decision <approve|needs_changes|reject> "
-        "[--comment \"...\"]",
-        "```",
     ])
     return "\n".join(parts) + "\n"
 
