@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/architecture.png" alt="CodeNook architecture" width="780" />
+  <img src="docs/images/codenook-workspace-model.png" alt="CodeNook workspace model" width="900" />
 </p>
 
 <h1 align="center">🤖 CodeNook</h1>
