@@ -1,3 +1,83 @@
+## v0.25.0 (2026-04-21)
+
+Sweep of code-review fixes — 11 issues across the kernel surface
+(2 High, 6 Medium, 3 Low). No schema breaks; bootloader template
+gains a couple of cosmetic improvements.
+
+### Fixed (High)
+- **`_find_core_root` infinite loop on Windows.** The terminator
+  checked `cur != "/"`, but `os.path.dirname("C:\\") == "C:\\"`
+  on Windows, so the walk never converged. Now uses
+  `dirname(cur) == cur` — works on both POSIX and Windows.
+  (`orchestrator-tick/_tick.py:1301-1314`)
+- **`task new` wrote `state.json` non-atomically.** A crash mid-write
+  (or two concurrent writers) could leave a half-written or
+  schema-invalid state file, which then poisons every subsequent
+  `tick`/`status`. Now uses `atomic_write_json_validated` against
+  `schemas/task-state.schema.json`. (`_lib/cli/cmd_task.py:337-341`)
+
+### Fixed (Medium)
+- **TOCTOU race in `task new` slot reservation.** Two concurrent
+  invocations could both pass the `next_task_id` check and
+  `mkdir(exist_ok=True)`, with the second silently clobbering the
+  first's task. Reservation now uses `mkdir(exist_ok=False)` in a
+  16-attempt retry loop, recomputing `next_task_id` each pass.
+  (`_lib/cli/cmd_task.py:290-314`)
+- **`extraction_router.route_artefacts` invoked an LLM subprocess on
+  every `after_phase` tick** — only to ratify a constant value
+  (`task_specific` had been collapsed to `cross_task` in v0.24).
+  Short-circuited to return `(FALLBACK_ROUTES, False)` directly.
+  Removes a multi-second hang from the hot path; helpers retained
+  for follow-up cleanup. (`skills/builtin/_lib/extraction_router.py:128-153`)
+- **`codenook status` did not surface the resolved model** despite
+  the bootloader telling conductors to read it from there. Each
+  task row now ends with `model=<resolved>` (graceful `<unknown>` /
+  `<default>` fallbacks if the models module is missing or empty).
+  (`_lib/cli/cmd_status.py`)
+- **USAGE drift: `hitl <list|show|render|decide>` advertised the
+  long-removed `render` subcommand.** Bootloader / `--help` now
+  list `<list|show|decide>`, matching `cmd_hitl.py`.
+  (`_lib/cli/app.py:37`)
+- **Test coverage gap on `cmd_decide` two-pass gate resolution.**
+  Added `test_cmd_decide_resolution.py` exercising the
+  `--phase <gate_id>` fallback documented in the bootloader.
+- **Test coverage gap on `next_task_id` slug coexistence.**
+  Added `test_next_task_id_slug.py` covering legacy `T-NNN`,
+  v0.23+ `T-NNN-<slug>`, and CJK slugs sharing one tasks dir
+  without slot collisions.
+
+### Fixed (Low)
+- **`_legacy_tick` could not honour `CODENOOK_DISPATCH_CMD` with
+  arguments** because it passed the env var as a single argv
+  element. Now uses `shlex.split` (POSIX-aware), so
+  `CODENOOK_DISPATCH_CMD="python my_hook.py --foo"` works.
+  (`orchestrator-tick/_tick.py:1219-1238`)
+- **Dead `state["keywords"]` reads** in `_tick.py` (~L501) and
+  `cmd_tick.py` (~L186) — no writer has populated this key since
+  v0.20.0. Removed (with a code comment so the next reader knows).
+- **Duplicated HITL paragraph in the bootloader template** (two
+  near-identical lead-ins). Collapsed to one.
+  (`skills/builtin/_lib/claude_md_sync.py:282-285`)
+
+### Changed
+- Bootloader's `decide` step now recommends the canonical
+  `<codenook> decide --task --phase` form. The legacy
+  `hitl decide --id` is still wired in `cmd_hitl.py` and continues
+  to work; it's just no longer the recommended surface.
+  (`skills/builtin/_lib/claude_md_sync.py:314-323`)
+- `claude_md_sync.render_block(version, plugin)` now actually
+  interpolates the `plugin` argument, rendering
+  *Workspace seeded with plugin: **<id>*** when present (was
+  silently discarded). (`skills/builtin/_lib/claude_md_sync.py:21-32`)
+
+### Known coverage debt
+- The `{{TASK_CONTEXT}}` slot + per-task `extracted/` API surface is
+  no longer fed by any writer (route was collapsed in v0.24).
+  Reads return empty strings — harmless but dead code. Slated for
+  removal alongside the `extraction_router` LLM helpers in v0.26
+  once the manifest templates that reference `{{TASK_CONTEXT}}`
+  are reviewed.
+
 ## v0.24.2 (2026-04-21)
 
 ### Fixed

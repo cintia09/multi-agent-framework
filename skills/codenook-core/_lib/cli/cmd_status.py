@@ -34,6 +34,13 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
     sys.stdout.write(ctx.state_file.read_text(encoding="utf-8"))
     sys.stdout.write("\n")
 
+    # Lazy-import models so a corrupt model module never blocks `status`.
+    try:
+        from .. import models  # type: ignore
+        _resolve = models.resolve_model  # type: ignore[attr-defined]
+    except Exception:
+        _resolve = None  # graceful degrade — model column shows <unknown>
+
     tasks_dir = ctx.workspace / ".codenook" / "tasks"
     rows = []
     for d in iter_active_task_dirs(tasks_dir):
@@ -44,10 +51,19 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
             st = s.get("status") or "?"
             ex = s.get("execution_mode") or "sub-agent"
             pr = s.get("profile") or "<auto>"
+            md = "<unknown>"
+            if _resolve is not None:
+                try:
+                    md = (_resolve(ctx.workspace, s.get("plugin") or "",
+                                   s.get("phase") or "", s)
+                          or "<default>")
+                except Exception:
+                    md = "<unknown>"
         except Exception:
-            ph, st, ex, pr = "?", "?", "?", "?"
+            ph, st, ex, pr, md = "?", "?", "?", "?", "?"
         rows.append(
-            f"  {d.name} phase={ph} status={st} exec={ex} profile={pr}")
+            f"  {d.name} phase={ph} status={st} "
+            f"exec={ex} profile={pr} model={md}")
     if rows:
         print("Tasks:")
         print("\n".join(rows))

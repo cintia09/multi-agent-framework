@@ -12,6 +12,10 @@ from typing import Sequence
 
 from .config import CodenookContext, compose_task_id, next_task_id, slugify
 
+# atomic_write_json_validated lives in skills/builtin/_lib/atomic.py;
+# load_context() prepends that dir to sys.path, so the import resolves
+# at call-time (deferred to avoid import-order coupling).
+
 
 HELP_TASK = """\
 codenook task <new|set|set-model|set-exec|set-profile>
@@ -284,19 +288,34 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
         # field becomes a no-op for legacy pipelines.
 
     if not task_id:
-        n = next_task_id(ctx.workspace)
-        # Slug source preference: --input > --title > --summary. The
-        # original v0.23 implementation only consulted task_input, so
-        # the most common entrypoint (`task new --title X --summary Y
-        # --accept-defaults`, with no --input) silently produced bare
-        # T-NNN ids. Falling back through title and summary makes
-        # every task get a meaningful slug; slugify() handles
-        # CJK / ASCII / empty-result cases.
+        # Reserve the slot atomically by mkdir(exist_ok=False). Two
+        # concurrent `task new` invocations that compute the same
+        # next_task_id() would otherwise both pass mkdir(exist_ok=True)
+        # and the second would clobber the first's state.json. Retry
+        # up to 16 times to absorb concurrent reservers.
         slug_source = task_input or title or summary
         slug = slugify(slug_source) if slug_source else ""
-        task_id = compose_task_id(n, slug)
+        tasks_root = ctx.workspace / ".codenook" / "tasks"
+        tasks_root.mkdir(parents=True, exist_ok=True)
+        for _attempt in range(16):
+            n = next_task_id(ctx.workspace)
+            task_id = compose_task_id(n, slug)
+            tdir = tasks_root / task_id
+            try:
+                tdir.mkdir(parents=False, exist_ok=False)
+                break
+            except FileExistsError:
+                task_id = ""
+                continue
+        else:
+            sys.stderr.write(
+                "codenook task new: could not reserve a task id slot "
+                "after 16 attempts; another writer is racing.\n")
+            return 1
+    else:
+        tdir = ctx.workspace / ".codenook" / "tasks" / task_id
+        tdir.mkdir(parents=True, exist_ok=True)
 
-    tdir = ctx.workspace / ".codenook" / "tasks" / task_id
     (tdir / "outputs").mkdir(parents=True, exist_ok=True)
     (tdir / "prompts").mkdir(parents=True, exist_ok=True)
     (tdir / "notes").mkdir(parents=True, exist_ok=True)
@@ -334,8 +353,14 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
     if task_input_set and task_input:
         state["task_input"] = task_input
 
-    (tdir / "state.json").write_text(
-        json.dumps(state, indent=2), encoding="utf-8")
+    # Atomic + schema-validated write (every other kernel writer
+    # uses this; a bare write_text + SIGINT mid-write would brick
+    # the task with a truncated state.json).
+    from atomic import atomic_write_json_validated  # type: ignore
+    _schema_path = str(Path(__file__).resolve().parents[2]
+                       / "schemas" / "task-state.schema.json")
+    atomic_write_json_validated(
+        str(tdir / "state.json"), state, _schema_path)
 
     if parent:
         try:

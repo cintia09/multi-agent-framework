@@ -136,18 +136,21 @@ def route_artefacts(
 ) -> tuple[dict[str, str], bool]:
     """Classify the three artefact types for this (task, phase).
 
-    Returns (routes_dict, route_fallback).
-    Never raises — on any error falls back to {"knowledge": "cross_task", ...}.
+    Since the ``task_specific`` destination was removed, ``cross_task``
+    is the only legal route. The previous implementation still spawned
+    an LLM subprocess on every ``after_phase`` tick to confirm a
+    constant — pure overhead. Short-circuit to the fallback dict and
+    skip the LLM entirely. ``route_fallback`` stays ``False`` because
+    nothing actually failed; the audit log entries written by callers
+    will look identical to a successful classification, which preserves
+    the external contract.
+
+    Workspace / task_id / phase / reason / task_title / phase_summary
+    are accepted (and ignored) so existing call sites keep compiling
+    when this module is later deleted entirely.
     """
-    task_summary = task_title or phase_summary or _read_task_summary(workspace, task_id)
-    memory_digest = _memory_index_digest(workspace)
-    prompt = _build_route_prompt(task_id, phase, reason, task_summary, memory_digest)
-    try:
-        raw = call_llm(prompt, call_name=CALL_NAME)
-        routes = _parse_routes(raw)
-        return routes, False
-    except Exception:
-        return dict(FALLBACK_ROUTES), True
+    del workspace, task_id, phase, reason, task_title, phase_summary
+    return dict(FALLBACK_ROUTES), False
 
 
 def main(argv: list[str] | None = None) -> int:

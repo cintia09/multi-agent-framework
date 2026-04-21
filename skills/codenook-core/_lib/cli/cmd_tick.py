@@ -183,9 +183,8 @@ def _augment_envelope(ctx: CodenookContext, task: str, tick_out: str) -> str:
             ti = state.get("task_input")
             if isinstance(ti, str) and ti.strip():
                 query_parts.append(ti.strip())
-            kws = state.get("keywords")
-            if isinstance(kws, list):
-                query_parts.extend(str(k) for k in kws if k)
+            # state["keywords"] is intentionally not consulted: nothing
+            # writes it and the schema bans extra props.
             query = " ".join(query_parts)
             top_n = _kq.resolve_top_n(ctx.workspace, default=8)
             body = _kq.substitute_placeholder(

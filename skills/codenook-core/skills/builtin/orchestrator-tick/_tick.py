@@ -501,9 +501,10 @@ def _render_phase_prompt(workspace: Path, state: dict, phase: dict) -> str | Non
             ti = state.get("task_input")
             if isinstance(ti, str) and ti.strip():
                 query_parts.append(ti.strip())
-            kws = state.get("keywords")
-            if isinstance(kws, list):
-                query_parts.extend(str(k) for k in kws if k)
+            # NOTE: `state["keywords"]` was read here historically but
+            # nothing in the kernel ever writes it and the schema bans
+            # additional properties, so the branch was always dead. If
+            # plugin authors need extra query terms, extend task_input.
             query = " ".join(query_parts)
             top_n = _kq.resolve_top_n(workspace, default=8)
             rendered = _kq.substitute_placeholder(
@@ -1229,7 +1230,15 @@ def _legacy_tick(workspace: Path, state_file: Path, dry_run: bool,
             # kernel uses sh_run here for backward compat with POSIX hooks;
             # this is NOT a kernel-internal .sh subprocess and is therefore
             # outside the v0.24.0 "no kernel bash" guarantee.
-            r = _sh_run([dispatch_cmd], env=env, capture_output=True, text=True)
+            #
+            # shlex-split so operators can pass arguments
+            # (e.g. CODENOOK_DISPATCH_CMD="python my_hook.py --foo") —
+            # the previous code passed the whole string as argv[0] and
+            # FileNotFoundError'd on any hook that wasn't a bare path.
+            import shlex
+            argv = shlex.split(dispatch_cmd, posix=(os.name != "nt"))
+            r = _sh_run(argv or [dispatch_cmd], env=env,
+                        capture_output=True, text=True)
             ok = r.returncode == 0
         finally:
             if os.path.exists(sf):
@@ -1300,10 +1309,17 @@ def after_phase(workspace_root: Path, task_id: str, phase: str | None,
 
 def _find_core_root() -> str:
     cur = os.path.dirname(os.path.abspath(__file__))
-    while cur != "/":
+    # Walk up until we hit the filesystem root. Using `dirname(cur) ==
+    # cur` as the terminator handles both POSIX ("/") and Windows
+    # ("C:\\"); the previous `cur != "/"` form looped forever on
+    # Windows because dirname("C:\\") returns "C:\\".
+    while True:
         if os.path.exists(os.path.join(cur, "skills", "builtin", "preflight")):
             return cur
-        cur = os.path.dirname(cur)
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            break
+        cur = parent
     return os.environ.get("CORE_ROOT", "")
 
 

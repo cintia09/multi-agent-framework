@@ -19,13 +19,18 @@ END = "<!-- codenook:end -->"
 
 
 def render_block(version: str, plugin: str) -> str:
+    seed_line = (
+        f"Workspace seeded with plugin: **{plugin}** "
+        f"(`task new --plugin <id>` may pick a different one per task).\n\n"
+        if plugin else ""
+    )
     return f"""{BEGIN}
 <!-- DO NOT EDIT BY HAND. Managed by `python install.py`. To remove this block,
      re-run install.py with --no-claude-md and delete the markers manually. -->
 
 ## CodeNook v{version} bootloader
 
-CodeNook is a multi-agent task orchestrator. The LLM (you) acts as a
+{seed_line}CodeNook is a multi-agent task orchestrator. The LLM (you) acts as a
 **pure conductor**: when the user asks for a CodeNook task, you hand
 the work off to the orchestrator and relay its messages verbatim. You
 do **not** decide on your own whether something should become a task.
@@ -279,13 +284,9 @@ inspect `status`:
 - `done` / `blocked` — terminal; report `next_action` /
   `message_for_user` verbatim.
 
-On `waiting` you may also need to clear an HITL gate. Scan
-`.codenook/hitl-queue/*.json` for entries with `decision == null`.
-For each open entry:
-
-On `tick --json` returning `waiting`, scan
-`.codenook/hitl-queue/*.json` for entries with `decision == null`.
-For each open entry:
+On `tick --json` returning `waiting`, you may also need to clear
+an HITL gate. Scan `.codenook/hitl-queue/*.json` for entries with
+`decision == null`. For each open entry:
 
 1. **MANDATORY channel-choice ask.** Issue exactly one `ask_user` with
    two choices: `terminal` (default) and `html`. Treat any answer other
@@ -310,10 +311,17 @@ For each open entry:
      ```
      Then issue an `ask_user` to collect the decision.
 
-3. **Submit the decision:**
+3. **Submit the decision** (use the same form as the post-phase
+   `<codenook> decide` above so the conductor only ever needs one
+   verb — the helper auto-derives `--id` from the gate metadata
+   when only `--task` + `--phase` are supplied):
    ```bash
-   <codenook> hitl decide --id <eid> --decision <approve|reject|needs_changes> [--comment "..."]
+   <codenook> decide --task <T-NNN> --phase <phase-or-gate-id> \
+                     --decision <approve|reject|needs_changes> [--comment "..."]
    ```
+   The legacy `<codenook> hitl decide --id <eid> --decision ...`
+   form still works (and is what the kernel writes through to)
+   but is no longer the recommended surface.
 
 Resume the tick loop when all gates resolve.
 
