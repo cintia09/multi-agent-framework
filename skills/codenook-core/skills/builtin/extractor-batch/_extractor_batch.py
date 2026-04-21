@@ -56,9 +56,15 @@ def _classify_routes(task_id: str, workspace: Path, phase: str, reason: str,
                      lib_dir: Path) -> dict:
     """Best-effort routing via the legacy extraction_router.py. Always
     returns the four-key dict; defaults to cross_task on any failure."""
+    # v0.26.0: post-router short-circuit (extraction_router.py since
+    # v0.25.0 always emits route_fallback=False because the router
+    # itself short-circuited the LLM call to a constant). Defaulting
+    # to True here was a vestige from when the field carried meaning;
+    # leave the field in the contract for forward-compat but reflect
+    # current behaviour. To be removed in v0.27 along with the router.
     default = {
         "knowledge": "cross_task", "skill": "cross_task",
-        "config": "cross_task", "route_fallback": True,
+        "config": "cross_task", "route_fallback": False,
     }
     router_py = lib_dir / "extraction_router.py"
     if not router_py.is_file():
@@ -80,7 +86,7 @@ def _classify_routes(task_id: str, workspace: Path, phase: str, reason: str,
             "knowledge": str(data.get("knowledge") or "cross_task"),
             "skill":     str(data.get("skill")     or "cross_task"),
             "config":    str(data.get("config")    or "cross_task"),
-            "route_fallback": bool(data.get("route_fallback", True)),
+            "route_fallback": bool(data.get("route_fallback", False)),
         }
     except Exception:
         return default

@@ -37,6 +37,19 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
             sys.stderr.write(f"codenook status: no such task: {task}\n")
             return 1
         sys.stdout.write(f.read_text(encoding="utf-8"))
+        # Append the resolved model so single-task status matches the
+        # multi-task table column. Lazy import + try/except so a
+        # corrupt model module degrades gracefully instead of failing
+        # the whole command.
+        try:
+            from .. import models  # type: ignore
+            s = json.loads(f.read_text(encoding="utf-8"))
+            md = (models.resolve_model(  # type: ignore[attr-defined]
+                ctx.workspace, s.get("plugin") or "",
+                s.get("phase") or "", s) or "<default>")
+        except Exception:
+            md = "<unknown>"
+        sys.stdout.write(f"\nmodel={md}\n")
         return 0
 
     print(f"Workspace: {ctx.workspace}")

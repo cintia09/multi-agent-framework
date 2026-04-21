@@ -157,7 +157,27 @@ _WIN_RESERVED = {
     *(f"LPT{i}" for i in range(1, 10)),
 }
 _ASCII_KEEP_RE = re.compile(r"[^a-z0-9]+")
-_CJK_KEEP_RE = re.compile(r"[^a-z0-9\u4e00-\u9fff]+")
+# v0.26.0: keep all common East-Asian script blocks (was CJK Unified
+# only). Covers Hiragana, Katakana, CJK Unified Ext A, Hangul Syllables.
+_SLUG_KEEP_RANGES = (
+    "\u3040-\u309f"   # Hiragana
+    "\u30a0-\u30ff"   # Katakana
+    "\u3400-\u4dbf"   # CJK Unified Ideographs Ext A
+    "\u4e00-\u9fff"   # CJK Unified Ideographs
+    "\uac00-\ud7af"   # Hangul Syllables
+)
+_CJK_KEEP_RE = re.compile(r"[^a-z0-9" + _SLUG_KEEP_RANGES + "]+")
+
+
+def _has_cjk(text: str) -> bool:
+    """Return True if *text* contains any character in _SLUG_KEEP_RANGES."""
+    for ch in text:
+        c = ord(ch)
+        if (0x3040 <= c <= 0x309f or 0x30a0 <= c <= 0x30ff
+                or 0x3400 <= c <= 0x4dbf or 0x4e00 <= c <= 0x9fff
+                or 0xac00 <= c <= 0xd7af):
+            return True
+    return False
 
 
 def slugify(text: str, max_len: int = 24) -> str:
@@ -185,7 +205,7 @@ def slugify(text: str, max_len: int = 24) -> str:
     if not text:
         return ""
 
-    has_cjk = any("\u4e00" <= ch <= "\u9fff" for ch in text)
+    has_cjk = _has_cjk(text)
 
     if has_cjk:
         # Preserve CJK chars; lowercase any latin tail; squash runs of
@@ -252,13 +272,18 @@ def resolve_task_id(workspace: Path, partial: str) -> tuple[str | None, list[str
     tasks_dir = workspace / ".codenook" / "tasks"
     if not tasks_dir.is_dir():
         return None, []
-    # 1. exact match
-    if (tasks_dir / partial).is_dir():
-        return partial, []
-    # 2. bare T-NNN -> single T-NNN-* match
+    # 1. exact match — but if T-NNN-* siblings also exist for a bare
+    # T-NNN partial, that's ambiguous (a stray empty `T-003/` dir
+    # shouldn't shadow `T-003-real-task/`). Treat exact-and-prefix
+    # collision as ambiguous so the operator picks consciously.
+    exact_hit = (tasks_dir / partial).is_dir()
     prefix = partial + "-"
     matches = [c.name for c in tasks_dir.iterdir()
                if c.is_dir() and c.name.startswith(prefix)]
+    if exact_hit and matches:
+        return None, sorted([partial, *matches])
+    if exact_hit:
+        return partial, []
     if len(matches) == 1:
         return matches[0], []
     if len(matches) > 1:

@@ -16,6 +16,9 @@ from . import _subproc
 from .config import CodenookContext, resolve_task_id
 
 
+VALID_DECISIONS = ("approve", "reject", "needs_changes")
+
+
 def run(ctx: CodenookContext, args: Sequence[str]) -> int:
     task = phase = decision = comment = ""
     it = iter(args)
@@ -39,6 +42,12 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
     if not (task and phase and decision):
         sys.stderr.write(
             "codenook decide: --task, --phase, --decision required\n")
+        return 2
+
+    if decision not in VALID_DECISIONS:
+        sys.stderr.write(
+            f"codenook decide: invalid --decision '{decision}' "
+            f"(allowed: {', '.join(VALID_DECISIONS)})\n")
         return 2
 
     resolved, candidates = resolve_task_id(ctx.workspace, task)

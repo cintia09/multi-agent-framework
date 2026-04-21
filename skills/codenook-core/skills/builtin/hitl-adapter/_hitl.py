@@ -24,12 +24,16 @@ VALID_DECISIONS = ("approve", "reject", "needs_changes")
 SCHEMAS_DIR = Path(__file__).resolve().parents[3] / "schemas"
 HITL_ENTRY_SCHEMA = str(SCHEMAS_DIR / "hitl-entry.schema.json")
 
-# Allow ASCII alphanum, dot, dash, underscore, plus CJK Unified
-# Ideographs (matches the slug character set in _lib/cli/config.py).
-# Without CJK any task whose id contains Chinese characters cannot
-# pass through this adapter — `decide`, `hitl decide`, etc. would all
-# return "terminal.sh: invalid --id".
-_EID_RE = re.compile(r"^[A-Za-z0-9._\u4e00-\u9fff-]+$")
+# Allow ASCII alphanum, dot, dash, underscore, plus the same East-Asian
+# script ranges that ``_lib/cli/config.py``'s slugify keeps (CJK Unified
+# Ideographs, Ext A, Hiragana, Katakana, Hangul Syllables). Kept inline
+# (vs. importing config) because hitl-adapter is a standalone helper
+# spawned with a different sys.path; importing kernel modules from here
+# breaks pytest sandboxing.
+_EID_RE = re.compile(
+    r"^[A-Za-z0-9._\u3040-\u309f\u30a0-\u30ff"
+    r"\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af-]+$"
+)
 
 
 def _check_eid(eid: str) -> None:

@@ -124,6 +124,22 @@ INT_FIELDS = {"max_iterations"}
 WRITABLE = {"dual_mode", "target_dir", "priority", "max_iterations", "summary", "title"}
 
 
+def _persist_state(sf: Path, state: dict) -> None:
+    """Atomic + schema-validated write of <task>/state.json.
+
+    All four task-mutation subcommands (set, set-model, set-exec,
+    set-profile) used to do bare ``sf.write_text(json.dumps(...))``,
+    which v0.25.0 fixed only for ``task new``. A SIGINT or crash
+    mid-write would truncate state.json and brick every subsequent
+    tick/status for that task. This helper ensures every writer goes
+    through atomic_write_json_validated.
+    """
+    from atomic import atomic_write_json_validated  # type: ignore
+    schema_path = str(Path(__file__).resolve().parents[2]
+                      / "schemas" / "task-state.schema.json")
+    atomic_write_json_validated(str(sf), state, schema_path)
+
+
 def _resolve_or_error(
     ctx: CodenookContext, task: str, subcmd: str,
 ) -> tuple[str | None, int]:
@@ -341,6 +357,10 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
             except FileExistsError:
                 task_id = ""
                 continue
+            except OSError as e:
+                sys.stderr.write(
+                    f"codenook task new: failed to create {tdir}: {e}\n")
+                return 1
         else:
             sys.stderr.write(
                 "codenook task new: could not reserve a task id slot "
@@ -348,7 +368,23 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
             return 1
     else:
         tdir = ctx.workspace / ".codenook" / "tasks" / task_id
-        tdir.mkdir(parents=True, exist_ok=True)
+        # Refuse to clobber an existing task. The atomic state-write
+        # below would otherwise wipe history/model_override/parent
+        # links in a single fsync. Tolerate an empty pre-existing dir
+        # (operator may have pre-created it) by checking for state.json.
+        try:
+            tdir.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            if (tdir / "state.json").is_file():
+                sys.stderr.write(
+                    f"codenook task new: task {task_id} already exists; "
+                    f"refusing to overwrite\n")
+                return 1
+            # empty pre-existing dir is fine; fall through.
+        except OSError as e:
+            sys.stderr.write(
+                f"codenook task new: failed to create {tdir}: {e}\n")
+            return 1
 
     (tdir / "outputs").mkdir(parents=True, exist_ok=True)
     (tdir / "prompts").mkdir(parents=True, exist_ok=True)
@@ -387,14 +423,8 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
     if task_input_set and task_input:
         state["task_input"] = task_input
 
-    # Atomic + schema-validated write (every other kernel writer
-    # uses this; a bare write_text + SIGINT mid-write would brick
-    # the task with a truncated state.json).
-    from atomic import atomic_write_json_validated  # type: ignore
-    _schema_path = str(Path(__file__).resolve().parents[2]
-                       / "schemas" / "task-state.schema.json")
-    atomic_write_json_validated(
-        str(tdir / "state.json"), state, _schema_path)
+    # Atomic + schema-validated write (centralised helper).
+    _persist_state(tdir / "state.json", state)
 
     if parent:
         try:
@@ -484,7 +514,7 @@ def _task_set(ctx: CodenookContext, args: list[str]) -> int:
 
     state = json.loads(sf.read_text(encoding="utf-8"))
     state[field] = typed_value
-    sf.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    _persist_state(sf, state)
     print(json.dumps({
         "task": state.get("task_id"),
         "field": field,
@@ -544,7 +574,7 @@ def _task_set_model(ctx: CodenookContext, args: list[str]) -> int:
     else:
         state["model_override"] = model
         result_value = model
-    sf.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    _persist_state(sf, state)
     print(json.dumps({
         "task": state.get("task_id"),
         "field": "model_override",
@@ -591,7 +621,7 @@ def _task_set_exec(ctx: CodenookContext, args: list[str]) -> int:
 
     state = json.loads(sf.read_text(encoding="utf-8"))
     state["execution_mode"] = mode
-    sf.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    _persist_state(sf, state)
     print(json.dumps({
         "task": state.get("task_id"),
         "field": "execution_mode",
@@ -662,7 +692,7 @@ def _task_set_profile(ctx: CodenookContext, args: list[str]) -> int:
             return 2
 
     state["profile"] = profile
-    sf.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    _persist_state(sf, state)
     print(json.dumps({
         "task": state.get("task_id"),
         "field": "profile",

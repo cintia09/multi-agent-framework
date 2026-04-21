@@ -1,3 +1,63 @@
+## v0.26.0 (2026-04-21)
+
+Code-review sweep on top of v0.25.5. Eight findings (1 high, 6 medium,
+1 low) all addressed. Pure hardening — no surface-level behaviour
+changes for happy-path users.
+
+### Fixed
+- **High — atomic `task set*`.** All four mutators (`task set`,
+  `task set-model`, `task set-exec`, `task set-profile`) used a bare
+  `sf.write_text(json.dumps(...))`. A SIGINT or crash mid-write would
+  truncate `state.json` and brick every subsequent `tick`/`status`
+  for that task. Centralised in a new `_persist_state(sf, state)`
+  helper that routes through `atomic_write_json_validated` (same as
+  `task new` since v0.25.0). (`_lib/cli/cmd_task.py`)
+
+- **Medium — `task new --id` no longer clobbers existing tasks.** The
+  explicit-id branch did `tdir.mkdir(parents=True, exist_ok=True)`
+  which silently reused a populated dir; the subsequent atomic state
+  write would then wipe history/model_override/parent. Now refuses
+  with stderr if `state.json` already exists, tolerates an empty
+  pre-existing dir. (`_lib/cli/cmd_task.py`)
+
+- **Medium — TOCTOU loop catches `OSError`.** The slot-reservation
+  retry loop in `task new` only caught `FileExistsError`; a permission
+  error or read-only mount would surface as an uncaught traceback.
+  Now reports a clean stderr + exit 1. (`_lib/cli/cmd_task.py`)
+
+- **Medium — `status --task <id>` now prints `model=<x>`.** Single-task
+  status returned the raw `state.json` and stopped, while the
+  multi-task table (since v0.25.0) appends a model column. Now both
+  paths surface the resolved model. (`_lib/cli/cmd_status.py`)
+
+- **Medium — `decide` validates `--decision` client-side.** Passing
+  a typo (`--decision approv`) used to round-trip through the HITL
+  adapter and fail with a less useful schema error. Added
+  `VALID_DECISIONS = ("approve","reject","needs_changes")` check
+  immediately after argparse. (`_lib/cli/cmd_decide.py`)
+
+- **Medium — slug + HITL id ranges cover Hangul / kana / CJK Ext A.**
+  v0.25.4 added `\u4e00-\u9fff` (CJK Unified) but tasks titled with
+  hiragana, katakana, Hangul Syllables, or CJK Ext A were still
+  squashed to `-`. Introduced shared `_SLUG_KEEP_RANGES` covering
+  `\u3040-\u309f` (hiragana), `\u30a0-\u30ff` (katakana),
+  `\u3400-\u4dbf` (Ext A), `\u4e00-\u9fff` (Unified), `\uac00-\ud7af`
+  (Hangul Syllables). Mirrored in `hitl-adapter/_hitl.py::_EID_RE`.
+  (`_lib/cli/config.py`, `skills/builtin/hitl-adapter/_hitl.py`)
+
+- **Medium — `resolve_task_id` flags exact-AND-prefix collisions.**
+  When both `T-003/` (empty stub) and `T-003-real-task/` existed, the
+  exact match won silently and routed all commands to the empty stub.
+  Now returns ambiguous with both candidates. (`_lib/cli/config.py`)
+
+- **Low — `route_fallback` default flipped to `False`.** Vestigial
+  field set to `True` even though the router itself short-circuits to
+  `False` since v0.25.0. Field kept for forward-compat; will be
+  removed in v0.27 along with the dead extraction_router LLM call.
+  (`skills/builtin/extractor-batch/_extractor_batch.py`)
+
+---
+
 ## v0.25.5 (2026-04-21)
 
 ### Changed
