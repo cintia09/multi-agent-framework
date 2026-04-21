@@ -1,3 +1,19 @@
+## v0.25.1 (2026-04-21)
+
+### Changed
+- **Bootloader: dispatch pre-flight ask when model is unresolved.**
+  Before dispatching a sub-agent for any envelope where `model` is
+  absent / null / empty (or `codenook status` shows
+  `model=<default>` / `model=<unknown>` for the task), the
+  conductor MUST now issue exactly one `ask_user` to confirm the
+  model. The user can pick a name, accept the platform default,
+  or abort the dispatch. When the envelope already carries an
+  explicit non-empty `model` field, no ask is required — the
+  kernel has already resolved it through the priority chain
+  (task > phase > plugin > workspace) and the conductor passes
+  it through verbatim. Bootloader-only change; no kernel logic
+  affected. (`skills/builtin/_lib/claude_md_sync.py`)
+
 ## v0.25.0 (2026-04-21)
 
 Sweep of code-review fixes — 11 issues across the kernel surface

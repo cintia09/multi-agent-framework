@@ -338,6 +338,28 @@ through verbatim.
 When the field is absent, dispatch with no `model:` parameter
 (use your tool's platform default).
 
+**Pre-flight ask (v0.25.1+) — MANDATORY when model is unresolved.**
+Before dispatching a sub-agent for any envelope where the `model`
+field is **absent**, **null**, **empty**, or where `codenook status`
+shows `model=<default>` / `model=<unknown>` for this task, you MUST
+issue exactly one `ask_user` first:
+
+> "About to dispatch <role> as a background sub-agent for <task_id>
+> phase <phase>. No model is configured for this task (status shows
+> `<default>`). Pick a model — or hit Enter to use your platform
+> default."
+
+Provide a small `choices` list (e.g. the user's last-picked model,
+"platform default", "abort dispatch"). Pass the chosen string
+through as `model:` verbatim, exactly as if it had come from the
+envelope. If the user picks "abort dispatch", do not call `tick`
+again — wait for further instructions.
+
+This pre-flight is **NOT** required when the envelope already
+carries an explicit non-empty `model` field — that case is fully
+declarative and the kernel has already resolved it through the
+priority chain. Skip the ask, dispatch verbatim.
+
 This is the only mechanism by which CodeNook controls model
 selection. The user configures models declaratively in
 `plugins/<id>/plugin.yaml`, `plugins/<id>/phases.yaml`,
