@@ -68,7 +68,7 @@ def task_root(workspace: Path, task_id: str) -> Path:
 
 
 # ── Fix #5: task_id format guard (S4) ───────────────────────────────────
-_TASK_ID_RE = re.compile(r"^T-[A-Za-z0-9_-]+$")
+_TASK_ID_RE = re.compile(r"^T-[A-Za-z0-9_\u4e00-\u9fff-]+$")
 
 
 def _check_task_id(tid: str) -> None:

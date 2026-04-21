@@ -168,7 +168,7 @@ def test_interactive_wizard(installed_ws: Path) -> None:
         "task", "new", "--interactive",
     ], input_text=stdin, check=True)
     import re
-    m = re.search(r"\bT-\d{3,}\b", cp.stdout)
+    m = re.search(r"\bT-\d{3,}(?:-[A-Za-z0-9-]+)?\b", cp.stdout)
     assert m, f"no T-NNN id in stdout:\n{cp.stdout}"
     tid = m.group(0)
     s = _state(installed_ws, tid)

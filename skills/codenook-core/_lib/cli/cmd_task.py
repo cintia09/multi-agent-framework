@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from .config import CodenookContext, next_task_id
+from .config import CodenookContext, compose_task_id, next_task_id, slugify
 
 
 HELP_TASK = """\
@@ -63,7 +63,10 @@ Options:
   --parent <T-NNN>
   --priority <P>          P0 | P1 | P2 | P3 (default: P2)
   --accept-defaults
-  --id <T-NNN>            override generated task id
+  --id <T-NNN>            override generated task id (skips slug
+                          derivation; use the literal value verbatim).
+                          By default the id is auto-formatted as
+                          T-NNN-<slug-from-input>.
   --model <name>          v0.18 — set per-task model_override (highest layer
                           in the C/B/A/D model resolution chain). Opaque
                           string forwarded verbatim to the conductor.
@@ -281,7 +284,9 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
         # field becomes a no-op for legacy pipelines.
 
     if not task_id:
-        task_id = next_task_id(ctx.workspace)
+        n = next_task_id(ctx.workspace)
+        slug = slugify(task_input) if task_input else ""
+        task_id = compose_task_id(n, slug)
 
     tdir = ctx.workspace / ".codenook" / "tasks" / task_id
     (tdir / "outputs").mkdir(parents=True, exist_ok=True)

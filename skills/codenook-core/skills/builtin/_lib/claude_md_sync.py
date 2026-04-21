@@ -71,8 +71,10 @@ are expected on `PATH` already.
 
 ### How to start a task
 
-The wrapper allocates the next `T-NNN` for you. **Do not** scan
-`.codenook/tasks/` and increment ids by hand.
+The wrapper allocates the next `T-NNN-<slug>` for you (the slug is
+auto-derived from `--input`; empty input falls back to plain
+`T-NNN`). **Do not** scan `.codenook/tasks/` and increment ids by
+hand.
 
 The flow is **conductor-driven plugin selection** → `task
 new --plugin <id>` → `tick`. The conductor (you) reads the user's

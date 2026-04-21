@@ -77,7 +77,7 @@ The diagram at the top of this README shows the same picture with the dispatch a
 ## How it works
 
 1. **Install** — `python3 install.py --target <ws> --plugin <id>` stages the kernel and plugin atomically into `<ws>/.codenook/`, then syncs the bootloader block in `<ws>/CLAUDE.md`.
-2. **Conductor reads `CLAUDE.md`** — on the next CLI session start, your Claude/Copilot reads the bootloader. When you trigger a task ("use codenook to …"), it allocates a `T-NNN` id and calls `codenook tick --task T-NNN --json`.
+2. **Conductor reads `CLAUDE.md`** — on the next CLI session start, your Claude/Copilot reads the bootloader. When you trigger a task ("use codenook to …"), it allocates a `T-NNN-<slug>` id (slug auto-derived from your input; falls back to plain `T-NNN` when no input is given) and calls `codenook tick --task T-NNN[-slug] --json`.
 3. **Tick loop dispatches sub-agents** — `codenook tick` advances the state machine one phase at a time: it loads the role file from the plugin, renders a manifest into `tasks/<T>/prompts/`, dispatches a sub-agent, reads its `verdict`-stamped output from `tasks/<T>/outputs/`, runs `post_validate`, and triggers `extractor-batch` to harvest memory.
 4. **HITL gates approve transitions** — when a phase has a gate, tick parks the task with `status: waiting` and writes an entry to `hitl-queue/`. The conductor surfaces the gate verbatim; you approve / reject / amend; the conductor calls `codenook decide --task T-NNN --phase <id> --decision <verb>`; tick resumes.
 

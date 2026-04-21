@@ -53,7 +53,7 @@ from atomic import atomic_write_json, atomic_write_json_validated  # noqa: E402
 import extract_audit  # noqa: E402
 import memory_layer as _ml  # noqa: E402
 
-_TASK_ID_RE = re.compile(r"^T-[A-Za-z0-9_-]+$")
+_TASK_ID_RE = re.compile(r"^T-[A-Za-z0-9_\u4e00-\u9fff-]+$")
 
 _SCHEMAS_DIR = Path(__file__).resolve().parents[3] / "schemas"
 _TASK_STATE_SCHEMA = str(_SCHEMAS_DIR / "task-state.schema.json")

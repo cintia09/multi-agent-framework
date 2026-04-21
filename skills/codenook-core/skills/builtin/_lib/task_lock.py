@@ -62,7 +62,7 @@ from typing import Iterator
 
 LOCK_FILENAME = "router.lock"
 
-_TASK_ID_RE = re.compile(r"^T-[A-Z0-9.\-]+$")
+_TASK_ID_RE = re.compile(r"^T-[A-Za-z0-9.\u4e00-\u9fff\-]+$")
 
 # task_dir absolute path -> open file descriptor we are holding
 _HELD: dict[str, int] = {}

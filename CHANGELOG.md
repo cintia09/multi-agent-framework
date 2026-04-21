@@ -1,3 +1,56 @@
+## v0.23.0 (2026-04-21) — auto-derived slug suffix on task IDs
+
+### Added
+- **`slugify(text, max_len=24)` helper** in
+  `skills/codenook-core/_lib/cli/config.py`. Derives a short
+  filesystem-safe slug from the task input. ASCII inputs are
+  lowercased and squashed to `[a-z0-9-]+`; CJK inputs preserve the
+  CJK characters and squash everything else; Windows reserved names
+  (`CON`/`PRN`/`AUX`/`NUL`/`COM1`-`COM9`/`LPT1`-`LPT9`)
+  are guarded with a `task-` prefix; the result is truncated to
+  `max_len` and snapped back to the last `-` boundary if a
+  trailing partial word would otherwise be emitted.
+- **`compose_task_id(n, slug)` helper** in the same module. Returns
+  `T-NNN` when the slug is empty, `T-NNN-<slug>` otherwise.
+- **`codenook task new` auto-formats the task id** as
+  `T-NNN-<slug-from-input>`. The slug is derived from the user's
+  `--input` (or wizard-collected input). When the input is empty,
+  the legacy `T-NNN` form is preserved. `--id <T-NNN[-anything]>`
+  still overrides the generated id verbatim — no re-slugging.
+- **Tests** — new `tests/python/test_slug.py` (12 cases) covering
+  ASCII slugging, CJK preservation, empty input, Windows-reserved
+  guard, max-len truncation, dash-boundary snap, and the
+  `next_task_id` / `compose_task_id` integration. Pytest:
+  136 passed (+12 over v0.22.0), 4 pre-existing path-separator
+  failures unchanged.
+
+### Changed
+- **`next_task_id(workspace)` returns an `int`** (the next free
+  slot number) instead of the formatted `T-NNN` string. The
+  directory scan now treats both `T-NNN/` and `T-NNN-<slug>/`
+  as occupying slot `N`, so legacy unsuffixed ids and v0.23 slugged
+  ids coexist without colliding.
+- **`--id` help text** in `cmd_task.py` now documents the
+  auto-format default.
+- **Task-id regexes** in `task_lock.py`, `router_context.py`,
+  `orchestrator-tick/_tick.py`, `task_chain.py`, and
+  `draft_config.py` widened to accept lowercase ASCII and the CJK
+  range `\u4e00-\u9fff` so slugged ids round-trip through every
+  validator.
+- **Bootloader template** (`claude_md_sync.py`) gains a one-line
+  note about the slug suffix in the task creation section.
+
+### Backward compatibility
+- No schema bump. `state.json.task_id` is still an opaque string.
+- Existing `T-001`/`T-002` directories continue to work; the
+  iterator skips them, the lock holder accepts them, and the regex
+  tolerates the old uppercase form. Mixing old + new ids in the
+  same workspace works (e.g. `T-001/` plus `T-002-foo-bar/`);
+  no renaming required.
+- `--id` flag is unchanged. `attach`, `set`, `set-model`,
+  `set-exec`, `set-profile`, `tick`, and `decide` all accept
+  the full task id verbatim — no parsing.
+
 ## v0.22.0 (2026-04-21) — kernel-side `{{KNOWLEDGE_HITS}}` substitution + `find_relevant()` API
 
 ### Added

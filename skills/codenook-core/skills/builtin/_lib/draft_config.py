@@ -46,7 +46,7 @@ _VALID_ROLES = (
 _VALID_ACCEPT = ("required", "optional", "skip")
 _M4_STATE_VERSION = 1
 _M4_DEFAULT_MAX_ITERATIONS = 8
-_TASK_ID_RE = re.compile(r"^T-[A-Za-z0-9_-]+$")
+_TASK_ID_RE = re.compile(r"^T-[A-Za-z0-9_\u4e00-\u9fff-]+$")
 
 
 def _validate(cfg: dict) -> None:

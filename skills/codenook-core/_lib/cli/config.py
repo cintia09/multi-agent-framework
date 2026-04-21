@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -121,13 +123,114 @@ def load_context(workspace: Path) -> CodenookContext:
     return ctx
 
 
-def next_task_id(workspace: Path) -> str:
-    """Walk ``<ws>/.codenook/tasks/`` and return the next free ``T-NNN``."""
+def next_task_id(workspace: Path) -> int:
+    """Return the next free integer slot under ``<ws>/.codenook/tasks/``.
+
+    A slot ``N`` is occupied when either ``T-NNN`` or ``T-NNN-<slug>``
+    directory exists, so legacy unsuffixed ids and v0.23+ slugged ids
+    coexist without colliding.
+    """
     tasks_dir = workspace / ".codenook" / "tasks"
     n = 1
-    while (tasks_dir / f"T-{n:03d}").is_dir():
-        n += 1
-    return f"T-{n:03d}"
+    while True:
+        prefix = f"T-{n:03d}"
+        if (tasks_dir / prefix).is_dir():
+            n += 1
+            continue
+        # Any sibling directory matching T-NNN-* also occupies slot N.
+        suffixed_present = False
+        if tasks_dir.is_dir():
+            for child in tasks_dir.iterdir():
+                if child.is_dir() and child.name.startswith(prefix + "-"):
+                    suffixed_present = True
+                    break
+        if suffixed_present:
+            n += 1
+            continue
+        return n
+
+
+# ── v0.23 slug derivation ──────────────────────────────────────────────
+_WIN_RESERVED = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
+_ASCII_KEEP_RE = re.compile(r"[^a-z0-9]+")
+_CJK_KEEP_RE = re.compile(r"[^a-z0-9\u4e00-\u9fff]+")
+
+
+def slugify(text: str, max_len: int = 24) -> str:
+    """Derive a short filesystem-safe slug from *text*.
+
+    Rules (see v0.23.0 spec):
+
+    * Try ASCII normalisation first
+      (``unicodedata.normalize('NFKD', text).encode('ascii','ignore')``).
+      If the ASCII result is non-empty, lowercase it and squash any
+      run of non-``[a-z0-9]`` to ``-``.
+    * Otherwise (e.g. pure-CJK input like ``"测试hub"``), keep the
+      original characters and squash any run of
+      non-``[a-z0-9\\u4e00-\\u9fff]`` to ``-`` without an extra
+      lowercase pass (CJK has no case).
+    * Strip leading/trailing ``-``.
+    * Truncate to ``max_len``; if the cut lands mid-word, snap back to
+      the last ``-`` if one exists in the trailing 8 chars; otherwise
+      hard-truncate.
+    * Reject Windows reserved names (``CON``/``PRN``/``AUX``/``NUL``/
+      ``COM1``-``COM9``/``LPT1``-``LPT9``); if the slug equals one
+      (case-insensitive), prefix ``task-``.
+    * Empty result is returned as ``""`` — caller decides the fallback.
+    """
+    if not text:
+        return ""
+
+    has_cjk = any("\u4e00" <= ch <= "\u9fff" for ch in text)
+
+    if has_cjk:
+        # Preserve CJK chars; lowercase any latin tail; squash runs of
+        # non-[a-z0-9 + CJK] to '-'.
+        slug = _CJK_KEEP_RE.sub("-", text.lower())
+    else:
+        ascii_text = (
+            unicodedata.normalize("NFKD", text)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+        )
+        if ascii_text.strip():
+            slug = _ASCII_KEEP_RE.sub("-", ascii_text.lower())
+        else:
+            slug = _CJK_KEEP_RE.sub("-", text)
+
+    slug = slug.strip("-")
+    if not slug:
+        return ""
+
+    if len(slug) > max_len:
+        cut = slug[:max_len]
+        tail = cut[-8:]
+        dash = tail.rfind("-")
+        if dash >= 0:
+            snap_idx = (len(cut) - 8) + dash
+            if snap_idx > 0:
+                cut = cut[:snap_idx]
+        slug = cut.rstrip("-")
+
+    if not slug:
+        return ""
+
+    if slug.upper() in _WIN_RESERVED:
+        slug = "task-" + slug
+
+    return slug
+
+
+def compose_task_id(n: int, slug: str) -> str:
+    """Compose a task id from slot number *n* and an optional *slug*."""
+    base = f"T-{n:03d}"
+    if not slug:
+        return base
+    return f"{base}-{slug}"
 
 
 def is_active_task_dir(p: Path) -> bool:
