@@ -1,3 +1,38 @@
+## v0.17.0 (2026-04-21)
+
+### Changed — Simplify HITL: remove view-renderer + hitl prepare + hitl render; conductor renders both channels
+
+The Python-side view-renderer machinery is removed. All HITL surface
+rendering is now the conductor LLM's responsibility.
+
+#### Removals
+
+- **`view-renderer` builtin skill** (`skills/codenook-core/skills/builtin/view-renderer/`)
+  — deleted entirely (`render.py`, `render.sh`, `render.cmd`, `_render.py`,
+  `SKILL.md`, `templates/`).
+- **`hitl prepare` subcommand** — removed from `cmd_hitl.py` and
+  associated `view-renderer` invocation.
+- **`hitl render` subcommand** — removed from `cmd_hitl.py`.
+- **`cmd_render_html`** and `render-html` wiring in
+  `hitl-adapter/_hitl.py` — removed (HTML rendering helpers,
+  `_render_markdown`, `_render_inline`, `_html_escape`, `_open_in_browser`).
+- **`hitl-adapter/html.sh`** shim — deleted.
+- **Reviewer artefact fallback** (`reviewer.ansi`, `reviewer.html`)
+  in `cmd_show` — removed.
+
+#### Surviving HITL surface
+
+- `<codenook> hitl list [--json]`
+- `<codenook> hitl show --id <eid> [--raw]`
+- `<codenook> hitl decide --id <id> --decision <…> [--reviewer …] [--comment …]`
+
+#### Bootloader rewrite
+
+CLAUDE.md bootloader HITL relay section rewritten: conductor chooses
+`terminal` (paste markdown as normal response) or `html` (LLM produces
+styled HTML, writes to disk, shells out to open in browser), then
+submits via `hitl decide`.
+
 ## v0.16.1 (2026-04-21)
 
 ### Fixed

@@ -223,57 +223,37 @@ On `waiting` you may also need to clear an HITL gate. Scan
 `.codenook/hitl-queue/*.json` for entries with `decision == null`.
 For each open entry:
 
-0. **Pre-render (SHOULD).** Before relaying, call the view-renderer
-   once per new pending entry to produce human-readable artefacts
-   for the channel commands:
+On `tick --json` returning `waiting`, scan
+`.codenook/hitl-queue/*.json` for entries with `decision == null`.
+For each open entry:
 
-   ```bash
-   <codenook> hitl prepare --id <entry-id>
-   ```
+1. **MANDATORY channel-choice ask.** Issue exactly one `ask_user` with
+   two choices: `terminal` (default) and `html`. Treat any answer other
+   than `html` as `terminal`.
 
-   This prints a JSON envelope with `html_out`, `ansi_out`, and
-   `prompt_template` keys. Read `prompt_template`, substitute the
-   slot values, run the result through your LLM, then atomically
-   write the HTML body (using the wrapper template at `html_template`)
-   to `html_out` and the ANSI text to `ansi_out`. The channel
-   commands (`hitl render`, `hitl show`) prefer these artefacts when
-   present and silently fall back to the stdlib renderer when absent —
-   skip this step only on a hard error.
+2. **Render & relay according to the chosen channel:**
 
-1. **MANDATORY channel-choice ask.** Before relaying ANY HITL gate
-   prompt to the user, you MUST first issue exactly one `ask_user`
-   (or equivalent) with two choices — `terminal` (default) and
-   `html` — to let the user pick the channel for this gate. This
-   step is non-negotiable: do NOT skip it, do NOT inline it into a
-   later question, do NOT decide on the user's behalf. Any answer
-   other than `html` is treated as `terminal`.
+   - `terminal`: read the gate prompt and the role's primary output
+     file (paths come from the gate JSON). Output the content as
+     your **normal markdown response** in the chat — do NOT put it
+     inside the `ask_user` modal (modals don't render markdown).
+     Then issue a follow-up `ask_user` to collect approve/reject and
+     an optional comment.
 
-   - `terminal` (default) — relay the `prompt` field verbatim via
-     your normal `ask_user`-style facility.
-   - `html` — render the gate as a self-contained file and **auto-open
-     it in the default browser** with `--open`, then collect the
-     decision back in the terminal:
-
-     ```bash
-     <codenook> hitl render --id <entry-id> --open
-     # writes the file, prints its path, then opens it via
-     # `open` (macOS) / `xdg-open` (Linux) / `start` (Windows).
-     # Ask for the user's decision + comment in the terminal as usual.
+   - `html`: produce a self-contained, styled HTML page in your reply
+     code/canvas, write it to `.codenook/hitl-queue/<eid>.html`
+     (atomic write), then shell out to open it in the browser:
      ```
+     start "" "<full path>"   (Windows)
+     open "<full path>"        (macOS)
+     xdg-open "<full path>"    (Linux)
+     ```
+     Then issue an `ask_user` to collect the decision.
 
-   The ONLY case in which you may skip the channel-choice ask is
-   when no shell wrapper is reachable in your runtime (so `html`
-   cannot be honoured anyway); in that case use `terminal`
-   unconditionally.
-
-2. Relay the prompt (verbatim if terminal; via the rendered file if
-   html), capture the user's answer, then submit the decision:
-
-```bash
-<codenook> decide --task <T-NNN> --phase <phase> \
-                  --decision <approve|reject|needs_changes> \
-                  [--comment "..."]
-```
+3. **Submit the decision:**
+   ```bash
+   <codenook> hitl decide --id <eid> --decision <approve|reject|needs_changes> [--comment "..."]
+   ```
 
 Resume the tick loop when all gates resolve.
 

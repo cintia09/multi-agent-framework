@@ -1,4 +1,4 @@
-"""``codenook hitl <list|show|render|decide>`` — thin dispatcher onto
+"""``codenook hitl <list|show|decide>`` — thin dispatcher onto
 ``hitl-adapter/_hitl.py`` with the env-var protocol that script expects.
 """
 from __future__ import annotations
@@ -17,8 +17,6 @@ HELP = """\
 codenook hitl <subcmd> [args...]
   list    [--json]
   show    --id <hitl-entry-id> [--raw]
-  prepare --id <hitl-entry-id>            (emit envelope for view-renderer)
-  render  --id <hitl-entry-id> [--out <path>] [--open]
   decide  --id <id> --decision <approve|reject|needs_changes>
           [--reviewer <name>] [--comment "..."]
 """
@@ -33,9 +31,6 @@ def _parse_kvargs(args: list[str]) -> dict[str, object]:
     for a in it:
         if a == "--json":
             out["__json__"] = True
-            continue
-        if a == "--open":
-            out["open"] = True
             continue
         if a == "--raw":
             out["raw"] = True
@@ -81,30 +76,6 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
             "CN_WORKSPACE": str(ctx.workspace),
             "CN_JSON": "0",
             "CN_RAW": "1" if kv.get("raw") else "0",
-        }
-        return _exec(ctx, helper, extra)
-
-    if sub == "prepare":
-        kv = _parse_kvargs(rest)
-        eid = kv.get("id") or ""
-        renderer = ctx.kernel_dir / "view-renderer" / "render.py"
-        if not renderer.is_file():
-            sys.stderr.write(f"codenook hitl: view-renderer missing: {renderer}\n")
-            return 1
-        return subprocess.call([
-            sys.executable, str(renderer), "prepare",
-            "--id", str(eid),
-            "--workspace", str(ctx.workspace),
-        ])
-
-    if sub == "render":
-        kv = _parse_kvargs(rest)
-        extra = {
-            "CN_SUBCMD": "render-html",
-            "CN_ID": str(kv.get("id") or ""),
-            "CN_OUT": str(kv.get("out") or ""),
-            "CN_OPEN": "1" if kv.get("open") else "0",
-            "CN_WORKSPACE": str(ctx.workspace),
         }
         return _exec(ctx, helper, extra)
 

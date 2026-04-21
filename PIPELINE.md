@@ -198,11 +198,6 @@ Decision verbs recognised by the orchestrator:
   the same phase (subject to `max_iterations`) so the role can rework
   its output. Equivalent to verdict `needs_revision`.
 
-Render a gate's full prompt (long context, code, file refs) as a
-self-contained HTML file with `codenook hitl render --id <eid>` —
-useful when the gate is too long to scroll comfortably in a
-terminal.
-
 ---
 
 ## 5. Memory & extraction at phase boundaries
