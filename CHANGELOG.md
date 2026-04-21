@@ -1,3 +1,17 @@
+## v0.25.4 (2026-04-21)
+
+### Fixed
+- **HITL adapter rejected CJK characters in entry ids.** The
+  `_EID_RE` regex in `hitl-adapter/_hitl.py` was
+  `^[A-Za-z0-9._-]+$`, but v0.23+ task ids include the slug — and
+  slugs preserve CJK Unified Ideographs. Any task created with a
+  Chinese title (`T-NNN-写blog`, `T-003-数据来源-...`) could not
+  pass through `decide` / `hitl decide` / `hitl show` etc. — every
+  call returned `terminal.sh: invalid --id`. Regex now allows
+  `\u4e00-\u9fff` in addition to ASCII alphanum / dot / dash /
+  underscore. Path-traversal guards (`startswith('.')`, `'..' in`)
+  remain in place. (`skills/builtin/hitl-adapter/_hitl.py:27-32`)
+
 ## v0.25.3 (2026-04-21)
 
 ### Changed

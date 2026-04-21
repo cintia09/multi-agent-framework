@@ -24,7 +24,12 @@ VALID_DECISIONS = ("approve", "reject", "needs_changes")
 SCHEMAS_DIR = Path(__file__).resolve().parents[3] / "schemas"
 HITL_ENTRY_SCHEMA = str(SCHEMAS_DIR / "hitl-entry.schema.json")
 
-_EID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+# Allow ASCII alphanum, dot, dash, underscore, plus CJK Unified
+# Ideographs (matches the slug character set in _lib/cli/config.py).
+# Without CJK any task whose id contains Chinese characters cannot
+# pass through this adapter — `decide`, `hitl decide`, etc. would all
+# return "terminal.sh: invalid --id".
+_EID_RE = re.compile(r"^[A-Za-z0-9._\u4e00-\u9fff-]+$")
 
 
 def _check_eid(eid: str) -> None:
