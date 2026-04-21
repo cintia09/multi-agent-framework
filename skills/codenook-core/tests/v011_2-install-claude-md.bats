@@ -1,29 +1,33 @@
 #!/usr/bin/env bats
-# v0.11.2 — DR-002 / DR-006 integration tests for install.sh.
-# Verifies: positional workspace path, idempotent CLAUDE.md augmentation.
+# v0.11.2 — DR-002 / DR-006 integration tests for the installer.
+# Verifies: positional / --target workspace path, idempotent CLAUDE.md
+# augmentation, raw-string rendering safety (v0.27.2 regressions).
+#
+# v0.14.0 replaced install.sh with install.py; the first three tests
+# were updated in v0.27.3 to drive install.py instead.
 
 load helpers/load
 load helpers/assertions
 
 REPO_ROOT="$(cd "$CORE_ROOT/../.." && pwd)"
-INSTALL_SH="$REPO_ROOT/install.sh"
+INSTALL_PY="$REPO_ROOT/install.py"
 SYNC_PY="$CORE_ROOT/skills/builtin/_lib/claude_md_sync.py"
 
-@test "[v0.11.2] DR-002 install.sh accepts positional workspace path (--dry-run)" {
+@test "[v0.11.2] DR-002 install.py accepts --target workspace path (--dry-run)" {
   scratch="$(make_scratch)"
-  run bash "$INSTALL_SH" --dry-run "$scratch"
+  run python3 "$INSTALL_PY" --target "$scratch" --plugin development --dry-run --yes
   [ "$status" -eq 0 ] || { echo "$output"; return 1; }
   [[ "$output" == *"DRY-RUN"* ]]
 }
 
-@test "[v0.11.2] DR-002 install.sh --help prints usage" {
-  run bash "$INSTALL_SH" --help
+@test "[v0.11.2] DR-002 install.py --help prints usage" {
+  run python3 "$INSTALL_PY" --help
   [ "$status" -eq 0 ]
-  [[ "$output" == *"workspace_path"* ]]
+  [[ "$output" == *"target"* ]] || [[ "$output" == *"workspace"* ]]
 }
 
-@test "[v0.11.2] DR-002 install.sh rejects unknown option" {
-  run bash "$INSTALL_SH" --no-such-flag
+@test "[v0.11.2] DR-002 install.py rejects unknown option" {
+  run python3 "$INSTALL_PY" --no-such-flag
   [ "$status" -eq 2 ]
 }
 
