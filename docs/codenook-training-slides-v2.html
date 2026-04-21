@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>CodeNook · Slide Deck v2 · v0.25.5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --indigo:   #6366f1;
+    --indigo-d: #4338ca;
+    --cyan:     #06b6d4;
+    --emerald:  #10b981;
+    --amber:    #f59e0b;
+    --rose:     #f43f5e;
+    --bg:       #fafbff;
+    --panel:    #ffffff;
+    --ink:      #1e293b;
+    --ink2:     #475569;
+    --muted:    #64748b;
+    --line:     #e2e8f0;
+    --line2:    #cbd5e1;
+    --grad-main: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+    --grad-soft: linear-gradient(135deg, #eef2ff 0%, #ecfeff 100%);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0f172a; }
+  body {
+    font-family: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  code, pre, .mono { font-family: "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace; }
+
+  /* Top progress bar */
+  .progress {
+    position: fixed; top: 0; left: 0; height: 3px; width: 0;
+    background: var(--grad-main);
+    z-index: 100; transition: width .25s ease;
+  }
+
+  /* Stage = 16:9 viewport, scaled */
+  .stage {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: #f1f5f9;
+  }
+  .deck {
+    position: relative;
+    width: 1280px; height: 720px;
+    background: var(--bg);
+    box-shadow: 0 20px 60px rgba(15,23,42,.25);
+    transform-origin: center center;
+    overflow: hidden;
+  }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    padding: 60px 80px 70px;
+  }
+  .slide.active { display: flex; }
+
+  /* Hero / cover */
+  .slide.hero {
+    background: linear-gradient(135deg, #312e81 0%, #4338ca 45%, #0e7490 100%);
+    color: #fff;
+    justify-content: center; align-items: flex-start;
+  }
+  .slide.hero::before {
+    content: ""; position: absolute;
+    width: 600px; height: 600px; border-radius: 50%;
+    filter: blur(120px); opacity: .35; background: #fbbf24;
+    top: -250px; right: -200px;
+  }
+  .slide.hero::after {
+    content: ""; position: absolute;
+    width: 500px; height: 500px; border-radius: 50%;
+    filter: blur(120px); opacity: .25; background: #06b6d4;
+    bottom: -200px; left: -150px;
+  }
+  .slide.hero .h-eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 14px; letter-spacing: .25em; text-transform: uppercase;
+    color: rgba(255,255,255,.65); margin-bottom: 32px; position: relative;
+  }
+  .slide.hero h1 {
+    font-size: 168px; font-weight: 800; line-height: 1; margin: 0 0 28px;
+    letter-spacing: -.04em; position: relative;
+    background: linear-gradient(135deg, #fff 0%, #c7d2fe 60%, #a5f3fc 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .slide.hero .h-sub {
+    font-size: 28px; line-height: 1.45; max-width: 900px;
+    color: rgba(255,255,255,.92); font-weight: 400; margin: 0 0 36px;
+    position: relative;
+  }
+  .slide.hero .h-meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 14px; letter-spacing: .12em;
+    color: rgba(255,255,255,.7); position: relative;
+  }
+
+  /* Standard slide title block */
+  .eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--indigo); margin-bottom: 12px;
+  }
+  .slide h2.title {
+    font-size: 56px; font-weight: 700; line-height: 1.1;
+    margin: 0 0 8px; letter-spacing: -.02em;
+    color: var(--ink);
+  }
+  .slide h2.title .accent {
+    background: var(--grad-main);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .slide .subtitle {
+    font-size: 22px; color: var(--ink2); line-height: 1.5;
+    margin: 0 0 32px; max-width: 1000px;
+  }
+  .slide .body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+  /* Footer */
+  .badge {
+    position: absolute; left: 28px; bottom: 22px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; letter-spacing: .12em;
+    color: var(--muted);
+  }
+  .slide.hero .badge,
+  .slide.chapter .badge { color: rgba(255,255,255,.6); }
+
+  /* ============== Chapter divider ============== */
+  .slide.chapter {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #155e75 100%);
+    color: #fff;
+    justify-content: center;
+    padding: 80px 100px;
+  }
+  .slide.chapter::before {
+    content: ""; position: absolute;
+    width: 700px; height: 700px; border-radius: 50%;
+    filter: blur(140px); opacity: .25; background: #6366f1;
+    top: -300px; left: -200px;
+  }
+  .slide.chapter::after {
+    content: ""; position: absolute;
+    width: 500px; height: 500px; border-radius: 50%;
+    filter: blur(120px); opacity: .25; background: #06b6d4;
+    bottom: -200px; right: -100px;
+  }
+  .slide.chapter .ch-num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 240px; font-weight: 800; line-height: 1;
+    letter-spacing: -.04em; position: relative;
+    background: linear-gradient(135deg, #fff 0%, #a5f3fc 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0 0 20px;
+  }
+  .slide.chapter .ch-eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 14px; letter-spacing: .3em; text-transform: uppercase;
+    color: rgba(255,255,255,.55); margin-bottom: 24px; position: relative;
+  }
+  .slide.chapter .ch-title {
+    font-size: 72px; font-weight: 700; line-height: 1.15;
+    margin: 0 0 18px; position: relative; letter-spacing: -.02em;
+    color: #fff;
+  }
+  .slide.chapter .ch-sub {
+    font-size: 22px; line-height: 1.55; color: rgba(255,255,255,.78);
+    max-width: 820px; position: relative; font-weight: 400;
+    margin: 0;
+  }
+
+  /* ============== Two-column point slide ============== */
+  .point { display: grid; grid-template-columns: .95fr 1.05fr; gap: 56px; flex: 1; min-height: 0; align-items: center; }
+  .point .text h3 {
+    font-size: 38px; font-weight: 700; color: var(--ink);
+    margin: 0 0 22px; line-height: 1.2; letter-spacing: -.01em;
+  }
+  .point .text p {
+    font-size: 20px; line-height: 1.7; color: var(--ink2);
+    margin: 0 0 16px;
+  }
+  .point .text .pill {
+    display: inline-block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px; letter-spacing: .15em; text-transform: uppercase;
+    background: var(--grad-soft); color: var(--indigo-d);
+    padding: 6px 14px; border-radius: 999px; margin-bottom: 18px;
+  }
+  .point .figure {
+    background: #fff; border: 1px solid var(--line);
+    border-radius: 18px; padding: 30px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 3px rgba(15,23,42,.04);
+    height: 100%;
+  }
+  .point .figure svg { width: 100%; height: auto; max-height: 460px; }
+
+  /* ============== Quote / closing slide ============== */
+  .slide.quote { padding: 0; background: var(--bg); }
+  .quote-wrap {
+    flex: 1; display: grid; grid-template-columns: .9fr 1.1fr;
+    gap: 0;
+  }
+  .quote-wrap .left {
+    background: linear-gradient(160deg, #312e81 0%, #4338ca 60%, #0e7490 100%);
+    color: #fff;
+    padding: 80px 60px;
+    display: flex; flex-direction: column; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .quote-wrap .left::before {
+    content: ""; position: absolute;
+    width: 500px; height: 500px; border-radius: 50%;
+    filter: blur(120px); opacity: .25; background: #06b6d4;
+    bottom: -200px; right: -150px;
+  }
+  .quote-wrap .left .ch-eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px; letter-spacing: .3em; text-transform: uppercase;
+    color: rgba(255,255,255,.55); margin-bottom: 32px; position: relative;
+  }
+  .quote-wrap .left .key-line {
+    font-size: 32px; line-height: 1.4; font-weight: 600;
+    color: #fff; position: relative;
+    margin: 0 0 28px; letter-spacing: -.01em;
+  }
+  .quote-wrap .left .key-line .accent {
+    background: linear-gradient(135deg, #fbbf24 0%, #a5f3fc 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .quote-wrap .left .key-divider {
+    width: 60px; height: 3px; background: rgba(255,255,255,.35);
+    margin: 0 0 28px; position: relative;
+  }
+  .quote-wrap .right {
+    padding: 80px 70px;
+    display: flex; flex-direction: column; justify-content: center;
+    position: relative;
+  }
+  .quote-wrap .right .qmark {
+    position: absolute; top: 30px; left: 60px;
+    font-size: 140px; line-height: 1; color: var(--indigo);
+    opacity: .12; font-family: "Inter", serif; font-weight: 800;
+  }
+  .quote-wrap .right .qmark.close {
+    top: auto; left: auto; bottom: 50px; right: 60px;
+  }
+  .quote-wrap .right p {
+    font-size: 18px; line-height: 1.85; color: var(--ink2);
+    margin: 0; position: relative; letter-spacing: .005em;
+  }
+  .quote-wrap .right p + p { margin-top: 14px; }
+  .quote-wrap .right .sig {
+    margin-top: 32px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Indicator dots + counter */
+  .nav-dots {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+    display: flex; gap: 8px; z-index: 50;
+    background: rgba(15,23,42,.6); padding: 8px 14px; border-radius: 20px;
+    backdrop-filter: blur(8px);
+  }
+  .nav-dots button {
+    width: 8px; height: 8px; border-radius: 50%;
+    border: none; background: rgba(255,255,255,.3); padding: 0;
+    cursor: pointer; transition: all .2s;
+  }
+  .nav-dots button:hover { background: rgba(255,255,255,.6); }
+  .nav-dots button.active {
+    background: #fff; width: 22px; border-radius: 4px;
+  }
+  .counter {
+    position: fixed; right: 18px; bottom: 16px; z-index: 50;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px; color: rgba(255,255,255,.85);
+    background: rgba(15,23,42,.6); padding: 6px 12px; border-radius: 12px;
+    backdrop-filter: blur(8px); letter-spacing: .08em;
+  }
+  .help {
+    position: fixed; left: 18px; bottom: 16px; z-index: 50;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: rgba(255,255,255,.6);
+    background: rgba(15,23,42,.5); padding: 6px 10px; border-radius: 10px;
+    backdrop-filter: blur(8px); letter-spacing: .05em;
+  }
+
+  /* Click edges */
+  .edge {
+    position: fixed; top: 0; bottom: 0; width: 80px; z-index: 40; cursor: pointer;
+  }
+  .edge.l { left: 0; }
+  .edge.r { right: 0; }
+
+  @media print {
+    html, body { overflow: visible; background: #fff; }
+    .stage { position: static; display: block; background: #fff; }
+    .deck { box-shadow: none; transform: none !important; }
+    .slide { position: static; display: flex !important; page-break-after: always; }
+    .nav-dots, .counter, .help, .edge, .progress { display: none !important; }
+    @page { size: 1280px 720px; margin: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="edge l" data-nav="prev"></div>
+<div class="edge r" data-nav="next"></div>
+
+<div class="stage">
+  <div class="deck" id="deck">
+
+    <!-- ============================ 1 · Cover ============================ -->
+    <section class="slide hero active">
+      <div class="h-eyebrow">A Workspace-Native AI Conductor</div>
+      <h1>CodeNook</h1>
+      <p class="h-sub">harness engineering for AI coding workflows<br/>把 AI 助手会话钉进文件系统，让任务真正落地。</p>
+      <div class="h-meta">github.com/cintia09/CodeNook · v0.25.5</div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ 2 · Chapter 01 ============================ -->
+    <section class="slide chapter">
+      <div class="ch-eyebrow">Chapter</div>
+      <div class="ch-num">01</div>
+      <h2 class="ch-title">当前 AI 助手使用的痛点</h2>
+      <p class="ch-sub">三个让"用 AI 写活儿"始终差一口气的结构性问题。</p>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ 3 · 痛点 1 ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 痛点 01 — Session ≠ Workflow</div>
+      <h2 class="title">session 对话<span class="accent">不保存</span>用户的工作流</h2>
+      <div class="body">
+        <div class="point">
+          <div class="text">
+            <span class="pill">Pain Point 01</span>
+            <h3>对话与工作流，本就不是一回事</h3>
+            <p>session 对话本质上是你与 AI 助手的<b>交流</b>，</p>
+            <p>它和真实的<b>工作流</b>并不匹配。</p>
+            <p>聊天记录留下了，工作的脉络却散落在每一次回车之间。</p>
+          </div>
+          <div class="figure">
+            <!-- SVG: chat bubbles vs workflow flowchart, disconnected -->
+            <svg viewBox="0 0 480 420" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0" stop-color="#6366f1"/>
+                  <stop offset="1" stop-color="#06b6d4"/>
+                </linearGradient>
+                <linearGradient id="g1soft" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0" stop-color="#eef2ff"/>
+                  <stop offset="1" stop-color="#ecfeff"/>
+                </linearGradient>
+              </defs>
+              <!-- Left: chat bubbles -->
+              <text x="20" y="36" font-family="JetBrains Mono" font-size="11" fill="#94a3b8" letter-spacing="2">SESSION CHAT</text>
+              <g fill="#cbd5e1">
+                <rect x="20" y="56" width="170" height="42" rx="14" fill="url(#g1soft)" stroke="#c7d2fe"/>
+                <circle cx="38" cy="77" r="5" fill="#6366f1"/>
+                <rect x="52" y="68" width="110" height="6" rx="3"/><rect x="52" y="80" width="80" height="6" rx="3"/>
+                <rect x="50" y="112" width="180" height="50" rx="14" fill="#fff" stroke="#cbd5e1"/>
+                <rect x="64" y="124" width="140" height="6" rx="3"/><rect x="64" y="138" width="100" height="6" rx="3"/><rect x="64" y="150" width="120" height="6" rx="3"/>
+                <rect x="20" y="178" width="160" height="42" rx="14" fill="url(#g1soft)" stroke="#c7d2fe"/>
+                <circle cx="38" cy="199" r="5" fill="#6366f1"/>
+                <rect x="52" y="190" width="100" height="6" rx="3"/><rect x="52" y="202" width="70" height="6" rx="3"/>
+                <rect x="50" y="234" width="190" height="60" rx="14" fill="#fff" stroke="#cbd5e1"/>
+                <rect x="64" y="248" width="150" height="6" rx="3"/><rect x="64" y="262" width="120" height="6" rx="3"/><rect x="64" y="276" width="90" height="6" rx="3"/>
+              </g>
+
+              <!-- Gap / disconnect -->
+              <line x1="252" y1="40" x2="252" y2="400" stroke="#e2e8f0" stroke-dasharray="4 6"/>
+              <g transform="translate(238 200)">
+                <circle r="20" fill="#fff" stroke="#f43f5e" stroke-width="2"/>
+                <line x1="-9" y1="-9" x2="9" y2="9" stroke="#f43f5e" stroke-width="2.5"/>
+                <line x1="9" y1="-9" x2="-9" y2="9" stroke="#f43f5e" stroke-width="2.5"/>
+              </g>
+
+              <!-- Right: workflow blocks -->
+              <text x="290" y="36" font-family="JetBrains Mono" font-size="11" fill="#94a3b8" letter-spacing="2">WORKFLOW</text>
+              <g font-family="Inter" font-size="14" font-weight="600" text-anchor="middle">
+                <rect x="290" y="56" width="170" height="48" rx="10" fill="url(#g1)"/>
+                <text x="375" y="86" fill="#fff">Clarify</text>
+                <rect x="290" y="128" width="170" height="48" rx="10" fill="#fff" stroke="#cbd5e1"/>
+                <text x="375" y="158" fill="#1e293b">Design</text>
+                <rect x="290" y="200" width="170" height="48" rx="10" fill="#fff" stroke="#cbd5e1"/>
+                <text x="375" y="230" fill="#1e293b">Implement</text>
+                <rect x="290" y="272" width="170" height="48" rx="10" fill="#fff" stroke="#cbd5e1"/>
+                <text x="375" y="302" fill="#1e293b">Review</text>
+              </g>
+              <g stroke="#94a3b8" stroke-width="2" fill="#94a3b8">
+                <line x1="375" y1="104" x2="375" y2="124"/><polygon points="375,128 370,118 380,118"/>
+                <line x1="375" y1="176" x2="375" y2="196"/><polygon points="375,200 370,190 380,190"/>
+                <line x1="375" y1="248" x2="375" y2="268"/><polygon points="375,272 370,262 380,262"/>
+              </g>
+
+              <text x="240" y="395" font-family="JetBrains Mono" font-size="11" fill="#f43f5e" text-anchor="middle" letter-spacing="2">DISCONNECTED</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ 4 · 痛点 2 ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 痛点 02 — Context Window</div>
+      <h2 class="title">上下文容量限制，<span class="accent">前面的会被丢弃</span></h2>
+      <div class="body">
+        <div class="point">
+          <div class="text">
+            <span class="pill">Pain Point 02</span>
+            <h3>会话越长，越容易"失忆"</h3>
+            <p>session 会有上下文容量，超过会被压缩，</p>
+            <p>会丢弃前面的内容，</p>
+            <p>导致后面的工作不能继续。</p>
+          </div>
+          <div class="figure">
+            <!-- SVG: sliding context window, head truncated -->
+            <svg viewBox="0 0 480 420" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="g2" x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0" stop-color="#6366f1"/>
+                  <stop offset="1" stop-color="#06b6d4"/>
+                </linearGradient>
+                <linearGradient id="g2fade" x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0" stop-color="#fee2e2" stop-opacity="0"/>
+                  <stop offset="1" stop-color="#fecaca"/>
+                </linearGradient>
+              </defs>
+              <text x="20" y="34" font-family="JetBrains Mono" font-size="11" fill="#94a3b8" letter-spacing="2">CONTEXT TIMELINE</text>
+
+              <!-- Full conversation strip, faded on the left -->
+              <g>
+                <rect x="20" y="60" width="440" height="56" rx="10" fill="#f1f5f9" stroke="#e2e8f0"/>
+                <rect x="20" y="60" width="180" height="56" rx="10" fill="url(#g2fade)"/>
+                <!-- bubbles in strip -->
+                <g opacity=".35">
+                  <rect x="32" y="72" width="40" height="32" rx="6" fill="#cbd5e1"/>
+                  <rect x="80" y="72" width="50" height="32" rx="6" fill="#94a3b8"/>
+                  <rect x="138" y="72" width="40" height="32" rx="6" fill="#cbd5e1"/>
+                </g>
+                <g>
+                  <rect x="208" y="72" width="50" height="32" rx="6" fill="#cbd5e1"/>
+                  <rect x="266" y="72" width="40" height="32" rx="6" fill="#a5b4fc"/>
+                  <rect x="314" y="72" width="60" height="32" rx="6" fill="#cbd5e1"/>
+                  <rect x="382" y="72" width="64" height="32" rx="6" fill="url(#g2)"/>
+                </g>
+                <text x="100" y="138" font-family="JetBrains Mono" font-size="11" fill="#dc2626" text-anchor="middle">DROPPED · 丢弃</text>
+                <text x="380" y="138" font-family="JetBrains Mono" font-size="11" fill="#4338ca" text-anchor="middle">KEPT · 保留</text>
+              </g>
+
+              <!-- Sliding window indicator -->
+              <g>
+                <rect x="200" y="180" width="260" height="80" rx="14" fill="none" stroke="#6366f1" stroke-width="2.5" stroke-dasharray="6 4"/>
+                <text x="330" y="207" font-family="Inter" font-size="14" font-weight="600" fill="#4338ca" text-anchor="middle">Context Window</text>
+                <text x="330" y="232" font-family="JetBrains Mono" font-size="12" fill="#64748b" text-anchor="middle">limit reached</text>
+                <text x="330" y="250" font-family="JetBrains Mono" font-size="12" fill="#64748b" text-anchor="middle">→ compress &amp; drop head</text>
+              </g>
+
+              <!-- Arrow showing compression direction -->
+              <g transform="translate(20 300)">
+                <line x1="0" y1="0" x2="420" y2="0" stroke="#cbd5e1" stroke-width="1.5"/>
+                <line x1="0" y1="0" x2="0" y2="-6" stroke="#cbd5e1" stroke-width="1.5"/>
+                <line x1="420" y1="0" x2="420" y2="-6" stroke="#cbd5e1" stroke-width="1.5"/>
+                <text x="0" y="20" font-family="JetBrains Mono" font-size="10" fill="#94a3b8">turn 0</text>
+                <text x="420" y="20" font-family="JetBrains Mono" font-size="10" fill="#94a3b8" text-anchor="end">turn N</text>
+              </g>
+
+              <!-- Consequence -->
+              <g transform="translate(20 350)">
+                <rect x="0" y="0" width="440" height="50" rx="10" fill="#fff7ed" stroke="#fed7aa"/>
+                <text x="220" y="30" font-family="Inter" font-size="15" fill="#9a3412" text-anchor="middle">→ 后面的工作不能继续</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ 5 · 痛点 3 ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 痛点 03 — Tight Coupling</div>
+      <h2 class="title">AI 助手与工作空间<span class="accent">紧耦合</span></h2>
+      <div class="body">
+        <div class="point">
+          <div class="text">
+            <span class="pill">Pain Point 03</span>
+            <h3>换个环境，AI 就用不上</h3>
+            <p>AI 助手与工作空间是紧耦合的关系。</p>
+            <p>如果是受限的环境，</p>
+            <p>AI 助手不能使用。</p>
+          </div>
+          <div class="figure">
+            <!-- SVG: AI on one side, walled workspace on the other -->
+            <svg viewBox="0 0 480 420" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="g3" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0" stop-color="#6366f1"/>
+                  <stop offset="1" stop-color="#06b6d4"/>
+                </linearGradient>
+              </defs>
+
+              <!-- AI assistant left -->
+              <g transform="translate(60 130)">
+                <rect x="0" y="0" width="120" height="160" rx="20" fill="url(#g3)"/>
+                <circle cx="60" cy="58" r="22" fill="#fff" opacity=".95"/>
+                <circle cx="52" cy="56" r="3.5" fill="#4338ca"/>
+                <circle cx="68" cy="56" r="3.5" fill="#4338ca"/>
+                <path d="M48 68 Q60 76 72 68" stroke="#4338ca" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <text x="60" y="115" font-family="Inter" font-size="14" font-weight="600" fill="#fff" text-anchor="middle">AI Assistant</text>
+                <text x="60" y="138" font-family="JetBrains Mono" font-size="10" fill="rgba(255,255,255,.8)" text-anchor="middle">cloud / SaaS</text>
+              </g>
+
+              <!-- Wall in the middle -->
+              <g transform="translate(220 60)">
+                <pattern id="bricks" x="-20" y="0" width="80" height="40" patternUnits="userSpaceOnUse">
+                  <rect x="0" y="0" width="40" height="20" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.5"/>
+                  <rect x="40" y="0" width="40" height="20" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.5"/>
+                  <rect x="-20" y="20" width="40" height="20" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.5"/>
+                  <rect x="20" y="20" width="40" height="20" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.5"/>
+                  <rect x="60" y="20" width="40" height="20" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.5"/>
+                </pattern>
+                <rect x="-20" y="0" width="120" height="260" fill="url(#bricks)"/>
+                <!-- lock badge -->
+                <g transform="translate(28 110)">
+                  <rect x="0" y="0" width="44" height="44" rx="8" fill="#dc2626"/>
+                  <rect x="14" y="20" width="16" height="14" rx="2" fill="#fff"/>
+                  <path d="M16 20 V14 a6 6 0 0 1 12 0 V20" stroke="#fff" stroke-width="2.5" fill="none"/>
+                </g>
+              </g>
+
+              <!-- Restricted workspace right -->
+              <g transform="translate(340 130)">
+                <rect x="0" y="0" width="120" height="160" rx="14" fill="#fff" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+                <text x="60" y="36" font-family="JetBrains Mono" font-size="11" fill="#64748b" text-anchor="middle">RESTRICTED</text>
+                <g transform="translate(28 50)">
+                  <rect x="0" y="0" width="64" height="10" rx="2" fill="#e2e8f0"/>
+                  <rect x="0" y="18" width="50" height="10" rx="2" fill="#e2e8f0"/>
+                  <rect x="0" y="36" width="58" height="10" rx="2" fill="#e2e8f0"/>
+                  <rect x="0" y="54" width="40" height="10" rx="2" fill="#e2e8f0"/>
+                </g>
+                <text x="60" y="138" font-family="Inter" font-size="13" font-weight="600" fill="#1e293b" text-anchor="middle">Workspace</text>
+              </g>
+
+              <text x="240" y="380" font-family="JetBrains Mono" font-size="12" fill="#dc2626" text-anchor="middle" letter-spacing="2">CANNOT REACH IN · 不能使用</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ 6 · Chapter 02 ============================ -->
+    <section class="slide chapter">
+      <div class="ch-eyebrow">Chapter</div>
+      <div class="ch-num">02</div>
+      <h2 class="ch-title">CodeNook 的特点</h2>
+      <p class="ch-sub">把任务、工作流、记忆和工作空间，都放回到文件系统里。</p>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ 7 · 特点 1 任务驱动 ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 特点 01 — Task-Driven</div>
+      <h2 class="title">任务驱动，<span class="accent">不和 session 绑定</span></h2>
+      <div class="body">
+        <div class="point">
+          <div class="text">
+            <span class="pill">Feature 01</span>
+            <h3>任务在 session 之上漂浮</h3>
+            <p>AI 助手会按照指示，执行你发布的任务。</p>
+            <p>不和 session 绑定，</p>
+            <p>换一个 session，任务可以继续。</p>
+          </div>
+          <div class="figure">
+            <!-- SVG: floating task card across multiple session boxes -->
+            <svg viewBox="0 0 480 420" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="g4" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0" stop-color="#6366f1"/>
+                  <stop offset="1" stop-color="#06b6d4"/>
+                </linearGradient>
+                <linearGradient id="g4soft" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0" stop-color="#eef2ff"/>
+                  <stop offset="1" stop-color="#ecfeff"/>
+                </linearGradient>
+                <filter id="shadow1" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#6366f1" flood-opacity=".25"/>
+                </filter>
+              </defs>
+
+              <!-- session strip -->
+              <text x="20" y="30" font-family="JetBrains Mono" font-size="11" fill="#94a3b8" letter-spacing="2">SESSIONS (易失)</text>
+              <g transform="translate(20 50)">
+                <rect x="0" y="0" width="120" height="80" rx="10" fill="#fff" stroke="#cbd5e1"/>
+                <text x="60" y="32" font-family="Inter" font-size="13" font-weight="600" fill="#475569" text-anchor="middle">session A</text>
+                <text x="60" y="55" font-family="JetBrains Mono" font-size="10" fill="#94a3b8" text-anchor="middle">closed</text>
+              </g>
+              <g transform="translate(160 50)">
+                <rect x="0" y="0" width="120" height="80" rx="10" fill="#fff" stroke="#cbd5e1"/>
+                <text x="60" y="32" font-family="Inter" font-size="13" font-weight="600" fill="#475569" text-anchor="middle">session B</text>
+                <text x="60" y="55" font-family="JetBrains Mono" font-size="10" fill="#94a3b8" text-anchor="middle">closed</text>
+              </g>
+              <g transform="translate(300 50)">
+                <rect x="0" y="0" width="120" height="80" rx="10" fill="url(#g4soft)" stroke="#a5b4fc"/>
+                <text x="60" y="32" font-family="Inter" font-size="13" font-weight="600" fill="#4338ca" text-anchor="middle">session C</text>
+                <text x="60" y="55" font-family="JetBrains Mono" font-size="10" fill="#6366f1" text-anchor="middle">active</text>
+              </g>
+
+              <!-- floating task card above -->
+              <g filter="url(#shadow1)" transform="translate(110 200)">
+                <rect x="0" y="0" width="260" height="120" rx="16" fill="url(#g4)"/>
+                <text x="20" y="32" font-family="JetBrains Mono" font-size="11" fill="rgba(255,255,255,.75)" letter-spacing="2">TASK · T-007-deck</text>
+                <text x="20" y="62" font-family="Inter" font-size="20" font-weight="700" fill="#fff">draft slide deck v2</text>
+                <g transform="translate(20 78)">
+                  <rect x="0" y="0" width="220" height="6" rx="3" fill="rgba(255,255,255,.25)"/>
+                  <rect x="0" y="0" width="140" height="6" rx="3" fill="#fff"/>
+                </g>
+                <text x="20" y="106" font-family="JetBrains Mono" font-size="11" fill="rgba(255,255,255,.75)">phase 3 / 5 · floats across sessions</text>
+              </g>
+
+              <!-- arrows from task to each session -->
+              <g stroke="#a5b4fc" stroke-width="1.5" stroke-dasharray="4 4" fill="none">
+                <path d="M180 200 Q120 170 80 130"/>
+                <path d="M240 200 L220 130"/>
+                <path d="M300 200 Q340 170 360 130"/>
+              </g>
+
+              <!-- baseline -->
+              <text x="240" y="380" font-family="JetBrains Mono" font-size="11" fill="#10b981" text-anchor="middle" letter-spacing="2">TASK CONTINUES · 任务可以继续</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ 8 · 特点 2 插件 ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 特点 02 — Plugin Skills</div>
+      <h2 class="title">通过插件，<span class="accent">集成领域技能</span></h2>
+      <div class="body">
+        <div class="point">
+          <div class="text">
+            <span class="pill">Feature 02</span>
+            <h3>让 AI 理解你的工作流</h3>
+            <p>通过插件方式集成领域技能，</p>
+            <p>让 AI 理解你的工作流。</p>
+            <p>development、writing、generic ……每个插件都是一组可插拔的角色与阶段。</p>
+          </div>
+          <div class="figure">
+            <!-- SVG: core body with plugin cartridges plugging in -->
+            <svg viewBox="0 0 480 420" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="g5" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0" stop-color="#6366f1"/>
+                  <stop offset="1" stop-color="#06b6d4"/>
+                </linearGradient>
+              </defs>
+
+              <!-- core hexagon body -->
+              <g transform="translate(160 130)">
+                <rect x="0" y="0" width="160" height="160" rx="22" fill="url(#g5)"/>
+                <text x="80" y="74" font-family="Inter" font-size="22" font-weight="700" fill="#fff" text-anchor="middle">CodeNook</text>
+                <text x="80" y="98" font-family="JetBrains Mono" font-size="11" fill="rgba(255,255,255,.75)" text-anchor="middle" letter-spacing="2">KERNEL</text>
+                <!-- slots -->
+                <rect x="-6" y="40" width="12" height="20" rx="2" fill="#fff" opacity=".9"/>
+                <rect x="-6" y="100" width="12" height="20" rx="2" fill="#fff" opacity=".9"/>
+                <rect x="154" y="40" width="12" height="20" rx="2" fill="#fff" opacity=".9"/>
+                <rect x="154" y="100" width="12" height="20" rx="2" fill="#fff" opacity=".9"/>
+                <rect x="60" y="-6" width="40" height="12" rx="2" fill="#fff" opacity=".9"/>
+                <rect x="60" y="154" width="40" height="12" rx="2" fill="#fff" opacity=".9"/>
+              </g>
+
+              <!-- plugin cartridges -->
+              <g transform="translate(20 160)">
+                <rect x="0" y="0" width="120" height="50" rx="10" fill="#fff" stroke="#a5b4fc" stroke-width="2"/>
+                <rect x="120" y="14" width="12" height="22" rx="2" fill="#a5b4fc"/>
+                <text x="20" y="22" font-family="JetBrains Mono" font-size="10" fill="#6366f1" letter-spacing="2">PLUGIN</text>
+                <text x="20" y="40" font-family="Inter" font-size="15" font-weight="600" fill="#1e293b">development</text>
+              </g>
+              <g transform="translate(340 160)">
+                <rect x="-12" y="14" width="12" height="22" rx="2" fill="#a5b4fc"/>
+                <rect x="0" y="0" width="120" height="50" rx="10" fill="#fff" stroke="#a5b4fc" stroke-width="2"/>
+                <text x="20" y="22" font-family="JetBrains Mono" font-size="10" fill="#6366f1" letter-spacing="2">PLUGIN</text>
+                <text x="20" y="40" font-family="Inter" font-size="15" font-weight="600" fill="#1e293b">writing</text>
+              </g>
+              <g transform="translate(180 50)">
+                <rect x="0" y="0" width="120" height="50" rx="10" fill="#fff" stroke="#a5b4fc" stroke-width="2"/>
+                <rect x="54" y="50" width="12" height="22" rx="2" fill="#a5b4fc"/>
+                <text x="20" y="22" font-family="JetBrains Mono" font-size="10" fill="#6366f1" letter-spacing="2">PLUGIN</text>
+                <text x="20" y="40" font-family="Inter" font-size="15" font-weight="600" fill="#1e293b">generic</text>
+              </g>
+              <g transform="translate(180 320)">
+                <rect x="54" y="-22" width="12" height="22" rx="2" fill="#a5b4fc" opacity=".5"/>
+                <rect x="0" y="0" width="120" height="50" rx="10" fill="#fff" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+                <text x="20" y="22" font-family="JetBrains Mono" font-size="10" fill="#94a3b8" letter-spacing="2">PLUGIN</text>
+                <text x="20" y="40" font-family="Inter" font-size="15" font-weight="600" fill="#94a3b8">your workflow</text>
+              </g>
+
+              <text x="240" y="395" font-family="JetBrains Mono" font-size="11" fill="#64748b" text-anchor="middle" letter-spacing="2">PLUGGABLE DOMAIN SKILLS</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ 9 · 特点 3 记忆 ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 特点 03 — Memory Crystallizes</div>
+      <h2 class="title">自动从会话中<span class="accent">提炼记忆</span></h2>
+      <div class="body">
+        <div class="point">
+          <div class="text">
+            <span class="pill">Feature 03</span>
+            <h3>用得越久，AI 越了解你</h3>
+            <p>会自动提取当前 session 的会话记录，</p>
+            <p>提炼有用的 skills 和知识等，作为 memory 保存。</p>
+            <p>用的时间越长，AI 越了解你的工作。</p>
+          </div>
+          <div class="figure">
+            <!-- SVG: session funnel into memory crystals -->
+            <svg viewBox="0 0 480 420" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="g6" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0" stop-color="#6366f1"/>
+                  <stop offset="1" stop-color="#06b6d4"/>
+                </linearGradient>
+                <linearGradient id="g6crystal" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0" stop-color="#a5f3fc"/>
+                  <stop offset="1" stop-color="#06b6d4"/>
+                </linearGradient>
+              </defs>
+
+              <!-- top: session log fragments -->
+              <text x="20" y="30" font-family="JetBrains Mono" font-size="11" fill="#94a3b8" letter-spacing="2">SESSION TRANSCRIPT</text>
+              <g fill="#e2e8f0">
+                <rect x="20" y="50" width="440" height="14" rx="4"/><rect x="20" y="70" width="380" height="14" rx="4"/>
+                <rect x="20" y="90" width="420" height="14" rx="4"/><rect x="20" y="110" width="340" height="14" rx="4"/>
+                <rect x="20" y="130" width="400" height="14" rx="4"/>
+              </g>
+
+              <!-- funnel -->
+              <g transform="translate(140 170)">
+                <path d="M0 0 L200 0 L130 70 L130 100 L70 100 L70 70 Z" fill="url(#g6)" opacity=".95"/>
+                <text x="100" y="46" font-family="Inter" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">extract</text>
+              </g>
+
+              <!-- drips -->
+              <g fill="#06b6d4">
+                <circle cx="240" cy="290" r="3"/>
+                <circle cx="240" cy="304" r="2.5"/>
+              </g>
+
+              <!-- memory crystals -->
+              <text x="240" y="335" font-family="JetBrains Mono" font-size="11" fill="#64748b" text-anchor="middle" letter-spacing="2">MEMORY · skills + knowledge</text>
+              <g font-family="JetBrains Mono" font-size="11" fill="#0e7490" text-anchor="middle">
+                <g transform="translate(80 350)"><polygon points="30,0 60,18 50,46 10,46 0,18" fill="url(#g6crystal)"/><text x="30" y="68">skill</text></g>
+                <g transform="translate(170 350)"><polygon points="30,0 60,18 50,46 10,46 0,18" fill="url(#g6crystal)"/><text x="30" y="68">snippet</text></g>
+                <g transform="translate(260 350)"><polygon points="30,0 60,18 50,46 10,46 0,18" fill="url(#g6crystal)"/><text x="30" y="68">knowledge</text></g>
+                <g transform="translate(350 350)"><polygon points="30,0 60,18 50,46 10,46 0,18" fill="url(#g6crystal)"/><text x="30" y="68">history</text></g>
+              </g>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ 10 · 特点 4 可迁移 ============================ -->
+    <section class="slide">
+      <div class="eyebrow">// 特点 04 — Portable</div>
+      <h2 class="title">能被<span class="accent">迁移</span></h2>
+      <div class="body">
+        <div class="point">
+          <div class="text">
+            <span class="pill">Feature 04</span>
+            <h3>把工作空间打包带走</h3>
+            <p>只要将工作空间目录打包，</p>
+            <p>就能迁移到任何电脑，</p>
+            <p>任何 AI 助手都可以继续未完成的任务。</p>
+          </div>
+          <div class="figure">
+            <!-- SVG: workspace folder -> archive -> two destinations -->
+            <svg viewBox="0 0 480 420" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="g7" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0" stop-color="#6366f1"/>
+                  <stop offset="1" stop-color="#06b6d4"/>
+                </linearGradient>
+              </defs>
+
+              <!-- source workspace folder -->
+              <g transform="translate(30 150)">
+                <path d="M0 12 Q0 0 12 0 L46 0 L60 14 L108 14 Q120 14 120 26 L120 110 Q120 122 108 122 L12 122 Q0 122 0 110 Z" fill="url(#g7)"/>
+                <text x="60" y="60" font-family="JetBrains Mono" font-size="12" fill="#fff" text-anchor="middle">.codenook/</text>
+                <text x="60" y="82" font-family="JetBrains Mono" font-size="10" fill="rgba(255,255,255,.85)" text-anchor="middle">tasks · memory</text>
+                <text x="60" y="98" font-family="JetBrains Mono" font-size="10" fill="rgba(255,255,255,.85)" text-anchor="middle">plugins · state</text>
+              </g>
+
+              <!-- arrow -->
+              <g transform="translate(160 200)">
+                <line x1="0" y1="10" x2="36" y2="10" stroke="#94a3b8" stroke-width="2"/>
+                <polygon points="40,10 32,5 32,15" fill="#94a3b8"/>
+                <text x="20" y="-4" font-family="JetBrains Mono" font-size="10" fill="#64748b" text-anchor="middle">tar</text>
+              </g>
+
+              <!-- archive box -->
+              <g transform="translate(210 160)">
+                <rect x="0" y="10" width="100" height="100" rx="6" fill="#fff" stroke="#cbd5e1"/>
+                <rect x="0" y="0" width="100" height="22" rx="6" fill="#cbd5e1"/>
+                <rect x="42" y="0" width="16" height="22" fill="#94a3b8"/>
+                <text x="50" y="74" font-family="JetBrains Mono" font-size="12" fill="#475569" text-anchor="middle">workspace</text>
+                <text x="50" y="92" font-family="JetBrains Mono" font-size="11" fill="#64748b" text-anchor="middle">.tar.gz</text>
+              </g>
+
+              <!-- arrow split -->
+              <g transform="translate(320 200)">
+                <line x1="0" y1="10" x2="20" y2="10" stroke="#94a3b8" stroke-width="2"/>
+                <line x1="20" y1="10" x2="20" y2="-30" stroke="#94a3b8" stroke-width="2"/>
+                <line x1="20" y1="10" x2="20" y2="50" stroke="#94a3b8" stroke-width="2"/>
+                <line x1="20" y1="-30" x2="46" y2="-30" stroke="#94a3b8" stroke-width="2"/>
+                <line x1="20" y1="50" x2="46" y2="50" stroke="#94a3b8" stroke-width="2"/>
+                <polygon points="50,-30 42,-35 42,-25" fill="#94a3b8"/>
+                <polygon points="50,50 42,45 42,55" fill="#94a3b8"/>
+              </g>
+
+              <!-- target 1: laptop -->
+              <g transform="translate(380 130)">
+                <rect x="0" y="0" width="80" height="50" rx="4" fill="#fff" stroke="#a5b4fc" stroke-width="2"/>
+                <rect x="6" y="6" width="68" height="38" fill="#eef2ff"/>
+                <rect x="-8" y="50" width="96" height="6" rx="2" fill="#a5b4fc"/>
+                <text x="40" y="75" font-family="JetBrains Mono" font-size="10" fill="#4338ca" text-anchor="middle">any computer</text>
+              </g>
+
+              <!-- target 2: AI assistants -->
+              <g transform="translate(380 230)">
+                <rect x="0" y="0" width="80" height="56" rx="10" fill="url(#g7)"/>
+                <text x="40" y="22" font-family="Inter" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">Claude</text>
+                <text x="40" y="38" font-family="Inter" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">Copilot</text>
+                <text x="40" y="50" font-family="JetBrains Mono" font-size="9" fill="rgba(255,255,255,.8)" text-anchor="middle">…or other</text>
+                <text x="40" y="76" font-family="JetBrains Mono" font-size="10" fill="#4338ca" text-anchor="middle">any AI assistant</text>
+              </g>
+
+              <text x="240" y="380" font-family="JetBrains Mono" font-size="11" fill="#10b981" text-anchor="middle" letter-spacing="2">RESUME UNFINISHED TASKS · 继续未完成的任务</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ 11 · Chapter 03 ============================ -->
+    <section class="slide chapter">
+      <div class="ch-eyebrow">Chapter</div>
+      <div class="ch-num">03</div>
+      <h2 class="ch-title">关于 harness engineering</h2>
+      <p class="ch-sub">人类为模型构建能够工作的环境，让 AI 真正融入工作流。</p>
+      <div class="badge">CodeNook · v0.25.5</div>
+    </section>
+
+    <!-- ============================ 12 · 作者思考 引文 ============================ -->
+    <section class="slide quote">
+      <div class="quote-wrap">
+        <div class="left">
+          <div class="ch-eyebrow">Author's Note</div>
+          <p class="key-line">人类需要为模型<br/><span class="accent">构建能够工作的环境</span>。</p>
+          <div class="key-divider"></div>
+          <p class="key-line">人类通过 codenook，<br/>角色变为<span class="accent">任务的发布者和审判者</span>。</p>
+        </div>
+        <div class="right">
+          <span class="qmark">❝</span>
+          <p>大家都在谈论怎么将自己的工作流通过 AI 来完成，我的这个 codenook 系统给出了一个答案。</p>
+          <p>流行的 harness engineering，我的理解就是：随着模型能力的增强，怎么才能让它更好地融合到你的工作流中进行工作，甚至是成为你工作流的执行者。</p>
+          <p>人类需要为模型构建能够工作的环境。因为模型的工作方式与人类不同，这就需要我们将原有的工作流进行改造，以适应 AI 和高效利用 AI。</p>
+          <p>codenook 通过插件的方式，可以集成不同的工作流，AI 能够识别它们并按照集成的工作流进行工作。人类通过 codenook，角色变为任务的发布者和审判者。</p>
+          <span class="qmark close">❞</span>
+          <div class="sig">— on harness engineering</div>
+        </div>
+      </div>
+      <div class="badge" style="color: var(--muted);">CodeNook · v0.25.5</div>
+    </section>
+
+  </div>
+</div>
+
+<nav class="nav-dots" id="dots" aria-label="slide indicator"></nav>
+<div class="counter" id="counter">1 / 12</div><div class="help">← / → · Space · F fullscreen</div>
+
+<script>
+(function () {
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const dotsHost = document.getElementById('dots');
+  const counter = document.getElementById('counter');
+  const progress = document.getElementById('progress');
+  const deck = document.getElementById('deck');
+
+  slides.forEach((_, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+    b.addEventListener('click', (e) => { e.stopPropagation(); go(i); });
+    dotsHost.appendChild(b);
+  });
+  const dots = Array.from(dotsHost.querySelectorAll('button'));
+
+  let cur = 0;
+  function clamp(n) { return Math.max(0, Math.min(slides.length - 1, n)); }
+
+  function go(n) {
+    n = clamp(n);
+    slides[cur].classList.remove('active');
+    dots[cur].classList.remove('active');
+    cur = n;
+    slides[cur].classList.add('active');
+    dots[cur].classList.add('active');
+    counter.textContent = (cur + 1) + ' / ' + slides.length;
+    progress.style.width = ((cur + 1) / slides.length * 100) + '%';
+    if (location.hash !== '#' + (cur + 1)) {
+      history.replaceState(null, '', '#' + (cur + 1));
+    }
+  }
+
+  function next() { go(cur + 1); }
+  function prev() { go(cur - 1); }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault(); next();
+    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      e.preventDefault(); prev();
+    } else if (e.key === 'Home') {
+      e.preventDefault(); go(0);
+    } else if (e.key === 'End') {
+      e.preventDefault(); go(slides.length - 1);
+    } else if (e.key === 'f' || e.key === 'F') {
+      e.preventDefault();
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+
+  document.querySelectorAll('.edge').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (el.dataset.nav === 'prev') prev(); else next();
+    });
+  });
+  deck.addEventListener('click', (e) => {
+    if (e.target.closest('a, button, input, textarea, select')) return;
+    next();
+  });
+
+  function fromHash() {
+    const m = (location.hash || '').match(/^#(\d+)$/);
+    if (m) {
+      const n = clamp(parseInt(m[1], 10) - 1);
+      if (n !== cur) go(n);
+    }
+  }
+  window.addEventListener('hashchange', fromHash);
+
+  function scale() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const s = Math.min(w / 1280, h / 720);
+    deck.style.transform = 'scale(' + s + ')';
+  }
+  window.addEventListener('resize', scale);
+  scale();
+
+  dots[0].classList.add('active');
+  progress.style.width = (1 / slides.length * 100) + '%';
+  fromHash();
+})();
+</script>
+
+</body>
+</html>
