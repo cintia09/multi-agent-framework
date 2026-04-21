@@ -445,8 +445,54 @@ body{{font:15px/1.6 -apple-system,Segoe UI,sans-serif;max-width:880px;margin:2em
 .prompt a,.ctx a{{color:#06f;text-decoration:none}}
 .prompt a:hover,.ctx a:hover{{text-decoration:underline}}
 .prompt p,.ctx p{{margin:.5em 0}}
+#toggle{{position:fixed;top:1em;right:1em;background:#fff;border:1px solid #ccc;color:#444;font-size:.85em;padding:.35em .8em;border-radius:4px;cursor:pointer;font-family:inherit;box-shadow:0 1px 3px rgba(0,0,0,.06)}}
+#toggle:hover{{background:#f3f3f3}}
+.hidden-by-reader{{display:none}}
 </style></head><body>
-<div class="ctx">{_render_markdown(ctx_text) if ctx_text else '<p><em>(no context)</em></p>'}</div>
+<button id="toggle" type="button">Spec view</button>
+<div class="ctx" id="ctx">{_render_markdown(ctx_text) if ctx_text else '<p><em>(no context)</em></p>'}</div>
+<script>
+(function(){{
+  var ctx = document.getElementById('ctx');
+  var btn = document.getElementById('toggle');
+  // Save originals so we can restore.
+  var hs = ctx.querySelectorAll('h1,h2,h3,h4');
+  hs.forEach(function(h){{ h.dataset.orig = h.textContent; }});
+
+  function applyReader(){{
+    // 1. Hide a leading H1 that looks like a role label ("Clarifier — T-001").
+    var firstH1 = ctx.querySelector('h1');
+    if (firstH1 && /[—-]/.test(firstH1.textContent)) firstH1.classList.add('hidden-by-reader');
+    // 2. Strip parenthetical hints from headings ("Goal (user vocabulary)" -> "Goal").
+    hs.forEach(function(h){{
+      h.textContent = h.dataset.orig.replace(/\\s*\\([^)]+\\)\\s*$/, '');
+    }});
+    // 3. Hide noisy "rationale" sections (and following siblings until next H1/H2).
+    ctx.querySelectorAll('h2,h3').forEach(function(h){{
+      if (/rationale/i.test(h.dataset.orig)){{
+        h.classList.add('hidden-by-reader');
+        var sib = h.nextElementSibling;
+        while (sib && !/^H[12]$/.test(sib.tagName)){{
+          var next = sib.nextElementSibling;
+          sib.classList.add('hidden-by-reader');
+          sib = next;
+        }}
+      }}
+    }});
+  }}
+  function applySpec(){{
+    hs.forEach(function(h){{ h.textContent = h.dataset.orig; }});
+    ctx.querySelectorAll('.hidden-by-reader').forEach(function(el){{ el.classList.remove('hidden-by-reader'); }});
+  }}
+
+  var mode = 'reader';
+  applyReader();
+  btn.addEventListener('click', function(){{
+    if (mode === 'reader'){{ applySpec(); btn.textContent = 'Reader view'; mode = 'spec'; }}
+    else {{ applyReader(); btn.textContent = 'Spec view'; mode = 'reader'; }}
+  }});
+}})();
+</script>
 </body></html>
 """
 
