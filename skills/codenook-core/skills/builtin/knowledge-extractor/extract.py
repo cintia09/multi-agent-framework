@@ -366,6 +366,13 @@ def _parse_json_payload(raw: str) -> dict:
     start = raw.find("{")
     if start < 0:
         raise ValueError("no '{' in LLM response")
+    # Refuse top-level arrays — returning the first element of an array
+    # would be a silent partial parse, and the function contract is
+    # ``-> dict``. If a `[` precedes our first `{`, treat the payload as
+    # array-shaped and reject so the caller's existing fallback runs.
+    bracket = raw.find("[")
+    if 0 <= bracket < start:
+        raise ValueError("top-level array, not object, in LLM response")
     depth = 0
     in_str = False
     esc = False

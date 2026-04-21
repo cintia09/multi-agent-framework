@@ -1,3 +1,29 @@
+## v0.27.1 (2026-04-21)
+
+Code-review follow-up on v0.27.0. Two findings.
+
+### Fixed
+- **High — `tests/m9-skill-extractor.bats::TC-M9.4-02` realigned to
+  the new `MIN_REPEAT_THRESHOLD = 2`.** The test was pinned against
+  the old `>=3` gate via `phase-log-2x.txt` (two `bash scripts/build.sh`
+  calls). With the new gate the 2× fixture *meets* threshold and the
+  test would flip from "no skill dir + below_threshold" to "skill
+  proposed". Renamed the fixture to `phase-log-1x.txt` (a single
+  invocation) so the test still proves the gate refuses sub-threshold
+  inputs. (`tests/fixtures/m9-skill-extractor/phase-log-1x.txt`,
+  `tests/m9-skill-extractor.bats:59`)
+
+- **Low — `knowledge-extractor._parse_json_payload` now refuses
+  top-level arrays.** When the slow path was hit on a prose-wrapped
+  array response (`Sure: [{"a":1},{"b":2}]`), the brace-counter found
+  the `{` inside the array and returned only the first element —
+  silent partial parse against a `-> dict` contract. Now checks
+  whether `[` precedes the first `{` and raises so the caller's
+  existing `judge-parse-failed` fallback runs.
+  (`skills/builtin/knowledge-extractor/extract.py`)
+
+---
+
 ## v0.27.0 (2026-04-21)
 
 Extraction tuning sweep — addresses two pain points seen on the live

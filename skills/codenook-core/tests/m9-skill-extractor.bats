@@ -56,7 +56,7 @@ mock_dir_with() {
 
   run env CN_LLM_MOCK_DIR="$mock" bash "$EXTRACT_SH" \
         --task-id t1 --workspace "$ws" --phase complete --reason after_phase \
-        --input "$FX/phase-log-2x.txt"
+        --input "$FX/phase-log-1x.txt"
   [ "$status" -eq 0 ] || { echo "out=$output"; return 1; }
 
   # No skill dir created.

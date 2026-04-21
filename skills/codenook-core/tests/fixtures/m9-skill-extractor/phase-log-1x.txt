@@ -1,0 +1,9 @@
+# Phase log: build invoked only once (below threshold of 2)
+
+Iteration 1:
+  $ bash scripts/build.sh --release
+  build ok
+
+# everything else is one-off
+$ git status
+$ ls -la
