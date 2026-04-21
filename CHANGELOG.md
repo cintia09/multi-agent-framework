@@ -1,3 +1,24 @@
+## v0.16.1 (2026-04-21)
+
+### Fixed
+- **`codenook hitl prepare` now works on Windows** — `cmd_hitl.py`
+  invokes `render.py` via `sys.executable` instead of shelling out
+  to `bash render.sh`, so the subcommand no longer requires Git-Bash
+  or `python3` on PATH.
+
+### Added
+- **`view-renderer/render.py`** — new Python CLI entry point
+  (`python render.py prepare --id <eid> [--workspace <dir>]`).
+  Replaces `render.sh` as the primary invocation. `render.sh` is
+  updated to call `render.py` with a `python3 || python` fallback;
+  `render.cmd` is added as a Windows shim.
+- **Bootloader: pre-render promoted to step 0 (SHOULD)** — the
+  "optional polish step" buried inside the channel-choice section is
+  restructured as a separate numbered step (step 0) that runs
+  **before** the channel-choice ask, with explicit SHOULD wording and
+  the OS-agnostic `<codenook> hitl prepare --id <eid>` invocation.
+  This replaces the direct `render.sh` call that blocked Windows.
+
 ## v0.16.0 (2026-04-21)
 
 ### Added

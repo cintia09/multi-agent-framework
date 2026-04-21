@@ -28,7 +28,17 @@ silently ignored and the Python fallback covers the gap.
 ## CLI
 
 ```
-view-renderer prepare --id <entry-id> [--workspace <dir>]
+# Python (preferred — works on Windows, macOS, Linux):
+python render.py prepare --id <entry-id> [--workspace <dir>]
+
+# Windows cmd shim:
+render.cmd prepare --id <entry-id> [--workspace <dir>]
+
+# POSIX shell shim (calls render.py via python3 or python):
+render.sh prepare --id <entry-id> [--workspace <dir>]
+
+# Via the codenook CLI (recommended; OS-agnostic):
+<codenook> hitl prepare --id <entry-id>
 ```
 
 `prepare` collects everything the host LLM needs and prints a JSON

@@ -34,10 +34,15 @@ if [ -z "$WORKSPACE" ]; then
   fi
 fi
 
+RENDER_PY="$(dirname "$0")/render.py"
+
 case "$SUBCMD" in
   prepare)
-    CN_SUBCMD=prepare CN_WORKSPACE="$WORKSPACE" CN_ID="$ID" \
-      python3 "$(dirname "$0")/_render.py"
+    if command -v python3 >/dev/null 2>&1; then
+      python3 "$RENDER_PY" prepare --id "$ID" --workspace "$WORKSPACE"
+    else
+      python "$RENDER_PY" prepare --id "$ID" --workspace "$WORKSPACE"
+    fi
     ;;
   ""|-h|--help)
     sed -n '1,12p' "$0"; exit 0 ;;

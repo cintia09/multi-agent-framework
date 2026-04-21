@@ -87,12 +87,12 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
     if sub == "prepare":
         kv = _parse_kvargs(rest)
         eid = kv.get("id") or ""
-        renderer = ctx.kernel_dir / "view-renderer" / "render.sh"
+        renderer = ctx.kernel_dir / "view-renderer" / "render.py"
         if not renderer.is_file():
             sys.stderr.write(f"codenook hitl: view-renderer missing: {renderer}\n")
             return 1
         return subprocess.call([
-            "bash", str(renderer), "prepare",
+            sys.executable, str(renderer), "prepare",
             "--id", str(eid),
             "--workspace", str(ctx.workspace),
         ])

@@ -223,6 +223,23 @@ On `waiting` you may also need to clear an HITL gate. Scan
 `.codenook/hitl-queue/*.json` for entries with `decision == null`.
 For each open entry:
 
+0. **Pre-render (SHOULD).** Before relaying, call the view-renderer
+   once per new pending entry to produce human-readable artefacts
+   for the channel commands:
+
+   ```bash
+   <codenook> hitl prepare --id <entry-id>
+   ```
+
+   This prints a JSON envelope with `html_out`, `ansi_out`, and
+   `prompt_template` keys. Read `prompt_template`, substitute the
+   slot values, run the result through your LLM, then atomically
+   write the HTML body (using the wrapper template at `html_template`)
+   to `html_out` and the ANSI text to `ansi_out`. The channel
+   commands (`hitl render`, `hitl show`) prefer these artefacts when
+   present and silently fall back to the stdlib renderer when absent —
+   skip this step only on a hard error.
+
 1. **MANDATORY channel-choice ask.** Before relaying ANY HITL gate
    prompt to the user, you MUST first issue exactly one `ask_user`
    (or equivalent) with two choices — `terminal` (default) and
@@ -249,22 +266,6 @@ For each open entry:
    cannot be honoured anyway); in that case use `terminal`
    unconditionally.
 
-   **Optional polish step (best-effort, before relaying):** if the
-   `view-renderer` skill is available, invoke it once per new
-   pending HITL entry to produce a reviewer-friendly rewrite. The
-   render-html / show commands will automatically prefer the
-   rewritten artefact when present, and silently fall back to the
-   stdlib renderer when absent — so failure here is non-blocking.
-
-   ```bash
-   .codenook/codenook-core/skills/builtin/view-renderer/render.sh \
-       prepare --id <entry-id> --workspace .
-   # prints a JSON envelope with html_out, ansi_out, prompt_template.
-   # Read prompt_template, substitute the {{...}} slots, run it
-   # through your LLM, then atomically write the produced HTML body
-   # (wrapped via templates/reviewer.html.template) to html_out and
-   # the ANSI text to ansi_out. Skip on any error.
-   ```
 2. Relay the prompt (verbatim if terminal; via the rendered file if
    html), capture the user's answer, then submit the decision:
 
