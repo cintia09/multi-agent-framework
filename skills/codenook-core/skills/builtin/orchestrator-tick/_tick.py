@@ -1107,9 +1107,34 @@ def _tick_body(workspace: Path, state: dict) -> dict:
             if just_consumed_verdict is not None:
                 write_hitl_entry(workspace, state, cur, just_consumed_verdict)
                 state["status"] = "waiting"
+                gate_id = cur.get("gate") or cur.get("id")
+                task_id = state.get("task_id", "")
+                phase_id = cur.get("id", "")
+                eid = f"{task_id}-{gate_id}"
                 return {
                     "status": "waiting",
-                    "next_action": f"hitl:{cur.get('gate') or cur.get('id')}",
+                    "next_action": f"hitl:{gate_id}",
+                    "hitl_entry_id": eid,
+                    "conductor_instruction": (
+                        "MANDATORY HITL ritual — do NOT skip steps:\n"
+                        "  1. ask_user with exactly two choices: "
+                        "['terminal', 'html']. Treat any non-'html' answer as "
+                        "'terminal'.\n"
+                        "  2a. If terminal: read the gate prompt "
+                        f"(.codenook/hitl-queue/{eid}.json) + the role's "
+                        "primary output, render as your normal markdown "
+                        "response (NOT inside an ask_user modal), then "
+                        "ask_user for approve/reject/needs_changes.\n"
+                        "  2b. If html: produce a self-contained styled "
+                        f"HTML file at .codenook/hitl-queue/{eid}.html, "
+                        "open it (`open` on macOS, `xdg-open` on Linux, "
+                        "`start \"\"` on Windows), then ask_user for the "
+                        "decision.\n"
+                        "  3. Submit via: codenook decide --task "
+                        f"{task_id} --phase {phase_id} "
+                        "--decision <approve|reject|needs_changes> "
+                        "[--comment \"...\"]"
+                    ),
                 }
             # waiting + still pending → noop
             del state["last_tick_ts"]

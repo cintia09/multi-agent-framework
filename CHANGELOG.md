@@ -1,3 +1,24 @@
+## v0.25.5 (2026-04-21)
+
+### Changed
+- **HITL `waiting` envelope now carries an inline `conductor_instruction`.**
+  When `tick --json` returns `status:waiting` because a HITL gate
+  was just enqueued, the JSON also includes:
+  - `hitl_entry_id` — the queue entry id
+  - `conductor_instruction` — a multi-line, MANDATORY ritual the
+    conductor must execute before doing anything else: (1) ask_user
+    `terminal | html`; (2a) terminal → render gate inline + ask_user
+    for decision; (2b) html → write `.codenook/hitl-queue/<eid>.html`,
+    open it, then ask_user; (3) submit via canonical
+    `codenook decide --task --phase --decision`.
+
+  Rationale: the same instruction has been in the bootloader since
+  v0.18, but conductors routinely skipped the channel-choice ask
+  and went straight to a text approval. Embedding the ritual in
+  the kernel's own JSON output (which the conductor *just ran*)
+  makes it impossible to miss. The bootloader text remains as
+  reference. (`orchestrator-tick/_tick.py:1107-1136`)
+
 ## v0.25.4 (2026-04-21)
 
 ### Fixed
