@@ -1,4 +1,53 @@
-## v0.21.0 (2026-04-25)  recursive knowledge discovery + INDEX overrides + `codenook knowledge` CLI
+## v0.22.0 (2026-04-21) — kernel-side `{{KNOWLEDGE_HITS}}` substitution + `find_relevant()` API
+
+### Added
+- **`find_relevant(workspace, query, role=None, phase_id=None, plugin=None, top_n=8)`**
+  in `skills/codenook-core/skills/builtin/_lib/knowledge_query.py`. Reads
+  `<ws>/.codenook/memory/index.yaml` (built by v0.21.0); falls back to a
+  transient in-memory `aggregate_knowledge` scan when the index file is
+  missing. Pure read, idempotent, never raises. Returns a list of
+  `{path, summary, tags, plugin, score, reason}` hits.
+- **TF-style scoring**: tokens overlap against tag (×3) + summary (×1)
+  + path segment (×0.5). Plugin pin (`plugin=` arg matching entry's
+  `plugin`) adds a +1 bias to break ties. Each hit carries a
+  human-readable `reason` string ("tag match: …; summary keyword: …;
+  plugin pin: …").
+- **`{{KNOWLEDGE_HITS}}` template placeholder** auto-injected from
+  `cmd_tick._augment_envelope` and from the orchestrator's
+  `_render_phase_prompt`. Backward-compat: templates without the
+  placeholder are unchanged.
+- **Config key** `knowledge_hits.top_n` in `<ws>/.codenook/config.yaml`
+  overrides the default cap of 8.
+- **Tests** — new `tests/python/test_knowledge_query.py` (15 cases)
+  covering ranking, plugin bias, top-N cap, fallback scan, render
+  formatting, placeholder substitution, config key resolution, and an
+  end-to-end check via `_tick._render_phase_prompt`. Pytest:
+  124 passed (+15 over v0.21.0), 4 pre-existing path-separator
+  failures unchanged.
+
+### Changed
+- `cmd_tick._augment_envelope` now substitutes `{{KNOWLEDGE_HITS}}`
+  after `{{TASK_CONTEXT}}` so the dispatched prompt the conductor
+  loads has both placeholders resolved.
+- Orchestrator-tick `_render_phase_prompt` (the parity write that
+  fires inside `dispatch_agent`) does the same substitution so direct
+  callers / tests see consistent output.
+
+### Notes / TODO
+- The optional post-validator (warn when a phase output declares
+  `confidence: HIGH` without citing any auto-injected hit) was
+  deferred to keep the release small. Logged for v0.23.x.
+- Plugin manifests / schemas unchanged — no `schema_version` bump.
+
+### Backward compat
+- Plugins whose templates do not contain `{{KNOWLEDGE_HITS}}` (i.e.
+  every plugin except prnook ≥ 0.2.3) see no behaviour change.
+- Workspaces without `index.yaml` still get hits via a fallback scan
+  of `<ws>/.codenook/plugins/*/knowledge/`.
+
+---
+
+## v0.21.0 (2026-04-25) — recursive knowledge discovery + INDEX overrides + `codenook knowledge` CLI
 
 ### Fixed
 - **CRIT  plugin knowledge under subdirectories was invisible to the

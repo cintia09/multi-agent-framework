@@ -638,3 +638,24 @@ that M8.1–M8.8 owners do not silently re-litigate them.
    M8; M9+ may introduce an explicit `router-agent --reset` flow.
 5. **Multi-router collaboration / router learning.** Out of scope (see
    plan.md "Out of scope").
+
+
+---
+
+## Appendix: Phase manifest template substitution variables
+
+Plugin manifest templates under
+`<plugin>/manifest-templates/phase-<n>-<role>.md` may use the
+following double-brace placeholders. The kernel substitutes them at
+dispatch time (parity-locked between
+`orchestrator-tick._tick._render_phase_prompt` and
+`cmd_tick._augment_envelope`):
+
+| Placeholder            | Source                                            | Since   |
+|------------------------|---------------------------------------------------|---------|
+| `{{TASK_CONTEXT}}`     | `memory_layer.build_task_context(workspace, task)` | M10+   |
+| `{{KNOWLEDGE_HITS}}`   | `knowledge_query.find_relevant(...)` top-N hits    | v0.22.0 |
+
+Templates without a given placeholder are returned unchanged. See
+`docs/memory-and-extraction.md` 8 for the `{{KNOWLEDGE_HITS}}`
+contract (scoring, fallback, config).

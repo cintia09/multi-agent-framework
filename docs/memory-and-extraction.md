@@ -214,3 +214,94 @@ new `memory/index.yaml` exporter (added in the same commit) gives
 conductors a cheaper way to discover what the workspace already
 knows, which was the primary use-case the per-task route had been
 serving.
+
+---
+
+## 8. `find_relevant()` and `{{KNOWLEDGE_HITS}}` (v0.22.0+)
+
+Kernel-side knowledge auto-injection lives in
+`skills/codenook-core/skills/builtin/_lib/knowledge_query.py`. It
+turns the inert `<ws>/.codenook/memory/index.yaml` (built by the
+v0.21.0 reindexer) into ranked context that ships inside every
+dispatched phase prompt.
+
+### API
+
+```python
+from knowledge_query import find_relevant
+
+hits = find_relevant(
+    workspace,           # Path to <ws> (parent of .codenook)
+    query,               # free-form text  usually task.input
+    role=None,           # optional dispatched role name; folded in
+    phase_id=None,       # optional phase id; folded in
+    plugin=None,         # optional plugin pin; entries with this
+                         #   plugin id get a +1 scoring bias
+    top_n=8,             # cap on returned hits
+)
+# -> [{"path","summary","tags","plugin","score","reason"}, ...]
+```
+
+Pure read; never raises; idempotent. When `index.yaml` is missing
+the function falls back to a transient
+`knowledge_index.aggregate_knowledge` scan over installed plugins.
+
+### Scoring
+
+Each query token (lowercase,  2 chars, deduped) contributes:
+
+| Source                           | Weight |
+|----------------------------------|--------|
+| Tag substring/word/exact match   | 3     |
+| Summary substring                | 1     |
+| Path-segment substring           | 0.5   |
+
+Plugin pin (`plugin=` matches the entry's `plugin`) adds a one-time
++1 bias. Hits are sorted by `(-score, plugin, path)` for
+deterministic tie-breaking. Each hit carries a `reason` string that
+explains the dominant contributors so prompts can show users *why*
+an entry was selected.
+
+### `{{KNOWLEDGE_HITS}}` placeholder
+
+Plugin manifest templates may include the literal token
+`{{KNOWLEDGE_HITS}}`. At dispatch time the kernel substitutes it
+with a markdown bullet list of the top-N hits. Substitution happens
+in two parity-locked spots:
+
+1. `skills/codenook-core/skills/builtin/orchestrator-tick/_tick.py`
+    inside `_render_phase_prompt`, alongside `{{TASK_CONTEXT}}`.
+2. `skills/codenook-core/_lib/cli/cmd_tick.py` 
+   `_augment_envelope` re-renders the same prompt file before
+   returning the JSON envelope to the conductor, so the file the
+   conductor loads is always fully substituted.
+
+Templates without the placeholder are returned unchanged  full
+backward compatibility for plugins that opt out.
+
+The query the kernel builds is `task.task_input + state.keywords`.
+Role and phase id are passed through the dedicated function args so
+they are weighted into the token soup without needing the plugin
+template author to interpolate them by hand.
+
+### Config
+
+`<ws>/.codenook/config.yaml` may carry:
+
+```yaml
+knowledge_hits:
+  top_n: 8     # default; override per workspace
+```
+
+Read via `knowledge_query.resolve_top_n(workspace, default=8)`.
+Invalid / missing values fall back to the supplied default.
+
+### Empty-state UX
+
+When `find_relevant` returns zero hits, the rendered block reads:
+
+> _No matches found in index.yaml. Run `codenook knowledge reindex`
+> if you expected hits._
+
+This nudges users toward the reindex CLI when their plugin ships
+knowledge but the workspace's index hasn't been refreshed.

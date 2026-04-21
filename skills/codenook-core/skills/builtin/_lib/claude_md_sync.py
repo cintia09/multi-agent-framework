@@ -390,6 +390,12 @@ entries and `<codenook> knowledge search <query>` to rank them by
 substring score across tags / title / summary. Conductors and phase
 agents may consult this index when grounding their work.
 
+Plugin manifest templates may also include the literal token
+`{{KNOWLEDGE_HITS}}`; the kernel substitutes it at dispatch time
+with the top-N matches from `index.yaml` via
+`knowledge_query.find_relevant`. Templates without the placeholder
+are returned unchanged. See `docs/memory-and-extraction.md` §8.
+
 ### Hard rules for the LLM (zero domain budget)
 
 - MAY read `.codenook/plugins/*/plugin.yaml` and

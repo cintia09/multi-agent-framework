@@ -174,6 +174,34 @@ def _augment_envelope(ctx: CodenookContext, task: str, tick_out: str) -> str:
         except Exception:
             task_ctx = ""
         body = body.replace("{{TASK_CONTEXT}}", task_ctx)
+        # v0.22.0 — auto-inject {{KNOWLEDGE_HITS}} via find_relevant.
+        try:
+            _lib = ctx.kernel_dir / "_lib"
+            sys.path.insert(0, str(_lib))
+            import knowledge_query as _kq  # type: ignore[import-not-found]
+            query_parts: list[str] = []
+            ti = state.get("task_input")
+            if isinstance(ti, str) and ti.strip():
+                query_parts.append(ti.strip())
+            kws = state.get("keywords")
+            if isinstance(kws, list):
+                query_parts.extend(str(k) for k in kws if k)
+            query = " ".join(query_parts)
+            top_n = _kq.resolve_top_n(ctx.workspace, default=8)
+            body = _kq.substitute_placeholder(
+                body,
+                ctx.workspace,
+                query=query,
+                role=role,
+                phase_id=str(phase),
+                plugin=plugin,
+                top_n=top_n,
+            )
+        except Exception:
+            # Backward-compat: never fail dispatch on retrieval errors.
+            # Leave any unsubstituted placeholder literal so a later run
+            # (post-fix) can still inject hits.
+            pass
         prompt_p.write_text(body, encoding="utf-8")
     elif not prompt_p.is_file():
         prompt_p.write_text(

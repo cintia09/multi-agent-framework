@@ -481,6 +481,37 @@ def _render_phase_prompt(workspace: Path, state: dict, phase: dict) -> str | Non
         except Exception:
             pass
         rendered = template.replace("{{TASK_CONTEXT}}", task_context)
+        # v0.22.0 — auto-inject {{KNOWLEDGE_HITS}} via find_relevant. The
+        # CLI cmd_tick re-renders into the same prompts/<basename>.md
+        # path after we return, so this is mostly a parity write — keep
+        # them in sync so direct callers of dispatch_agent (and tests
+        # that drive the orchestrator without the CLI shim) see the
+        # substituted block too.
+        try:
+            _lib = Path(__file__).resolve().parent.parent / "_lib"
+            import sys as _sys
+            _sys.path.insert(0, str(_lib))
+            import knowledge_query as _kq
+            query_parts: list[str] = []
+            ti = state.get("task_input")
+            if isinstance(ti, str) and ti.strip():
+                query_parts.append(ti.strip())
+            kws = state.get("keywords")
+            if isinstance(kws, list):
+                query_parts.extend(str(k) for k in kws if k)
+            query = " ".join(query_parts)
+            top_n = _kq.resolve_top_n(workspace, default=8)
+            rendered = _kq.substitute_placeholder(
+                rendered,
+                workspace,
+                query=query,
+                role=str(phase.get("role") or ""),
+                phase_id=str(phase.get("id") or ""),
+                plugin=plugin,
+                top_n=top_n,
+            )
+        except Exception:
+            pass
         return rendered
     except Exception:
         return None
