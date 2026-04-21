@@ -559,8 +559,6 @@ def _render_hitl_prompt(workspace: Path, state: dict, phase: dict,
         except Exception:
             desc = ""
     parts = [
-        f"# Approval requested: {gate}",
-        "",
         f"Task **{state.get('task_id','?')}** — {title}".rstrip(" —"),
         f"Plugin: `{plugin}`  Phase: `{phase_id}` (role `{role}`)  "
         f"Verdict at gate: `{verdict or 'n/a'}`",
