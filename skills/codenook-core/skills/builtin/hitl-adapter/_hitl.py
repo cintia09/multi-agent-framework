@@ -79,12 +79,50 @@ def cmd_list(ws: Path, json_out: bool) -> int:
     return 0
 
 
-def _render_terminal(md: str, color: bool = True) -> str:
+def _apply_reader_view(md: str) -> str:
+    """Strip role-output noise meant for the distiller, not the reviewer.
+
+    Mirrors the JS toggle on the HTML preview:
+      - drop a leading 'Role — T-XXX' style H1,
+      - strip parenthetical hints from headings (e.g. 'Goal (user vocabulary)'),
+      - drop any '## ... rationale' section and its body until the next H1/H2.
+    """
+    lines = md.split("\n")
+    out: list[str] = []
+    skip_section = False
+    first_h1_seen = False
+    for line in lines:
+        h = re.match(r"^(#{1,6})\s+(.+?)\s*#*\s*$", line)
+        if h:
+            level, title = len(h.group(1)), h.group(2)
+            if not first_h1_seen and level == 1 and re.search(r"[—-]", title):
+                first_h1_seen = True
+                continue
+            first_h1_seen = True
+            if level <= 2 and re.search(r"rationale", title, re.IGNORECASE):
+                skip_section = True
+                continue
+            if skip_section and level <= 2:
+                skip_section = False
+            title = re.sub(r"\s*\([^)]+\)\s*$", "", title)
+            out.append(f"{h.group(1)} {title}")
+            continue
+        if skip_section:
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
+def _render_terminal(md: str, color: bool = True, reader: bool = True) -> str:
     """Minimal markdown -> ANSI-styled text for terminal display.
 
     Honors NO_COLOR and color=False by emitting plain text. Covers the
     same constructs as _render_markdown: headers, fenced code blocks,
     blockquotes, lists, paragraphs, plus inline code/bold/italic/links.
+
+    When reader=True (default), applies the same content trimming as the
+    HTML preview's Reader view. Pass reader=False (or call cmd_show
+    --raw) to keep the original markdown verbatim.
     """
     if not md:
         return ""
@@ -92,6 +130,8 @@ def _render_terminal(md: str, color: bool = True) -> str:
     fm = re.match(r"^---\n.*?\n---\n?", md, re.DOTALL)
     if fm:
         md = md[fm.end():]
+    if reader:
+        md = _apply_reader_view(md)
 
     if not color or os.environ.get("NO_COLOR"):
         BOLD = DIM = RESET = ITAL = UND = ""
