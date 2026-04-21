@@ -1,3 +1,14 @@
+## v0.19.1 (2026-04-21)
+
+### Added
+- Bootloader gained an explicit "Discovering existing tasks"
+  paragraph instructing the conductor to use `codenook status`
+  for task enumeration, NOT `glob .codenook/tasks/*/state.json`.
+  Many host runtimes (Claude Code in particular) skip
+  dot-directories in their default glob filter and silently
+  return zero results, leading the conductor to falsely conclude
+  "no active tasks". The CLI is the only reliable surface.
+
 ## v0.19.0 (2026-04-24) — per-task execution mode
 
 ### Added

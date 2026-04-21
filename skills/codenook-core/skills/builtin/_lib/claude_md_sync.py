@@ -103,6 +103,20 @@ intent, picks the best-matching plugin, and creates the task with
   (default plugin, dual_mode, target_dir, etc.) — honour these
   when the user did not state otherwise.
 
+**Discovering existing tasks (do NOT glob `.codenook/tasks/`):**
+
+- Always run `<codenook> status` (no arguments) to enumerate every
+  active task — it prints task ids, current phase, status, and the
+  resolved model + execution mode for each. Many host runtimes
+  (Claude Code, etc.) ignore dot-directories in their default
+  `glob` filter, so `glob ".codenook/tasks/*/state.json"` will
+  silently return zero results even when tasks exist; the CLI
+  is the only reliable discovery surface.
+- For a single task's full state, run `<codenook> status --task
+  T-NNN` (prints the rendered state.json).
+- Only fall back to reading `.codenook/tasks/T-NNN/state.json`
+  directly when the CLI is unavailable for some reason.
+
 The conductor MAY read these files freely. They are workspace-
 shared resources, not phase outputs. The "zero domain budget"
 hard rules below restrict only state mutation and per-phase
