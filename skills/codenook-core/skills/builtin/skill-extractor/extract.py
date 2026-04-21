@@ -53,7 +53,7 @@ except ImportError:
 # ---------------------------------------------------------------- constants
 
 PER_TASK_CAP = 1
-MIN_REPEAT_THRESHOLD = 3  # FR-EXT-S — ≥3 invocations to propose anything.
+MIN_REPEAT_THRESHOLD = 2  # v0.27.0: lowered from 3 to 2 — three+ invocations
 MAX_SUMMARY = ml.MAX_SUMMARY_CHARS  # 200
 MAX_TAGS = ml.MAX_TAGS  # 8
 INPUT_BODY_TRUNC = 4096
@@ -514,7 +514,7 @@ def main(argv: list[str]) -> int:
         body_in = _read_task_context(workspace, task_id, input_path)
 
         # Detection gate: bail out before any LLM call when no script
-        # invocation passes the ≥3 threshold (FR-EXT-S, TC-M9.4-02).
+        # invocation passes the ≥2 threshold (FR-EXT-S, TC-M9.4-02).
         meets, qualifying = _meets_threshold(body_in)
         if not meets:
             all_counts = _count_repeats(body_in)

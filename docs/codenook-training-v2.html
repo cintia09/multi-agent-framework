@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>CodeNook · 让 AI 助手能接着上次干</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --indigo: #6366f1;
+    --cyan:   #06b6d4;
+    --mint:   #10b981;
+    --amber:  #f59e0b;
+    --pink:   #ec4899;
+    --bg:     #fafbff;
+    --ink:    #1e293b;
+    --ink2:   #475569;
+    --muted:  #64748b;
+    --line:   #e2e8f0;
+    --code-bg:#0f172a;
+    --grad-main: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+    --grad-soft: linear-gradient(135deg, #eef2ff 0%, #ecfeff 100%);
+    --grad-warm: linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%);
+    --grad-mint: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    --shadow-sm: 0 2px 8px rgba(15,23,42,.06);
+    --shadow-md: 0 8px 24px rgba(99,102,241,.12);
+    --shadow-lg: 0 20px 48px rgba(99,102,241,.18);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: "PingFang SC", "HarmonyOS Sans", "Microsoft YaHei", "Inter", system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  code, pre, .mono { font-family: "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace; }
+  p code { background: #eef2ff; color: #4338ca; padding: 1px 6px; border-radius: 4px; font-size: 90%; }
+
+  section {
+    min-height: 100vh;
+    padding: 80px 8vw;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+  }
+  .section-tag {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    color: var(--indigo);
+    background: #eef2ff;
+    padding: 6px 14px;
+    border-radius: 999px;
+    margin-bottom: 18px;
+    text-transform: uppercase;
+  }
+  h1, h2, h3 { color: var(--ink); margin: 0 0 16px; line-height: 1.3; font-weight: 700; }
+  h1 { font-size: clamp(38px, 5vw, 60px); }
+  h2 { font-size: clamp(28px, 3.4vw, 42px); }
+  h3 { font-size: 20px; margin-top: 28px; }
+  .lede {
+    font-size: clamp(16px, 1.4vw, 19px);
+    color: var(--ink2);
+    max-width: 780px;
+  }
+  .gradient-text {
+    background: var(--grad-main);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Floating dot nav */
+  .dot-nav {
+    position: fixed;
+    right: 28px;
+    bottom: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 100;
+    background: rgba(255,255,255,.85);
+    backdrop-filter: blur(10px);
+    padding: 14px 10px;
+    border-radius: 999px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--line);
+  }
+  .dot-nav a {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    transition: all .25s ease;
+    position: relative;
+    display: block;
+  }
+  .dot-nav a:hover { background: var(--indigo); transform: scale(1.25); }
+  .dot-nav a.active {
+    background: linear-gradient(135deg, #6366f1, #06b6d4);
+    width: 28px;
+    border-radius: 6px;
+  }
+  .dot-nav a::after {
+    content: attr(data-label);
+    position: absolute;
+    right: 22px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--ink);
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s;
+  }
+  .dot-nav a:hover::after { opacity: 1; }
+
+  /* Hero */
+  .hero {
+    background: var(--grad-main);
+    color: #fff;
+    text-align: center;
+    align-items: center;
+    overflow: hidden;
+  }
+  .hero::before, .hero::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: .35;
+  }
+  .hero::before { width: 480px; height: 480px; background: #fbbf24; top: -150px; left: -150px; }
+  .hero::after  { width: 560px; height: 560px; background: #ec4899; bottom: -200px; right: -200px; }
+  .hero-inner { position: relative; z-index: 2; max-width: 880px; }
+  .hero h1 { color: #fff; font-size: clamp(38px, 5vw, 64px); margin-bottom: 18px; line-height: 1.2; }
+  .hero .sub { font-size: clamp(17px, 1.5vw, 21px); opacity: .92; margin-bottom: 16px; line-height: 1.7; }
+  .hero .one-liner {
+    margin: 36px auto 0;
+    padding: 22px 28px;
+    background: rgba(255,255,255,.14);
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 18px;
+    backdrop-filter: blur(8px);
+    font-size: clamp(15px, 1.2vw, 17px);
+    max-width: 720px;
+    line-height: 1.8;
+  }
+  .hero .one-liner em { font-style: normal; color: #fde68a; font-weight: 600; }
+  .hero .meta {
+    margin-top: 34px;
+    font-size: 13px;
+    opacity: .8;
+    letter-spacing: .15em;
+  }
+
+  /* Card */
+  .card {
+    background: #fff;
+    border-radius: 22px;
+    padding: 30px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--line);
+    margin: 28px 0;
+  }
+  .insight {
+    margin-top: 26px;
+    padding: 22px 26px;
+    background: var(--grad-soft);
+    border-left: 5px solid var(--indigo);
+    border-radius: 14px;
+    font-size: 16px;
+    color: var(--ink);
+  }
+  .insight strong { color: var(--indigo); }
+
+  .narrative p { color: var(--ink2); font-size: 16.5px; max-width: 820px; }
+  .narrative p + p { margin-top: 14px; }
+  .narrative .turn {
+    margin-top: 28px;
+    padding: 18px 22px;
+    background: #fff;
+    border-left: 4px solid var(--mint);
+    border-radius: 10px;
+    font-size: 16px;
+    color: var(--ink);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Code blocks */
+  pre.code {
+    background: var(--code-bg);
+    color: #e2e8f0;
+    padding: 22px 24px;
+    border-radius: 14px;
+    font-size: 13.5px;
+    line-height: 1.75;
+    overflow-x: auto;
+    box-shadow: var(--shadow-md);
+    margin: 18px 0;
+    border: 1px solid #1e293b;
+  }
+  pre.code .k  { color: #c084fc; }
+  pre.code .s  { color: #6ee7b7; }
+  pre.code .c  { color: #64748b; font-style: italic; }
+  pre.code .n  { color: #60a5fa; }
+  pre.code .v  { color: #fbbf24; }
+  pre.code .prompt { color: #06b6d4; }
+
+  /* Terminal */
+  .terminal {
+    background: var(--code-bg);
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    margin: 24px 0;
+    border: 1px solid #1e293b;
+  }
+  .terminal .bar {
+    background: #1e293b;
+    padding: 10px 16px;
+    display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid #0f172a;
+  }
+  .terminal .bar i {
+    width: 12px; height: 12px; border-radius: 50%; display: block;
+    background: #475569;
+  }
+  .terminal .bar i:nth-child(1) { background: #ef4444; }
+  .terminal .bar i:nth-child(2) { background: #f59e0b; }
+  .terminal .bar i:nth-child(3) { background: #10b981; }
+  .terminal .bar .t {
+    color: #94a3b8; font-size: 12px; margin-left: 12px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .terminal pre {
+    margin: 0;
+    padding: 22px 24px;
+    color: #e2e8f0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13.5px;
+    line-height: 1.85;
+    overflow-x: auto;
+  }
+  .terminal pre .c { color: #64748b; font-style: italic; }
+  .terminal pre .p { color: #06b6d4; }
+
+  /* Sub-detail block (§5) */
+  .detail {
+    margin: 36px 0;
+    padding: 28px 32px;
+    background: #fff;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-sm);
+  }
+  .detail h3 {
+    margin-top: 0;
+    font-size: 22px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .detail h3 .num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    color: var(--indigo);
+    background: #eef2ff;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  .detail p { color: var(--ink2); font-size: 16px; }
+
+  /* Closing */
+  .closing-links {
+    display: flex; gap: 14px; flex-wrap: wrap; margin-top: 28px; font-size: 14px;
+  }
+  .closing-links a {
+    color: var(--indigo); text-decoration: none;
+    background: #eef2ff;
+    padding: 10px 20px;
+    border-radius: 999px;
+    border: 1px solid #c7d2fe;
+    transition: all .2s;
+    font-weight: 500;
+  }
+  .closing-links a:hover { background: #e0e7ff; transform: translateY(-2px); }
+  .footer-line {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px dashed var(--line);
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  @media (max-width: 900px) {
+    section { padding: 60px 6vw; }
+    .dot-nav { right: 12px; bottom: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="dot-nav" aria-label="Section nav">
+  <a href="#s1" class="active" data-label="是什么"></a>
+  <a href="#s2" data-label="为什么折腾"></a>
+  <a href="#s3" data-label="长什么样"></a>
+  <a href="#s4" data-label="跑起来"></a>
+  <a href="#s5" data-label="几个细节"></a>
+  <a href="#s6" data-label="上手 + 聊聊"></a>
+</nav>
+
+<!-- ============ §1 这是什么 ============ -->
+<section id="s1" class="hero">
+  <div class="hero-inner">
+    <svg width="200" height="150" viewBox="0 0 220 160" fill="none" style="margin-bottom: 18px;">
+      <defs>
+        <linearGradient id="folder" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stop-color="#fde68a"/>
+          <stop offset="100%" stop-color="#fbbf24"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="110" cy="148" rx="78" ry="5" fill="#000" opacity=".18"/>
+      <!-- terminal window -->
+      <rect x="22" y="32" width="130" height="92" rx="9" fill="#0f172a" stroke="#fff" stroke-width="2.5"/>
+      <circle cx="34" cy="44" r="3" fill="#ef4444"/>
+      <circle cx="44" cy="44" r="3" fill="#f59e0b"/>
+      <circle cx="54" cy="44" r="3" fill="#10b981"/>
+      <text x="34" y="72" font-family="JetBrains Mono, monospace" font-size="10" fill="#06b6d4">$ codenook</text>
+      <text x="34" y="88" font-family="JetBrains Mono, monospace" font-size="10" fill="#94a3b8">tick --task</text>
+      <text x="34" y="104" font-family="JetBrains Mono, monospace" font-size="10" fill="#94a3b8">T-007 ↩</text>
+      <!-- folder coming out -->
+      <path d="M152 60 L165 50 L195 50 L208 60 L208 110 L152 110 Z" fill="url(#folder)" stroke="#fff" stroke-width="2.5"/>
+      <text x="180" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#92400e" font-weight="700">.codenook/</text>
+      <!-- spark -->
+      <path d="M158 38 L161 32 L164 38 L170 41 L164 44 L161 50 L158 44 L152 41 Z" fill="#fde68a"/>
+    </svg>
+
+    <h1>让 AI 助手能<span style="white-space:nowrap;">接着上次干</span></h1>
+    <p class="sub">一个把任务、记忆、技能塞进项目目录的小框架</p>
+
+    <div class="one-liner">
+      给你的 Claude Code 或 Copilot CLI 装一个<em>任务本</em>——<br/>
+      它就住在项目里的一个 <code style="background:rgba(0,0,0,.2);padding:2px 8px;border-radius:5px;font-family:'JetBrains Mono',monospace;color:#fde68a;">.codenook/</code> 文件夹，
+      让 AI 干活的过程能存档、能续上、能搬走。
+    </div>
+
+    <div class="meta">CODENOOK v0.26 · 内部技术分享 · 30 MIN</div>
+    <div style="margin-top: 22px; font-size: 14px; opacity: .8; max-width: 640px;">
+      接下来会聊：我为什么折腾这个 → 整体长什么样 → 跑起来是什么样 → 几个我比较得意的细节 → 怎么上手。
+    </div>
+  </div>
+</section>
+
+<!-- ============ §2 我为什么折腾这个 ============ -->
+<section id="s2">
+  <span class="section-tag">§ 02 · 起因</span>
+  <h2>我为什么折腾<span class="gradient-text">这个东西</span></h2>
+  <p class="lede">不是冲着"做框架"去的，就是自己用 AI 助手时一直被几件事硌得难受，想自己写个工具消掉它。</p>
+
+  <div class="narrative" style="margin-top: 32px;">
+    <p>第一件事：写到一半窗口崩了。重开一个会话，AI 又把我半小时前已经否决的方案兴致勃勃地提了一次。我得把"这个不行、为什么不行"再讲一遍。讲完接着写，又过半小时，又崩。</p>
+
+    <p>第二件事：上下文越塞越满，到某个点助手会偷偷把前面的对话压缩掉。等我下一次问"我们之前定的接口签名是什么来着"，它会很自信地编一个新的给我。</p>
+
+    <p>第三件事：我在公司用 Claude Code，回家用 Copilot CLI，偶尔在服务器上 ssh 进去也想用。三个环境完全不通气，每换一个就等于从零开始——我教过的代码风格、我让它记住的踩坑点，全留在原来那台机器的某个对话窗口里。</p>
+
+    <div class="turn">
+      盯着这三件事看久了，我发现它们其实是一回事：<strong>AI 助手把"会话"当成了工作的天然容器</strong>。一切——上下文、记忆、进度——都绑在那个会话上，会话一关就没了。但写代码这种事本来就不是一次会话能搞完的。</div>
+
+    <p style="margin-top: 22px;">所以我想试一下：能不能把工作的最小单位从"会话"换成"任务"？任务有自己的目录、自己的状态、自己的产出物，跟 AI 会话松耦合。会话开关都行，机器换不换无所谓，反正干活的"现场"留在文件里。</p>
+  </div>
+
+  <!-- Concept comparison: chat bubbles vs folder -->
+  <div class="card" style="margin-top: 40px;">
+    <svg viewBox="0 0 1000 280" width="100%" height="auto" font-family="Inter, system-ui">
+      <defs>
+        <linearGradient id="leftBg2" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stop-color="#fef2f2"/>
+          <stop offset="100%" stop-color="#fee2e2"/>
+        </linearGradient>
+        <linearGradient id="rightBg2" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stop-color="#eef2ff"/>
+          <stop offset="100%" stop-color="#cffafe"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Left: chaos -->
+      <rect x="20" y="20" width="430" height="240" rx="20" fill="url(#leftBg2)" stroke="#fecaca" stroke-width="2"/>
+      <text x="40" y="48" font-size="13" font-weight="700" fill="#b91c1c">把"会话"当容器</text>
+      <text x="40" y="66" font-size="11" fill="#991b1b" opacity=".75">关掉就没了 / 上下文随时被压缩</text>
+
+      <g transform="translate(50 95) rotate(-5)">
+        <rect width="150" height="32" rx="12" fill="#fff" stroke="#fca5a5" stroke-width="1.5"/>
+        <text x="14" y="20" font-size="11" fill="#7f1d1d">"再帮我重写一下..."</text>
+      </g>
+      <g transform="translate(220 90) rotate(4)">
+        <rect width="170" height="34" rx="12" fill="#fff" stroke="#fca5a5" stroke-width="1.5"/>
+        <text x="14" y="22" font-size="11" fill="#7f1d1d">"刚才的方案是？"</text>
+      </g>
+      <g transform="translate(60 150) rotate(2)">
+        <rect width="180" height="32" rx="12" fill="#fff" stroke="#fca5a5" stroke-width="1.5"/>
+        <text x="14" y="20" font-size="11" fill="#7f1d1d">"上次的风格记不清了"</text>
+      </g>
+      <g transform="translate(250 158) rotate(-3)">
+        <rect width="140" height="32" rx="12" fill="#fff" stroke="#fca5a5" stroke-width="1.5"/>
+        <text x="14" y="20" font-size="11" fill="#7f1d1d">"context 满了 ⚠️"</text>
+      </g>
+      <g transform="translate(120 210) rotate(-2)">
+        <rect width="160" height="32" rx="12" fill="#fff" stroke="#fca5a5" stroke-width="1.5"/>
+        <text x="14" y="20" font-size="11" fill="#7f1d1d">关掉窗口 → ❌</text>
+      </g>
+
+      <!-- arrow -->
+      <g transform="translate(465 130)">
+        <path d="M 0 8 L 28 8 L 28 0 L 48 14 L 28 28 L 28 20 L 0 20 Z" fill="#6366f1"/>
+      </g>
+
+      <!-- Right: folder -->
+      <rect x="540" y="20" width="440" height="240" rx="20" fill="url(#rightBg2)" stroke="#a5f3fc" stroke-width="2"/>
+      <text x="560" y="48" font-size="13" font-weight="700" fill="#0e7490">把"任务"当容器</text>
+      <text x="560" y="66" font-size="11" fill="#155e75" opacity=".75">就是一个目录 / 状态留在文件里 / 可搬走</text>
+
+      <!-- folder illustration -->
+      <g transform="translate(580 90)">
+        <path d="M0 14 L20 0 L70 0 L82 14 L82 110 L0 110 Z" fill="#fbbf24" stroke="#fff" stroke-width="2"/>
+        <text x="41" y="68" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#7c2d12" font-weight="700">.codenook/</text>
+      </g>
+      <g font-family="JetBrains Mono, monospace" font-size="11.5" fill="#0e7490">
+        <text x="690" y="108">📁 tasks/T-007-...</text>
+        <text x="690" y="132">📁 memory/</text>
+        <text x="690" y="156">📁 hitl-queue/</text>
+        <text x="690" y="180">📁 plugins/</text>
+        <text x="690" y="204">📄 state.json</text>
+        <text x="690" y="232" fill="#0891b2" font-size="10" opacity=".8">(关掉窗口、换台电脑都还在)</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- ============ §3 整体长什么样 ============ -->
+<section id="s3" style="background: linear-gradient(180deg, #fafbff 0%, #eef2ff 100%);">
+  <span class="section-tag">§ 03 · 骨架</span>
+  <h2>整体长什么样：<span class="gradient-text">三层</span></h2>
+  <p class="lede">先看骨架，后面所有细节都挂在这张图上。一句话概括：你的 AI CLI 在前面传话，一个小 Python 内核在中间走状态机，所有数据落在 <code>.codenook/</code> 这个目录里。</p>
+
+  <div class="card">
+    <svg viewBox="0 0 1080 540" width="100%" height="auto" font-family="Inter, system-ui">
+      <defs>
+        <linearGradient id="lyrTop3" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#f59e0b"/>
+        </linearGradient>
+        <linearGradient id="lyrMid3" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#06b6d4"/>
+        </linearGradient>
+        <linearGradient id="lyrUser3" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#34d399"/>
+        </linearGradient>
+        <filter id="dropShadow3" x="-10%" y="-10%" width="120%" height="120%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
+          <feOffset dx="0" dy="4" result="offsetblur"/>
+          <feComponentTransfer><feFuncA type="linear" slope=".22"/></feComponentTransfer>
+          <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+        </marker>
+      </defs>
+
+      <!-- User -->
+      <g filter="url(#dropShadow3)">
+        <rect x="40" y="40" width="220" height="76" rx="18" fill="url(#lyrUser3)"/>
+        <text x="150" y="76" text-anchor="middle" font-size="14" fill="#fff" font-weight="700">👤 你</text>
+        <text x="150" y="98" text-anchor="middle" font-size="11" fill="#fff" opacity=".9">"用 codenook 帮我做 X"</text>
+      </g>
+
+      <path d="M 260 78 L 358 78" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arr3)"/>
+
+      <!-- Conductor (AI CLI) -->
+      <g filter="url(#dropShadow3)">
+        <rect x="360" y="30" width="320" height="96" rx="20" fill="url(#lyrTop3)"/>
+        <text x="520" y="62" text-anchor="middle" font-size="15" fill="#fff" font-weight="700">🎙️ 指挥者 · 你的 AI CLI</text>
+        <text x="520" y="84" text-anchor="middle" font-size="12" fill="#fff" opacity=".95">Claude Code / Copilot CLI / ...</text>
+        <text x="520" y="104" text-anchor="middle" font-size="11" fill="#fff" opacity=".85">只负责传话，不懂业务</text>
+      </g>
+
+      <path d="M 520 126 L 520 168" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arr3)"/>
+      <text x="540" y="153" font-size="11" fill="#64748b" font-family="JetBrains Mono, monospace">codenook tick / decide</text>
+
+      <!-- workspace box -->
+      <g filter="url(#dropShadow3)">
+        <rect x="60" y="170" width="960" height="330" rx="22" fill="#fff" stroke="#c7d2fe" stroke-width="2.5"/>
+        <text x="86" y="200" font-size="13" font-weight="700" fill="#6366f1" font-family="JetBrains Mono, monospace">.codenook/</text>
+        <text x="86" y="218" font-size="11" fill="#64748b">这一整块就是工作空间——内核、插件、运行时数据全在里头</text>
+
+        <!-- Layer A: kernel -->
+        <g>
+          <rect x="86" y="244" width="290" height="226" rx="16" fill="url(#lyrMid3)" opacity=".95"/>
+          <text x="231" y="276" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">🛠 内核 (Python)</text>
+          <text x="231" y="294" text-anchor="middle" font-size="11" fill="#fff" opacity=".9">codenook-core/ · 不懂任何具体业务</text>
+          <g font-size="11" fill="#fff" opacity=".95">
+            <text x="106" y="326">· 状态机：tick 一下走一步</text>
+            <text x="106" y="350">· 派发子 agent 干活</text>
+            <text x="106" y="374">· 跑完抽取记忆，写到 memory/</text>
+            <text x="106" y="398">· HITL：到关键节点停下来问你</text>
+            <text x="106" y="422">· CLI 命令：task / tick / decide</text>
+            <text x="106" y="448" opacity=".75" font-style="italic">(全部业务无关，可独立升级)</text>
+          </g>
+        </g>
+
+        <!-- Layer B: plugins -->
+        <g>
+          <rect x="395" y="244" width="290" height="226" rx="16" fill="#eef2ff" stroke="#a5b4fc" stroke-width="2"/>
+          <text x="540" y="276" text-anchor="middle" font-size="14" font-weight="700" fill="#4338ca">🔌 插件 = 业务知识</text>
+          <text x="540" y="294" text-anchor="middle" font-size="11" fill="#6366f1">告诉内核"这种活分几步走"</text>
+
+          <g font-family="JetBrains Mono, monospace" font-size="12">
+            <rect x="415" y="312" width="250" height="40" rx="8" fill="#fff" stroke="#c7d2fe"/>
+            <text x="430" y="338" fill="#4338ca" font-weight="700">development/</text>
+            <text x="555" y="338" fill="#94a3b8" font-size="10">写代码</text>
+
+            <rect x="415" y="362" width="250" height="40" rx="8" fill="#fff" stroke="#c7d2fe"/>
+            <text x="430" y="388" fill="#4338ca" font-weight="700">writing/</text>
+            <text x="555" y="388" fill="#94a3b8" font-size="10">写文章</text>
+
+            <rect x="415" y="412" width="250" height="40" rx="8" fill="#fff" stroke="#c7d2fe"/>
+            <text x="430" y="438" fill="#4338ca" font-weight="700">generic/</text>
+            <text x="555" y="438" fill="#94a3b8" font-size="10">兜底</text>
+          </g>
+        </g>
+
+        <!-- Layer C: state -->
+        <g>
+          <rect x="704" y="244" width="295" height="226" rx="16" fill="#ecfeff" stroke="#67e8f9" stroke-width="2"/>
+          <text x="851" y="276" text-anchor="middle" font-size="14" font-weight="700" fill="#0e7490">📁 运行时状态</text>
+          <text x="851" y="294" text-anchor="middle" font-size="11" fill="#0891b2">纯文件 · 可 diff · 可 tar</text>
+
+          <g font-family="JetBrains Mono, monospace" font-size="11.5" fill="#0e7490">
+            <text x="724" y="324">📂 tasks/T-NNN-slug/</text>
+            <text x="744" y="340" fill="#0891b2" font-size="10">state.json · prompts/ · outputs/</text>
+            <text x="724" y="368">📂 memory/</text>
+            <text x="744" y="384" fill="#0891b2" font-size="10">knowledge / skills / configs</text>
+            <text x="724" y="412">📂 hitl-queue/</text>
+            <text x="744" y="428" fill="#0891b2" font-size="10">待你审批的关卡</text>
+            <text x="724" y="456">📄 state.json</text>
+          </g>
+        </g>
+
+        <path d="M 376 358 L 393 358" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr3)"/>
+        <path d="M 685 358 L 702 358" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr3)"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="insight">
+    <strong>关键观察：</strong>指挥者（也就是你的 AI CLI）不懂业务。它只是看到 <code>tick</code> 返回什么、就照办什么。业务知识全在插件里。这样换 AI、换插件、换机器，三件事互不干扰。
+  </div>
+</section>
+
+<!-- ============ §4 跑起来是什么样 ============ -->
+<section id="s4">
+  <span class="section-tag">§ 04 · 动起来</span>
+  <h2>跑起来<span class="gradient-text">是什么样</span></h2>
+  <p class="lede">把刚才那张静态图动起来。从你跟 AI 说一句话，到任务做完，中间发生了什么。</p>
+
+  <div class="narrative" style="margin-top: 28px;">
+    <p>入口很朴素——你在 AI CLI 里说一句"用 codenook 帮我加个 xxx 功能"。指挥者识别到这个意图，就调一下 <code>codenook task new</code> 创建任务，然后开始一个循环：调 <code>tick</code>，跑一个阶段，看返回值。返回"done"就结束，返回"还要继续"就接着 <code>tick</code>，返回"等你审批"就停下来问你。</p>
+    <p>每一步都派一个子 agent 去干（用同一个 AI 模型，开个新会话窗口），干完把产出写到一个 markdown 文件里，控制权交还给状态机。下一次 <code>tick</code> 读这个文件、决定下一步。</p>
+  </div>
+
+  <!-- Horizontal flow timeline SVG -->
+  <div class="card">
+    <svg viewBox="0 0 1080 360" width="100%" height="auto" font-family="Inter, system-ui">
+      <defs>
+        <linearGradient id="line4" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#06b6d4"/>
+        </linearGradient>
+        <linearGradient id="phaseFill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#4f46e5"/>
+        </linearGradient>
+      </defs>
+
+      <text x="40" y="48" font-size="13" font-weight="700" fill="#475569">一个 development 任务从开始到结束</text>
+      <text x="40" y="66" font-size="11" fill="#94a3b8">下面只画几个关键停靠点；真实流程会更细，但形状就是这样。</text>
+
+      <!-- main line -->
+      <line x1="80" y1="180" x2="1020" y2="180" stroke="url(#line4)" stroke-width="4" stroke-linecap="round"/>
+
+      <!-- start dot -->
+      <circle cx="80" cy="180" r="14" fill="#10b981"/>
+      <text x="80" y="220" text-anchor="middle" font-size="11" font-weight="700" fill="#065f46">开始</text>
+      <text x="80" y="236" text-anchor="middle" font-size="10" fill="#047857">"帮我加个..."</text>
+
+      <!-- phase 1: clarify -->
+      <g transform="translate(220 180)">
+        <rect x="-58" y="-26" width="116" height="52" rx="10" fill="url(#phaseFill)"/>
+        <text x="0" y="-4" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">clarify</text>
+        <text x="0" y="14" text-anchor="middle" font-size="10" fill="#fff" opacity=".85">问清需求</text>
+        <!-- gate signal -->
+        <circle cx="0" cy="60" r="10" fill="#fbbf24" stroke="#92400e" stroke-width="1.5"/>
+        <text x="0" y="64" text-anchor="middle" font-size="11">⏸</text>
+        <text x="0" y="92" text-anchor="middle" font-size="10" fill="#92400e" font-weight="600">需求确认</text>
+      </g>
+
+      <!-- phase 2: design -->
+      <g transform="translate(380 180)">
+        <rect x="-58" y="-26" width="116" height="52" rx="10" fill="url(#phaseFill)"/>
+        <text x="0" y="-4" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">design</text>
+        <text x="0" y="14" text-anchor="middle" font-size="10" fill="#fff" opacity=".85">出方案</text>
+        <circle cx="0" cy="60" r="10" fill="#fbbf24" stroke="#92400e" stroke-width="1.5"/>
+        <text x="0" y="64" text-anchor="middle" font-size="11">⏸</text>
+        <text x="0" y="92" text-anchor="middle" font-size="10" fill="#92400e" font-weight="600">方案确认</text>
+      </g>
+
+      <!-- phase 3: plan -->
+      <g transform="translate(540 180)">
+        <rect x="-58" y="-26" width="116" height="52" rx="10" fill="url(#phaseFill)"/>
+        <text x="0" y="-4" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">plan</text>
+        <text x="0" y="14" text-anchor="middle" font-size="10" fill="#fff" opacity=".85">拆任务</text>
+        <circle cx="0" cy="60" r="10" fill="#fbbf24" stroke="#92400e" stroke-width="1.5"/>
+        <text x="0" y="64" text-anchor="middle" font-size="11">⏸</text>
+        <text x="0" y="92" text-anchor="middle" font-size="10" fill="#92400e" font-weight="600">计划确认</text>
+      </g>
+
+      <!-- phase 4: implement -->
+      <g transform="translate(700 180)">
+        <rect x="-66" y="-26" width="132" height="52" rx="10" fill="#10b981"/>
+        <text x="0" y="-4" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">implement</text>
+        <text x="0" y="14" text-anchor="middle" font-size="10" fill="#fff" opacity=".9">直接干，不打断</text>
+      </g>
+
+      <!-- phase 5: accept -->
+      <g transform="translate(860 180)">
+        <rect x="-58" y="-26" width="116" height="52" rx="10" fill="url(#phaseFill)"/>
+        <text x="0" y="-4" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">accept</text>
+        <text x="0" y="14" text-anchor="middle" font-size="10" fill="#fff" opacity=".85">验收</text>
+        <circle cx="0" cy="60" r="10" fill="#fbbf24" stroke="#92400e" stroke-width="1.5"/>
+        <text x="0" y="64" text-anchor="middle" font-size="11">⏸</text>
+        <text x="0" y="92" text-anchor="middle" font-size="10" fill="#92400e" font-weight="600">最终确认</text>
+      </g>
+
+      <!-- end dot -->
+      <circle cx="1020" cy="180" r="14" fill="#06b6d4"/>
+      <text x="1020" y="220" text-anchor="middle" font-size="11" font-weight="700" fill="#0e7490">完成</text>
+
+      <!-- legend -->
+      <g transform="translate(40 300)">
+        <rect width="14" height="14" rx="3" fill="#6366f1"/>
+        <text x="22" y="11" font-size="11" fill="#475569">一个 phase = 派一个子 agent 干一件事</text>
+        <circle cx="320" cy="7" r="7" fill="#fbbf24" stroke="#92400e"/>
+        <text x="333" y="11" font-size="11" fill="#475569">⏸ 关键节点 (HITL gate)，停下来等你说"行"</text>
+        <rect x="720" width="14" height="14" rx="3" fill="#10b981"/>
+        <text x="742" y="11" font-size="11" fill="#475569">implement 是唯一不停的，要让它一口气写完</text>
+      </g>
+    </svg>
+  </div>
+
+  <h3>顺手把三个词解释清楚</h3>
+  <p style="color: var(--ink2); font-size: 16px; max-width: 820px;">
+    上面这张图里出现的术语，其实就三个，后面就不再啰嗦了：<strong>phase</strong> 是任务里的一步（clarify / design / implement…），每步对应一个 <strong>role</strong>（也就是给子 agent 的角色提示词，比如"你是 designer，请输出 …"），步与步之间可能有一个 <strong>gate</strong>——审批节点，状态机走到这里就停，把问题写进 <code>hitl-queue/</code> 等你回答。你回答完，<code>tick</code> 接着往前走。
+  </p>
+
+  <p style="color: var(--ink2); font-size: 16px; max-width: 820px; margin-top: 14px;">
+    "为什么 implement 不停？"——因为写代码这种事最怕被打断切上下文。其他 phase 都是"产物 + 等审"，唯独 implement 是"埋头一口气干完"。
+  </p>
+</section>
+
+<!-- ============ §5 几个我比较得意的细节 ============ -->
+<section id="s5" style="background: linear-gradient(180deg, #fafbff 0%, #ecfeff 100%);">
+  <span class="section-tag">§ 05 · 细节</span>
+  <h2>几个我比较<span class="gradient-text">得意的细节</span></h2>
+  <p class="lede">骨架讲完了，挑三个值得多说两句的点。前两个比较好懂，最后一个稍微复杂。</p>
+
+  <!-- detail 1: portability -->
+  <div class="detail">
+    <h3><span class="num">A</span>整个工作空间能搬走</h3>
+    <p>这个最朴素：<code>.codenook/</code> 里没有任何机器相关的东西，没有数据库、没有后台进程，全是 JSON / YAML / Markdown。所以一行命令就能搬：</p>
+    <pre class="code"><span class="c"># 在 A 机器上</span>
+$ <span class="prompt">tar czf nook.tgz .codenook/</span>
+<span class="c"># 拷到 B 机器，解开</span>
+$ <span class="prompt">tar xzf nook.tgz</span>
+<span class="c"># 打开任意一个 AI CLI 接着说</span>
+$ <span class="prompt">claude</span>  <span class="c"># 或者 copilot, gemini, ...</span>
+<span class="v">&gt;</span> 接着上次那个 T-007 任务往下做</pre>
+    <p>这个用法我自己用得最多——下班拷回家、或者从笔记本扔到台式机。原本得"重新解释一遍"的成本就没了。</p>
+  </div>
+
+  <!-- detail 2: plugins -->
+  <div class="detail">
+    <h3><span class="num">B</span>插件就是几个 yaml，告诉内核怎么走</h3>
+    <p>插件其实没什么神秘的。一个插件就是 <code>plugins/&lt;id&gt;/</code> 下面几个文件：<code>phases.yaml</code> 列出阶段顺序，<code>roles/&lt;name&gt;.md</code> 给每个 role 写角色提示词，<code>hitl-gates.yaml</code> 列出哪些节点要审。内核读这几个文件，照着走。</p>
+    <pre class="code"><span class="c"># plugins/development/phases.yaml （节选）</span>
+<span class="k">phases</span>:
+  <span class="n">clarify</span>:
+    <span class="k">role</span>: clarifier
+    <span class="k">produces</span>: outputs/phase-1-clarifier.md
+    <span class="k">gate</span>: requirements_signoff
+  <span class="n">design</span>:
+    <span class="k">role</span>: designer
+    <span class="k">produces</span>: outputs/phase-2-designer.md
+    <span class="k">gate</span>: design_signoff
+  <span class="n">implement</span>:
+    <span class="k">role</span>: implementer
+    <span class="k">produces</span>: outputs/phase-4-implementer.md
+    <span class="c"># 注意没有 gate</span></pre>
+    <p>同一个内核，挂 <code>development</code> 就能写代码，挂 <code>writing</code> 就能写文章（outline → draft → polish），挂 <code>generic</code> 就是个通用兜底。我没让插件干什么"魔法"——就是把"流程"和"提示词"从代码里挪到了 yaml 和 markdown 里，谁想加新插件抄一份改改就行。</p>
+  </div>
+
+  <!-- detail 3: memory -->
+  <div class="detail">
+    <h3><span class="num">C</span>会自己长记性</h3>
+    <p>这是我最想做但目前做得最粗糙的一块。基本想法是：每个 phase 跑完，状态机会顺手触发三个抽取器，从这个 phase 的产出里挑出"值得记下来的东西"，分别落到 <code>memory/</code> 的三个子目录：</p>
+
+    <!-- memory extraction SVG -->
+    <div style="margin: 22px 0;">
+      <svg viewBox="0 0 900 280" width="100%" height="auto" font-family="Inter, system-ui">
+        <defs>
+          <linearGradient id="phaseOut" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#4f46e5"/>
+          </linearGradient>
+          <linearGradient id="memBg1" x1="0" x2="1"><stop offset="0" stop-color="#fef3c7"/><stop offset="1" stop-color="#fde68a"/></linearGradient>
+          <linearGradient id="memBg2" x1="0" x2="1"><stop offset="0" stop-color="#dcfce7"/><stop offset="1" stop-color="#bbf7d0"/></linearGradient>
+          <linearGradient id="memBg3" x1="0" x2="1"><stop offset="0" stop-color="#fce7f3"/><stop offset="1" stop-color="#fbcfe8"/></linearGradient>
+        </defs>
+
+        <!-- phase output box -->
+        <rect x="40" y="100" width="200" height="80" rx="14" fill="url(#phaseOut)"/>
+        <text x="140" y="135" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">phase 产出</text>
+        <text x="140" y="156" text-anchor="middle" font-size="11" fill="#fff" opacity=".9">outputs/phase-N-*.md</text>
+
+        <!-- three streams -->
+        <path d="M 240 130 Q 360 60 460 60" stroke="#fbbf24" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M 240 140 Q 360 140 460 140" stroke="#10b981" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M 240 150 Q 360 220 460 220" stroke="#ec4899" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+        <!-- labels on streams -->
+        <text x="350" y="50" font-size="11" fill="#92400e" font-weight="600">knowledge-extractor</text>
+        <text x="350" y="130" font-size="11" fill="#065f46" font-weight="600">skill-extractor</text>
+        <text x="350" y="245" font-size="11" fill="#9d174d" font-weight="600">config-extractor</text>
+
+        <!-- memory targets -->
+        <g transform="translate(460 30)">
+          <rect width="380" height="60" rx="12" fill="url(#memBg1)" stroke="#fbbf24" stroke-width="2"/>
+          <text x="20" y="26" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#92400e">memory/knowledge/</text>
+          <text x="20" y="46" font-size="11" fill="#78350f">值得记的"教训 / 规律 / 决定"</text>
+        </g>
+        <g transform="translate(460 110)">
+          <rect width="380" height="60" rx="12" fill="url(#memBg2)" stroke="#10b981" stroke-width="2"/>
+          <text x="20" y="26" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#065f46">memory/skills/</text>
+          <text x="20" y="46" font-size="11" fill="#064e3b">可复用的"操作流程"</text>
+        </g>
+        <g transform="translate(460 190)">
+          <rect width="380" height="60" rx="12" fill="url(#memBg3)" stroke="#ec4899" stroke-width="2"/>
+          <text x="20" y="26" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#9d174d">memory/configs/</text>
+          <text x="20" y="46" font-size="11" fill="#831843">项目偏好（端口、风格、约定…）</text>
+        </g>
+      </svg>
+    </div>
+
+    <p>抽取器自己也是子 agent，跑出来的就是几行 markdown + frontmatter。每条记忆都进 <code>memory/index.yaml</code>，一个轻量目录：</p>
+
+    <pre class="code"><span class="c"># memory/index.yaml （示意）</span>
+- <span class="k">topic</span>: <span class="s">"任务命名走 T-NNN-slug 格式"</span>
+  <span class="k">path</span>: knowledge/2025-11/task-id-format.md
+  <span class="k">tags</span>: [convention, naming]
+- <span class="k">topic</span>: <span class="s">"实现阶段不要插 HITL"</span>
+  <span class="k">path</span>: knowledge/2025-11/implement-no-gate.md
+  <span class="k">tags</span>: [pipeline, design-rationale]</pre>
+
+    <p>下次开新任务的时候，指挥者会在开场就把 <code>index.yaml</code> 扫一眼，遇到话题相关的就把对应的 markdown 顺手读进上下文。所以"长记性"在这里不是 RAG，也不是向量检索，就是一个生成型的索引 + 指挥者按需翻阅。粗糙但够用，而且每条都是人能看懂的 markdown，跑歪了能直接手改。</p>
+  </div>
+</section>
+
+<!-- ============ §6 怎么上手 + 聊聊 ============ -->
+<section id="s6">
+  <span class="section-tag">§ 06 · 上手</span>
+  <h2>怎么试一下，<span class="gradient-text">以及聊聊</span></h2>
+  <p class="lede">三行命令的事。装好之后，剩下就是在 AI CLI 里说人话。</p>
+
+  <div class="terminal">
+    <div class="bar">
+      <i></i><i></i><i></i>
+      <span class="t">~/code/my-project</span>
+    </div>
+    <pre><span class="c"># 1. 拿源码</span>
+$ <span class="p">git clone https://github.com/cintia09/CodeNook.git</span>
+
+<span class="c"># 2. 装到你想用的项目目录里（development 插件够日常用）</span>
+$ <span class="p">cd CodeNook && python3 install.py \
+    --target ~/code/my-project --plugin development --yes</span>
+
+<span class="c"># 3. 打开 Claude Code / Copilot CLI，进到 ~/code/my-project，</span>
+<span class="c">#    然后就跟它说人话：</span>
+&gt; use codenook to add a --tag filter to the list command</pre>
+  </div>
+
+  <p style="color: var(--ink2); font-size: 16px; max-width: 820px; margin-top: 24px;">
+    剩下的事它自己会推动：识别意图 → 创建任务 → 一个 phase 一个 phase 跑下去 → 该问你的时候停下来问。你审完点 ok 就接着走。任务做完，记忆也顺手攒下来了，下次开新任务能用上。
+  </p>
+
+  <div class="insight" style="margin-top: 32px;">
+    一句话回扣 · <strong>把"会话"换成"任务"，剩下的事自然就顺了。</strong>
+    上下文不会丢、机器可以换、记忆能留下——这三件麻烦事，根都在那个隐含的"会话即工作单位"假设上。
+  </div>
+
+  <div class="closing-links">
+    <a href="https://github.com/cintia09/CodeNook" target="_blank">📦 cintia09/CodeNook</a>
+    <a href="https://github.com/cintia09/CodeNook/blob/main/PIPELINE.md" target="_blank">📖 PIPELINE.md</a>
+    <a href="https://github.com/cintia09/CodeNook/blob/main/README.md" target="_blank">📄 README</a>
+  </div>
+
+  <div class="footer-line">
+    问什么都行——和 LangGraph / CrewAI 比怎么样、学习成本、怎么写自己的插件、为什么不存数据库……欢迎拍砖。
+  </div>
+</section>
+
+<script>
+  // dot-nav active state
+  const sections = document.querySelectorAll('section[id]');
+  const dots = document.querySelectorAll('.dot-nav a');
+  const setActive = () => {
+    let cur = sections[0].id;
+    const y = window.scrollY + window.innerHeight * 0.4;
+    sections.forEach(s => { if (s.offsetTop <= y) cur = s.id; });
+    dots.forEach(d => d.classList.toggle('active', d.getAttribute('href') === '#' + cur));
+  };
+  window.addEventListener('scroll', setActive, { passive: true });
+  setActive();
+</script>
+</body>
+</html>

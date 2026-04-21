@@ -349,13 +349,45 @@ def _parse_json_payload(raw: str) -> dict:
     raw = (raw or "").strip()
     if not raw:
         raise ValueError("empty LLM response")
-    # Tolerate fenced code blocks.
+    # Tolerate fenced code blocks (```json ... ```).
     if raw.startswith("```"):
         first_nl = raw.find("\n")
         last_fence = raw.rfind("```")
         if first_nl >= 0 and last_fence > first_nl:
             raw = raw[first_nl + 1 : last_fence].strip()
-    return json.loads(raw)
+    # Fast path: raw is already a clean JSON object.
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+    # Tolerate prose-wrapped JSON ("Sure, here is the result: {...}")
+    # by extracting the first balanced top-level object. Handles strings
+    # so a `{` inside `"..."` doesn't fool the brace counter. (v0.27)
+    start = raw.find("{")
+    if start < 0:
+        raise ValueError("no '{' in LLM response")
+    depth = 0
+    in_str = False
+    esc = False
+    for i in range(start, len(raw)):
+        ch = raw[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return json.loads(raw[start : i + 1])
+    raise ValueError("unbalanced '{' in LLM response")
 
 
 # ------------------------------------------------------- ranking + caps

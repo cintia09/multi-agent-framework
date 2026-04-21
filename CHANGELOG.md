@@ -1,3 +1,38 @@
+## v0.27.0 (2026-04-21)
+
+Extraction tuning sweep — addresses two pain points seen on the live
+nook workspace where `memory/skills/` and `memory/config.yaml` stayed
+empty across 7 tasks while `memory/knowledge/` filled up normally.
+
+### Changed
+- **`skill-extractor`: `MIN_REPEAT_THRESHOLD` lowered from 3 → 2.**
+  Earlier threshold rejected any task with fewer than three identical
+  shell-invocation tokens, which excluded all "write HTML training
+  page" / "rewrite copy" / "explore project" task families
+  (`max_count=0` in the audit log). Two repeats is still strong
+  evidence the operator is leaning on a tool worth saving.
+  (`skills/builtin/skill-extractor/extract.py`)
+
+- **`config-extractor`: `MIN_DISTINCT_SIGNALS` lowered from 2 → 1.**
+  Same family of tasks emit at most one distinct `KEY=VAL` token (an
+  output path, a model id) and were noop'd as `distinct_signals=0`.
+  Letting one signal through still gates on the LLM judge that
+  follows. (`skills/builtin/config-extractor/extract.py`)
+
+### Fixed
+- **`knowledge-extractor._parse_json_payload` tolerates prose-wrapped
+  JSON.** Previously only stripped `\`\`\`json` fences and crashed on
+  responses like `Sure, here is the result: { ... }` (audit log
+  showed three `parse: Expecting value: line 1 column 2 (char 1)`
+  failures across T-005/T-006/T-007). The parser now: (1) tries the
+  raw payload, (2) if that fails, scans for the first balanced
+  top-level `{...}` object using a string-aware brace counter, (3)
+  parses the extracted slice. Falls back through the existing
+  `judge-parse-failed` path when no balanced object is found.
+  (`skills/builtin/knowledge-extractor/extract.py`)
+
+---
+
 ## v0.26.0 (2026-04-21)
 
 Code-review sweep on top of v0.25.5. Eight findings (1 high, 6 medium,

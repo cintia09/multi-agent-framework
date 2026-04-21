@@ -57,7 +57,7 @@ except ImportError:
 # ---------------------------------------------------------------- constants
 
 PER_TASK_CAP = 5
-MIN_DISTINCT_SIGNALS = 2  # ≥2 distinct config signals to invoke the LLM.
+MIN_DISTINCT_SIGNALS = 1  # v0.27.0: lowered from 2 to 1 — even one distinct
 MAX_APPLIES_WHEN = 200    # spec §4.1
 MAX_SUMMARY = 120         # spec §4.1
 INPUT_BODY_TRUNC = 4096
@@ -410,7 +410,7 @@ def main(argv: list[str]) -> int:
     try:
         body_in = _read_task_context(workspace, task_id, input_path)
 
-        # Detection gate: ≥2 distinct config signals before any LLM call.
+        # Detection gate: ≥1 distinct config signal before any LLM call.
         meets, distinct = _has_config_signals(body_in)
         if not meets:
             _audit(

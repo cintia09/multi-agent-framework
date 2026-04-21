@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>CodeNook · 把 AI 助手从"对话玩具"变成"工作流引擎"</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --indigo: #6366f1;
+    --cyan:   #06b6d4;
+    --mint:   #10b981;
+    --amber:  #f59e0b;
+    --pink:   #ec4899;
+    --bg:     #fafbff;
+    --ink:    #1e293b;
+    --ink2:   #475569;
+    --muted:  #64748b;
+    --line:   #e2e8f0;
+    --code-bg:#0f172a;
+    --code-bg2:#1e293b;
+    --grad-main: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+    --grad-soft: linear-gradient(135deg, #eef2ff 0%, #ecfeff 100%);
+    --grad-warm: linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%);
+    --grad-mint: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    --grad-pink: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+    --shadow-sm: 0 2px 8px rgba(15,23,42,.06);
+    --shadow-md: 0 8px 24px rgba(99,102,241,.12);
+    --shadow-lg: 0 20px 48px rgba(99,102,241,.18);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: "PingFang SC", "HarmonyOS Sans", "Microsoft YaHei", "Inter", system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  code, pre, .mono { font-family: "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace; }
+
+  /* ---------- Section frame ---------- */
+  section {
+    min-height: 100vh;
+    padding: 80px 8vw 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+  }
+  .section-tag {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    color: var(--indigo);
+    background: #eef2ff;
+    padding: 6px 14px;
+    border-radius: 999px;
+    margin-bottom: 18px;
+    text-transform: uppercase;
+  }
+  h1, h2, h3 { color: var(--ink); margin: 0 0 16px; line-height: 1.25; font-weight: 700; }
+  h1 { font-size: clamp(38px, 5vw, 64px); }
+  h2 { font-size: clamp(30px, 3.6vw, 46px); }
+  h3 { font-size: 20px; }
+  .subtitle {
+    font-size: clamp(16px, 1.4vw, 20px);
+    color: var(--ink2);
+    max-width: 780px;
+    margin-bottom: 40px;
+  }
+  .gradient-text {
+    background: var(--grad-main);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* ---------- Floating dot nav ---------- */
+  .dot-nav {
+    position: fixed;
+    right: 28px;
+    bottom: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 100;
+    background: rgba(255,255,255,.85);
+    backdrop-filter: blur(10px);
+    padding: 14px 10px;
+    border-radius: 999px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--line);
+  }
+  .dot-nav a {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    transition: all .25s ease;
+    position: relative;
+    display: block;
+  }
+  .dot-nav a:hover { background: var(--indigo); transform: scale(1.25); }
+  .dot-nav a.active {
+    background: var(--grad-main);
+    background: linear-gradient(135deg, #6366f1, #06b6d4);
+    width: 28px;
+    border-radius: 6px;
+  }
+  .dot-nav a::after {
+    content: attr(data-label);
+    position: absolute;
+    right: 22px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--ink);
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s;
+  }
+  .dot-nav a:hover::after { opacity: 1; }
+
+  /* ---------- §1 Hero ---------- */
+  .hero {
+    background: var(--grad-main);
+    color: #fff;
+    text-align: center;
+    align-items: center;
+    overflow: hidden;
+    padding-top: 60px;
+  }
+  .hero::before, .hero::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: .35;
+  }
+  .hero::before { width: 500px; height: 500px; background: #fbbf24; top: -150px; left: -150px; }
+  .hero::after  { width: 600px; height: 600px; background: #ec4899; bottom: -200px; right: -200px; }
+  .hero-inner { position: relative; z-index: 2; max-width: 980px; }
+  .hero h1 { color: #fff; font-size: clamp(40px, 5.4vw, 72px); margin-bottom: 18px; }
+  .hero .lead { font-size: clamp(18px, 1.6vw, 22px); opacity: .92; margin-bottom: 14px; }
+  .hero .thesis {
+    margin: 32px auto 24px;
+    padding: 22px 28px;
+    background: rgba(255,255,255,.14);
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 18px;
+    backdrop-filter: blur(8px);
+    font-size: clamp(15px, 1.3vw, 18px);
+    max-width: 820px;
+    line-height: 1.75;
+  }
+  .hero .badges {
+    display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 22px;
+    font-size: 13px;
+  }
+  .hero .badges span {
+    padding: 6px 14px;
+    background: rgba(255,255,255,.18);
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.25);
+  }
+  .agenda {
+    margin-top: 50px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(150px, 1fr));
+    gap: 14px;
+    max-width: 920px;
+  }
+  .agenda-item {
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 14px;
+    padding: 14px 12px;
+    font-size: 13px;
+    text-align: left;
+    transition: all .25s;
+    cursor: default;
+  }
+  .agenda-item:hover { transform: translateY(-4px); background: rgba(255,255,255,.2); }
+  .agenda-item .num { font-family: "JetBrains Mono", monospace; font-size: 11px; opacity: .75; }
+  .agenda-item .ttl { font-weight: 600; margin-top: 4px; }
+
+  /* ---------- §2 痛点 ---------- */
+  .pain-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-bottom: 42px;
+  }
+  .pain-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 30px 26px;
+    box-shadow: var(--shadow-sm);
+    transition: all .3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .pain-card::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: var(--grad-main);
+  }
+  .pain-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); }
+  .pain-card .icon {
+    font-size: 36px;
+    width: 64px; height: 64px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 16px;
+    margin-bottom: 18px;
+    animation: floaty 3s ease-in-out infinite;
+  }
+  .pain-card:nth-child(1) .icon { background: var(--grad-pink); }
+  .pain-card:nth-child(2) .icon { background: var(--grad-warm); animation-delay: .4s; }
+  .pain-card:nth-child(3) .icon { background: var(--grad-mint); animation-delay: .8s; }
+  @keyframes floaty {
+    0%,100% { transform: translateY(0); }
+    50%     { transform: translateY(-6px); }
+  }
+  .pain-card h3 { font-size: 19px; margin-bottom: 10px; }
+  .pain-card p { color: var(--ink2); font-size: 15px; margin: 0; }
+  .pain-card .quote {
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: #f8fafc;
+    border-left: 3px solid var(--indigo);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* ---------- §3 概念 ---------- */
+  .two-col {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 50px; align-items: center;
+  }
+  .feature-list { display: flex; flex-direction: column; gap: 18px; }
+  .feature-row {
+    display: flex; gap: 16px; align-items: flex-start;
+    background: #fff;
+    padding: 18px 20px;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-sm);
+    transition: all .25s;
+  }
+  .feature-row:hover { transform: translateX(6px); box-shadow: var(--shadow-md); border-color: #c7d2fe; }
+  .feature-row .fi {
+    flex-shrink: 0;
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    background: var(--grad-soft);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .feature-row h4 { margin: 0 0 4px; font-size: 16px; color: var(--ink); }
+  .feature-row p { margin: 0; font-size: 14px; color: var(--muted); }
+
+  /* ---------- §4 架构 ---------- */
+  .arch-wrap {
+    background: #fff;
+    border-radius: 24px;
+    padding: 30px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--line);
+    margin-bottom: 24px;
+  }
+  .insight-box {
+    margin-top: 8px;
+    padding: 22px 26px;
+    background: var(--grad-soft);
+    border-left: 5px solid var(--indigo);
+    border-radius: 14px;
+    font-size: 16px;
+    color: var(--ink);
+  }
+  .insight-box strong { color: var(--indigo); }
+
+  /* ---------- §5 流程 ---------- */
+  .phase-strip {
+    display: grid;
+    grid-template-columns: repeat(11, 1fr);
+    gap: 6px;
+    margin-top: 24px;
+  }
+  .phase-pill {
+    padding: 10px 6px;
+    text-align: center;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--grad-main);
+    cursor: default;
+    transition: transform .2s;
+  }
+  .phase-pill:hover { transform: translateY(-3px) scale(1.05); }
+  .phase-pill .num { display: block; font-family: "JetBrains Mono", monospace; font-size: 10px; opacity: .8; }
+
+  /* ---------- §6 记忆 ---------- */
+  pre.code {
+    background: var(--code-bg);
+    color: #e2e8f0;
+    padding: 22px 24px;
+    border-radius: 14px;
+    font-size: 13.5px;
+    line-height: 1.7;
+    overflow-x: auto;
+    box-shadow: var(--shadow-md);
+    margin: 20px 0;
+    border: 1px solid #1e293b;
+  }
+  pre.code .k  { color: #c084fc; }
+  pre.code .s  { color: #6ee7b7; }
+  pre.code .c  { color: #64748b; font-style: italic; }
+  pre.code .n  { color: #60a5fa; }
+  pre.code .p  { color: #f472b6; }
+  pre.code .v  { color: #fbbf24; }
+  pre.code .prompt { color: #06b6d4; }
+
+  /* ---------- §7 迁移 ---------- */
+  .migrate-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 36px;
+    margin-top: 30px;
+  }
+  table.cmp {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    background: #fff; border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-sm);
+    border: 1px solid var(--line);
+  }
+  table.cmp th, table.cmp td { padding: 14px 18px; text-align: left; font-size: 14px; }
+  table.cmp thead th {
+    background: var(--grad-soft); color: var(--ink); font-size: 13px; font-weight: 700;
+    border-bottom: 1px solid var(--line);
+  }
+  table.cmp tbody tr:nth-child(even) { background: #f8fafc; }
+  table.cmp .x { color: #ef4444; }
+  table.cmp .ok { color: var(--mint); font-weight: 600; }
+
+  /* ---------- §8 谢幕 ---------- */
+  .closing {
+    background: var(--grad-main);
+    color: #fff;
+    text-align: center;
+    align-items: center;
+    overflow: hidden;
+  }
+  .closing::before {
+    content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(251,191,36,.35), transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(236,72,153,.35), transparent 40%);
+  }
+  .closing-inner { position: relative; z-index: 2; max-width: 1100px; }
+  .closing .big-thesis {
+    font-size: clamp(36px, 5.2vw, 68px);
+    font-weight: 800;
+    line-height: 1.25;
+    margin: 28px 0 36px;
+    letter-spacing: -.02em;
+  }
+  .closing .big-thesis em {
+    font-style: normal;
+    background: linear-gradient(135deg, #fbbf24 0%, #fde68a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .recap {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    margin: 32px 0;
+  }
+  .recap div {
+    background: rgba(255,255,255,.14);
+    border: 1px solid rgba(255,255,255,.25);
+    padding: 20px;
+    border-radius: 16px;
+    backdrop-filter: blur(8px);
+    text-align: left;
+  }
+  .recap h4 { color: #fde68a; margin: 0 0 6px; font-size: 14px; letter-spacing: .08em; }
+  .recap p { margin: 0; font-size: 15px; opacity: .95; }
+  .links {
+    display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 24px; font-size: 14px;
+  }
+  .links a {
+    color: #fff; text-decoration: none;
+    background: rgba(255,255,255,.18);
+    padding: 10px 20px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.3);
+    transition: all .2s;
+  }
+  .links a:hover { background: rgba(255,255,255,.3); transform: translateY(-2px); }
+
+  /* ---------- Terminal demo ---------- */
+  .terminal {
+    background: var(--code-bg);
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    margin: 20px 0;
+    border: 1px solid #1e293b;
+  }
+  .terminal .bar {
+    background: #1e293b;
+    padding: 10px 16px;
+    display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid #0f172a;
+  }
+  .terminal .bar i {
+    width: 12px; height: 12px; border-radius: 50%; display: block;
+    background: #475569;
+  }
+  .terminal .bar i:nth-child(1) { background: #ef4444; }
+  .terminal .bar i:nth-child(2) { background: #f59e0b; }
+  .terminal .bar i:nth-child(3) { background: #10b981; }
+  .terminal .bar .t {
+    color: #94a3b8; font-size: 12px; margin-left: 12px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .terminal pre {
+    margin: 0;
+    padding: 20px 22px;
+    color: #e2e8f0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    line-height: 1.75;
+    overflow-x: auto;
+  }
+
+  /* ---------- Misc ---------- */
+  .pair-cmp {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 36px;
+  }
+  .pair-cmp .col {
+    background: #fff; border-radius: 18px; padding: 22px 24px;
+    border: 1px solid var(--line); box-shadow: var(--shadow-sm);
+  }
+  .pair-cmp .col.bad { border-top: 4px solid #ef4444; }
+  .pair-cmp .col.good { border-top: 4px solid var(--mint); }
+  .pair-cmp h4 { margin: 0 0 10px; font-size: 17px; }
+  .pair-cmp ul { margin: 0; padding-left: 20px; color: var(--ink2); font-size: 14px; line-height: 1.85; }
+
+  @media (max-width: 900px) {
+    .pain-grid, .two-col, .recap, .agenda, .pair-cmp, .migrate-row { grid-template-columns: 1fr; }
+    .agenda { grid-template-columns: repeat(2, 1fr); }
+    .phase-strip { grid-template-columns: repeat(4, 1fr); }
+    .dot-nav { right: 12px; bottom: 12px; }
+    section { padding: 60px 6vw; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ Floating Dot Nav ============ -->
+<nav class="dot-nav" aria-label="Section nav">
+  <a href="#s1" class="active" data-label="开场"></a>
+  <a href="#s2" data-label="痛点"></a>
+  <a href="#s3" data-label="解法"></a>
+  <a href="#s4" data-label="架构"></a>
+  <a href="#s5" data-label="任务的一生"></a>
+  <a href="#s6" data-label="记忆与技能"></a>
+  <a href="#s7" data-label="可迁移性"></a>
+  <a href="#s8" data-label="演示 / Q&A"></a>
+</nav>
+
+<!-- ============ §1 Hero ============ -->
+<section id="s1" class="hero">
+  <div class="hero-inner">
+    <!-- Hand-drawn AI + notebook illustration -->
+    <svg width="220" height="160" viewBox="0 0 220 160" fill="none" style="margin-bottom: 12px;">
+      <defs>
+        <linearGradient id="nb" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stop-color="#fde68a"/>
+          <stop offset="100%" stop-color="#fbbf24"/>
+        </linearGradient>
+        <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3" />
+        </filter>
+      </defs>
+      <!-- soft shadow -->
+      <ellipse cx="110" cy="148" rx="80" ry="6" fill="#000" opacity=".15" filter="url(#soft)"/>
+      <!-- notebook -->
+      <rect x="50" y="40" width="120" height="90" rx="10" fill="url(#nb)" stroke="#fff" stroke-width="2.5"/>
+      <line x1="80" y1="40" x2="80" y2="130" stroke="#fff" stroke-width="2" stroke-dasharray="3 3" opacity=".7"/>
+      <line x1="92" y1="60" x2="158" y2="60" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".85"/>
+      <line x1="92" y1="78" x2="148" y2="78" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".75"/>
+      <line x1="92" y1="96" x2="158" y2="96" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".65"/>
+      <line x1="92" y1="114" x2="138" y2="114" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".55"/>
+      <!-- AI brain bubble -->
+      <circle cx="172" cy="38" r="22" fill="#fff" stroke="#6366f1" stroke-width="2.5"/>
+      <text x="172" y="44" text-anchor="middle" font-size="20" fill="#6366f1" font-weight="700">AI</text>
+      <!-- spark -->
+      <path d="M195 22 L198 16 L201 22 L207 25 L201 28 L198 34 L195 28 L189 25 Z" fill="#fbbf24"/>
+      <!-- pen -->
+      <path d="M40 130 L60 110 L66 116 L46 136 Z" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+      <path d="M46 136 L40 142 L40 130 Z" fill="#0f172a"/>
+    </svg>
+
+    <div style="font-size: 13px; letter-spacing: .35em; opacity: .85; margin-bottom: 16px;">CODENOOK · 内部技术分享 · 30 MIN</div>
+    <h1>把 AI 助手从"对话玩具"<br/>变成<span style="white-space:nowrap;">"工作流引擎"</span></h1>
+    <p class="lead">一个让任务、记忆、技能跟着工作空间走的多 Agent 框架</p>
+
+    <div class="thesis">
+      <strong style="color:#fde68a;">核心论点 ·</strong>
+      AI 助手目前最大的瓶颈不是模型不够聪明，<br/>
+      而是它的"工作单位"是 <em style="color:#fde68a;">session 对话</em>——
+      CodeNook 把工作单位重定义为 <em style="color:#fde68a;">可迁移、可恢复、有记忆的任务</em>。
+    </div>
+
+    <div class="badges">
+      <span>🧠 多 Agent 编排</span>
+      <span>📦 文件即状态</span>
+      <span>🔌 插件式领域知识</span>
+      <span>🚦 HITL 关键节点把关</span>
+    </div>
+
+    <div class="agenda">
+      <div class="agenda-item"><div class="num">§ 01</div><div class="ttl">开场 · 今天聊什么</div></div>
+      <div class="agenda-item"><div class="num">§ 02</div><div class="ttl">三大痛点</div></div>
+      <div class="agenda-item"><div class="num">§ 03</div><div class="ttl">解法直觉：任务 vs 对话</div></div>
+      <div class="agenda-item"><div class="num">§ 04</div><div class="ttl">架构总览：三层模型</div></div>
+      <div class="agenda-item"><div class="num">§ 05</div><div class="ttl">任务的一生</div></div>
+      <div class="agenda-item"><div class="num">§ 06</div><div class="ttl">记忆与技能</div></div>
+      <div class="agenda-item"><div class="num">§ 07</div><div class="ttl">可迁移性</div></div>
+      <div class="agenda-item"><div class="num">§ 08</div><div class="ttl">演示 + Q&amp;A</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ §2 痛点 ============ -->
+<section id="s2">
+  <span class="section-tag">§ 02 · The Problem</span>
+  <h2>当前 AI 助手"<span class="gradient-text">用着用着就崩</span>"</h2>
+  <p class="subtitle">不是模型不够强，而是工程化的最后一公里没人补。三个真实痛点，几乎每个重度用户都踩过。</p>
+
+  <div class="pain-grid">
+    <div class="pain-card">
+      <div class="icon">💬</div>
+      <h3>痛点 1 · Session 即一切</h3>
+      <p>对话被当作工作流的天然容器。一个稍复杂的任务，跨好几次对话推不动。</p>
+      <div class="quote">"昨天的窗口关掉了，今天打开还得把上下文重新喂一遍。"</div>
+    </div>
+    <div class="pain-card">
+      <div class="icon">📦</div>
+      <h3>痛点 2 · 上下文窗口不可靠</h3>
+      <p>窗口越塞越满，自动压缩裁剪，前面定的方案、踩过的坑、写过的代码风格——说丢就丢。</p>
+      <div class="quote">"明明三十分钟前才确认过的设计，模型现在又来问一遍。"</div>
+    </div>
+    <div class="pain-card">
+      <div class="icon">🔌</div>
+      <h3>痛点 3 · 与环境强耦合</h3>
+      <p>配置和"记忆"散在各家客户端里，换电脑、换工具、上离线服务器，一切清零。</p>
+      <div class="quote">"我的 Cursor 学到的东西，到了 Claude Code 完全用不上。"</div>
+    </div>
+  </div>
+
+  <h3 style="margin-top: 20px; font-size: 18px; color: var(--muted); font-weight: 500; text-align:center;">现状 vs 期望</h3>
+
+  <!-- Comparison SVG: chaotic chats on left vs neat task cards on right -->
+  <div style="background:#fff; border-radius:22px; padding:30px; box-shadow: var(--shadow-md); border: 1px solid var(--line);">
+    <svg viewBox="0 0 1000 320" width="100%" height="auto" font-family="Inter, system-ui">
+      <defs>
+        <linearGradient id="leftBg" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stop-color="#fef2f2"/>
+          <stop offset="100%" stop-color="#fee2e2"/>
+        </linearGradient>
+        <linearGradient id="rightBg" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stop-color="#eef2ff"/>
+          <stop offset="100%" stop-color="#cffafe"/>
+        </linearGradient>
+        <linearGradient id="taskCard" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#6366f1"/>
+          <stop offset="100%" stop-color="#06b6d4"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Left panel: chaos -->
+      <rect x="20" y="20" width="450" height="280" rx="20" fill="url(#leftBg)" stroke="#fecaca" stroke-width="2"/>
+      <text x="40" y="50" font-size="14" font-weight="700" fill="#b91c1c">Session-bound AI · 现状</text>
+      <text x="40" y="70" font-size="11" fill="#991b1b" opacity=".75">对话气泡乱飞 / 上下文丢失 / 关闭即消失</text>
+
+      <!-- chat bubbles, rotated -->
+      <g transform="translate(60 100) rotate(-6)">
+        <rect width="160" height="36" rx="14" fill="#fff" stroke="#fca5a5" stroke-width="1.5"/>
+        <text x="14" y="22" font-size="11" fill="#7f1d1d">"再帮我重写一下..."</text>
+      </g>
+      <g transform="translate(240 90) rotate(4)">
+        <rect width="180" height="40" rx="14" fill="#fff" stroke="#fca5a5" stroke-width="1.5"/>
+        <text x="14" y="25" font-size="11" fill="#7f1d1d">"等等之前那个方案是？"</text>
+      </g>
+      <g transform="translate(50 160) rotate(2)">
+        <rect width="200" height="38" rx="14" fill="#fff" stroke="#fca5a5" stroke-width="1.5"/>
+        <text x="14" y="24" font-size="11" fill="#7f1d1d">"上次我们说过的风格..."</text>
+      </g>
+      <g transform="translate(260 170) rotate(-3)">
+        <rect width="160" height="36" rx="14" fill="#fff" stroke="#fca5a5" stroke-width="1.5"/>
+        <text x="14" y="22" font-size="11" fill="#7f1d1d">"context 满了 ⚠️"</text>
+      </g>
+      <g transform="translate(80 220) rotate(-4)">
+        <rect width="170" height="38" rx="14" fill="#fff" stroke="#fca5a5" stroke-width="1.5"/>
+        <text x="14" y="24" font-size="11" fill="#7f1d1d">"哎我重新解释一下"</text>
+      </g>
+      <g transform="translate(270 230) rotate(5)">
+        <rect width="140" height="36" rx="14" fill="#fff" stroke="#fca5a5" stroke-width="1.5"/>
+        <text x="14" y="22" font-size="11" fill="#7f1d1d">关掉窗口 → ❌</text>
+      </g>
+
+      <!-- arrow -->
+      <g transform="translate(485 150)">
+        <path d="M 0 10 L 30 10 L 30 0 L 50 15 L 30 30 L 30 20 L 0 20 Z" fill="#6366f1"/>
+      </g>
+
+      <!-- Right panel: task cards -->
+      <rect x="550" y="20" width="430" height="280" rx="20" fill="url(#rightBg)" stroke="#a5f3fc" stroke-width="2"/>
+      <text x="570" y="50" font-size="14" font-weight="700" fill="#0e7490">Task-bound AI · CodeNook</text>
+      <text x="570" y="70" font-size="11" fill="#155e75" opacity=".75">每个任务 = 一个文件夹 / 状态 / 记忆 / 可恢复</text>
+
+      <!-- neat task cards -->
+      <g transform="translate(570 90)">
+        <rect width="180" height="58" rx="12" fill="#fff" stroke="#67e8f9" stroke-width="1.5"/>
+        <rect width="6" height="58" rx="3" fill="url(#taskCard)"/>
+        <text x="20" y="26" font-size="11" font-weight="700" fill="#0e7490">T-001 · feature-login</text>
+        <text x="20" y="44" font-size="10" fill="#0891b2">phase: design · gate ⏸</text>
+      </g>
+      <g transform="translate(770 90)">
+        <rect width="180" height="58" rx="12" fill="#fff" stroke="#67e8f9" stroke-width="1.5"/>
+        <rect width="6" height="58" rx="3" fill="url(#taskCard)"/>
+        <text x="20" y="26" font-size="11" font-weight="700" fill="#0e7490">T-002 · refactor-auth</text>
+        <text x="20" y="44" font-size="10" fill="#0891b2">phase: implement · ✓</text>
+      </g>
+      <g transform="translate(570 158)">
+        <rect width="180" height="58" rx="12" fill="#fff" stroke="#67e8f9" stroke-width="1.5"/>
+        <rect width="6" height="58" rx="3" fill="url(#taskCard)"/>
+        <text x="20" y="26" font-size="11" font-weight="700" fill="#0e7490">T-003 · docs-update</text>
+        <text x="20" y="44" font-size="10" fill="#0891b2">phase: review · ⏸</text>
+      </g>
+      <g transform="translate(770 158)">
+        <rect width="180" height="58" rx="12" fill="#fff" stroke="#67e8f9" stroke-width="1.5"/>
+        <rect width="6" height="58" rx="3" fill="url(#taskCard)"/>
+        <text x="20" y="26" font-size="11" font-weight="700" fill="#0e7490">T-004 · 培训 HTML</text>
+        <text x="20" y="44" font-size="10" fill="#0891b2">phase: draft · ▶</text>
+      </g>
+      <g transform="translate(670 226)">
+        <rect width="180" height="58" rx="12" fill="#fff" stroke="#67e8f9" stroke-width="1.5"/>
+        <rect width="6" height="58" rx="3" fill="url(#taskCard)"/>
+        <text x="20" y="26" font-size="11" font-weight="700" fill="#0e7490">T-005 · hotfix-crash</text>
+        <text x="20" y="44" font-size="10" fill="#0891b2">phase: ship · ✓ done</text>
+      </g>
+
+      <text x="765" y="298" text-anchor="middle" font-size="12" fill="#0e7490" font-weight="600">📁 .codenook/tasks/</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ============ §3 解法直觉 ============ -->
+<section id="s3" style="background: linear-gradient(180deg, #fafbff 0%, #eef2ff 100%);">
+  <span class="section-tag">§ 03 · The Intuition</span>
+  <h2>把"对话"换成"<span class="gradient-text">任务</span>"</h2>
+  <p class="subtitle">隐喻：Session 是一张随手撕掉的便利贴；CodeNook 是公司里那套带工单系统的项目管理流程。</p>
+
+  <div class="two-col">
+    <!-- Radial concept SVG: task in center, 4 features around -->
+    <div style="background:#fff; border-radius:22px; padding:24px; box-shadow: var(--shadow-md); border:1px solid var(--line);">
+      <svg viewBox="0 0 480 440" width="100%" height="auto" font-family="Inter, system-ui">
+        <defs>
+          <radialGradient id="core" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#06b6d4"/>
+            <stop offset="100%" stop-color="#6366f1"/>
+          </radialGradient>
+          <linearGradient id="b1" x1="0" x2="1"><stop offset="0" stop-color="#ec4899"/><stop offset="1" stop-color="#f472b6"/></linearGradient>
+          <linearGradient id="b2" x1="0" x2="1"><stop offset="0" stop-color="#f59e0b"/><stop offset="1" stop-color="#fbbf24"/></linearGradient>
+          <linearGradient id="b3" x1="0" x2="1"><stop offset="0" stop-color="#10b981"/><stop offset="1" stop-color="#34d399"/></linearGradient>
+          <linearGradient id="b4" x1="0" x2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#a78bfa"/></linearGradient>
+        </defs>
+
+        <!-- connecting lines -->
+        <g stroke="#cbd5e1" stroke-width="2" stroke-dasharray="4 4" fill="none">
+          <line x1="240" y1="220" x2="115" y2="105"/>
+          <line x1="240" y1="220" x2="365" y2="105"/>
+          <line x1="240" y1="220" x2="115" y2="335"/>
+          <line x1="240" y1="220" x2="365" y2="335"/>
+        </g>
+
+        <!-- center task -->
+        <circle cx="240" cy="220" r="72" fill="url(#core)"/>
+        <text x="240" y="216" text-anchor="middle" font-size="28">📋</text>
+        <text x="240" y="248" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">任务 / Task</text>
+
+        <!-- feature 1: top-left -->
+        <g transform="translate(40 50)">
+          <rect width="160" height="78" rx="16" fill="url(#b1)" opacity=".15" stroke="url(#b1)" stroke-width="2"/>
+          <text x="20" y="30" font-size="22">🎯</text>
+          <text x="50" y="32" font-size="13" font-weight="700" fill="#831843">任务驱动</text>
+          <text x="50" y="48" font-size="11" fill="#9d174d">解耦 session</text>
+          <text x="50" y="62" font-size="11" fill="#9d174d">关掉窗口照样在</text>
+        </g>
+
+        <!-- feature 2: top-right -->
+        <g transform="translate(290 50)">
+          <rect width="160" height="78" rx="16" fill="url(#b2)" opacity=".15" stroke="url(#b2)" stroke-width="2"/>
+          <text x="20" y="30" font-size="22">🔌</text>
+          <text x="50" y="32" font-size="13" font-weight="700" fill="#92400e">插件式技能</text>
+          <text x="50" y="48" font-size="11" fill="#b45309">领域 phase / role</text>
+          <text x="50" y="62" font-size="11" fill="#b45309">AI 懂工作流</text>
+        </g>
+
+        <!-- feature 3: bottom-left -->
+        <g transform="translate(40 320)">
+          <rect width="160" height="78" rx="16" fill="url(#b3)" opacity=".15" stroke="url(#b3)" stroke-width="2"/>
+          <text x="20" y="30" font-size="22">🧠</text>
+          <text x="50" y="32" font-size="13" font-weight="700" fill="#065f46">智能记忆</text>
+          <text x="50" y="48" font-size="11" fill="#047857">自动沉淀</text>
+          <text x="50" y="62" font-size="11" fill="#047857">skills / knowledge</text>
+        </g>
+
+        <!-- feature 4: bottom-right -->
+        <g transform="translate(290 320)">
+          <rect width="160" height="78" rx="16" fill="url(#b4)" opacity=".15" stroke="url(#b4)" stroke-width="2"/>
+          <text x="20" y="30" font-size="22">🧳</text>
+          <text x="50" y="32" font-size="13" font-weight="700" fill="#5b21b6">空间可迁移</text>
+          <text x="50" y="48" font-size="11" fill="#6d28d9">tar 一打包</text>
+          <text x="50" y="62" font-size="11" fill="#6d28d9">到哪都能跑</text>
+        </g>
+      </svg>
+    </div>
+
+    <div>
+      <h3 style="font-size:22px; margin-bottom:18px;">四条核心特性，对症下药</h3>
+      <div class="feature-list">
+        <div class="feature-row">
+          <div class="fi">🎯</div>
+          <div>
+            <h4>任务驱动 · 解耦 session</h4>
+            <p>每个任务一个 <code>T-NNN-slug/</code> 文件夹，<code>state.json</code> 记录所处 phase、verdict、模型选择，关掉窗口、换台电脑都能续上。</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="fi">🔌</div>
+          <div>
+            <h4>插件式领域技能</h4>
+            <p>development / writing / generic 三个开箱插件，phase + role + gate 三件套定义工作流，AI 不再"瞎猜"该干嘛。</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="fi">🧠</div>
+          <div>
+            <h4>智能记忆 · 自动沉淀</h4>
+            <p>每个 phase 完成后，三个抽取器并行从 transcript 提炼 knowledge / skill / config，写进 <code>.codenook/memory/</code>。</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="fi">🧳</div>
+          <div>
+            <h4>工作空间即一切</h4>
+            <p>"Nothing is global"——所有状态在 <code>&lt;workspace&gt;/.codenook/</code> 下，纯文件、可 diff、可 tar、可换 AI。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="insight-box" style="margin-top: 26px;">
+        一句话总结 · <strong>AI 助手不变，但它的"工作单位"变了。</strong>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ §4 架构 ============ -->
+<section id="s4">
+  <span class="section-tag">§ 04 · The Architecture</span>
+  <h2>架构总览：<span class="gradient-text">三层模型</span></h2>
+  <p class="subtitle">Conductor 只是协议传话筒，Kernel 是状态机大脑，Workspace 是可携带的"工作记忆体"。三层各司其职，互不渗透。</p>
+
+  <div class="arch-wrap">
+    <svg viewBox="0 0 1080 540" width="100%" height="auto" font-family="Inter, system-ui">
+      <defs>
+        <linearGradient id="lyrTop" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#f59e0b"/>
+        </linearGradient>
+        <linearGradient id="lyrMid" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#06b6d4"/>
+        </linearGradient>
+        <linearGradient id="lyrUser" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#34d399"/>
+        </linearGradient>
+        <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
+          <feOffset dx="0" dy="4" result="offsetblur"/>
+          <feComponentTransfer><feFuncA type="linear" slope=".25"/></feComponentTransfer>
+          <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- User -->
+      <g filter="url(#dropShadow)">
+        <rect x="40" y="40" width="220" height="80" rx="18" fill="url(#lyrUser)"/>
+        <text x="150" y="78" text-anchor="middle" font-size="14" fill="#fff" font-weight="700">👤 用户 / User</text>
+        <text x="150" y="98" text-anchor="middle" font-size="11" fill="#fff" opacity=".9">"用 codenook 帮我做 X"</text>
+      </g>
+
+      <!-- arrow user → conductor -->
+      <path d="M 260 80 L 360 80" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arrow)"/>
+      <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/></marker></defs>
+
+      <!-- Conductor -->
+      <g filter="url(#dropShadow)">
+        <rect x="360" y="30" width="320" height="100" rx="20" fill="url(#lyrTop)"/>
+        <text x="520" y="64" text-anchor="middle" font-size="15" fill="#fff" font-weight="700">🎼 Conductor (Layer 0)</text>
+        <text x="520" y="86" text-anchor="middle" font-size="12" fill="#fff" opacity=".95">Claude Code · Copilot CLI · ChatGPT · ...</text>
+        <text x="520" y="108" text-anchor="middle" font-size="11" fill="#fff" opacity=".85">"协议传话筒 — 不解释任何领域内容"</text>
+      </g>
+
+      <!-- arrow conductor → CLI -->
+      <path d="M 520 130 L 520 168" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arrow)"/>
+      <text x="540" y="155" font-size="11" fill="#64748b" font-family="JetBrains Mono, monospace">codenook tick / decide</text>
+
+      <!-- Big .codenook/ box -->
+      <g filter="url(#dropShadow)">
+        <rect x="60" y="170" width="960" height="320" rx="22" fill="#fff" stroke="#c7d2fe" stroke-width="2.5"/>
+        <text x="86" y="200" font-size="13" font-weight="700" fill="#6366f1" font-family="JetBrains Mono, monospace">.codenook/</text>
+        <text x="86" y="216" font-size="11" fill="#64748b">"工作空间 = 全部状态" · Layer 1 + 2 + 3 都住这里</text>
+
+        <!-- Layer 1: Kernel -->
+        <g>
+          <rect x="86" y="240" width="290" height="220" rx="16" fill="url(#lyrMid)" opacity=".95"/>
+          <text x="231" y="270" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">🛠 Layer 1 · Kernel</text>
+          <text x="231" y="288" text-anchor="middle" font-size="11" fill="#fff" opacity=".9">codenook-core/ · 插件无关</text>
+
+          <g font-size="11" fill="#fff" opacity=".95">
+            <text x="106" y="318">• orchestrator-tick (状态机)</text>
+            <text x="106" y="340">• HITL 适配器 (terminal/html)</text>
+            <text x="106" y="362">• knowledge-extractor</text>
+            <text x="106" y="384">• skill-extractor</text>
+            <text x="106" y="406">• config-extractor</text>
+            <text x="106" y="428">• CLI 命令解析 (task / tick / decide)</text>
+          </g>
+        </g>
+
+        <!-- Layer 2: Plugins -->
+        <g>
+          <rect x="395" y="240" width="290" height="220" rx="16" fill="#eef2ff" stroke="#a5b4fc" stroke-width="2"/>
+          <text x="540" y="270" text-anchor="middle" font-size="14" font-weight="700" fill="#4338ca">🔌 Layer 2 · Plugins</text>
+          <text x="540" y="288" text-anchor="middle" font-size="11" fill="#6366f1">领域知识 · 可热插拔</text>
+
+          <g font-family="JetBrains Mono, monospace" font-size="12">
+            <rect x="415" y="306" width="250" height="38" rx="8" fill="#fff" stroke="#c7d2fe"/>
+            <text x="430" y="330" fill="#4338ca" font-weight="700">development/</text>
+            <text x="565" y="330" fill="#94a3b8" font-size="10">11 phases · feature/hotfix...</text>
+
+            <rect x="415" y="354" width="250" height="38" rx="8" fill="#fff" stroke="#c7d2fe"/>
+            <text x="430" y="378" fill="#4338ca" font-weight="700">writing/</text>
+            <text x="565" y="378" fill="#94a3b8" font-size="10">outline → draft → polish</text>
+
+            <rect x="415" y="402" width="250" height="38" rx="8" fill="#fff" stroke="#c7d2fe"/>
+            <text x="430" y="426" fill="#4338ca" font-weight="700">generic/</text>
+            <text x="565" y="426" fill="#94a3b8" font-size="10">fallback · 任意领域</text>
+          </g>
+        </g>
+
+        <!-- Layer 3: State -->
+        <g>
+          <rect x="704" y="240" width="295" height="220" rx="16" fill="#ecfeff" stroke="#67e8f9" stroke-width="2"/>
+          <text x="851" y="270" text-anchor="middle" font-size="14" font-weight="700" fill="#0e7490">📁 Layer 3 · Workspace State</text>
+          <text x="851" y="288" text-anchor="middle" font-size="11" fill="#0891b2">纯文件 · 可 diff · 可 tar</text>
+
+          <g font-family="JetBrains Mono, monospace" font-size="11" fill="#0e7490">
+            <text x="724" y="318">📂 tasks/T-NNN-slug/</text>
+            <text x="744" y="334" fill="#0891b2" font-size="10">state.json · prompts/ · outputs/</text>
+            <text x="724" y="358">📂 memory/</text>
+            <text x="744" y="374" fill="#0891b2" font-size="10">knowledge/ · skills/ · configs/</text>
+            <text x="724" y="398">📂 hitl-queue/</text>
+            <text x="744" y="414" fill="#0891b2" font-size="10">*.json · 待人审批的关卡</text>
+            <text x="724" y="438">📄 state.json</text>
+            <text x="744" y="454" fill="#0891b2" font-size="10">已装插件 · kernel 版本</text>
+          </g>
+        </g>
+
+        <!-- inter-layer arrows inside box -->
+        <path d="M 376 350 L 395 350" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+        <path d="M 685 350 L 704 350" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+      </g>
+
+      <!-- arrow conductor → big box -->
+      <line x1="520" y1="168" x2="520" y2="200" stroke="transparent"/>
+
+      <!-- callout -->
+      <g transform="translate(720 70)">
+        <rect width="320" height="80" rx="14" fill="#fffbeb" stroke="#fcd34d" stroke-width="2"/>
+        <text x="20" y="30" font-size="13" font-weight="700" fill="#92400e">💡 关键洞察</text>
+        <text x="20" y="50" font-size="11" fill="#78350f">Conductor (你的 AI 会话) 不解释任何</text>
+        <text x="20" y="66" font-size="11" fill="#78350f">领域内容 — 只调 CLI、传消息。</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="insight-box">
+    <strong>三层各司其职：</strong>用户表达意图 → Conductor 选插件、调 CLI、转达指令 →
+    Kernel 在状态机里前进 → 插件提供领域剧本 → 一切落地为 Workspace 文件。
+    <br/><span style="color:var(--muted); font-size:14px;">→ 任何一层换掉，其他三层都不需要重写。</span>
+  </div>
+</section>
+
+<!-- ============ §5 任务的一生 ============ -->
+<section id="s5" style="background: linear-gradient(180deg, #fafbff 0%, #ecfeff 100%);">
+  <span class="section-tag">§ 05 · The Runtime</span>
+  <h2>任务的一生：<span class="gradient-text">tick 循环</span> 与 11 phase</h2>
+  <p class="subtitle">把静态架构变成动态流程。一行命令背后，是 conductor / kernel / sub-agent 三方的协奏。</p>
+
+  <div style="background:#fff; border-radius:22px; padding:30px; box-shadow: var(--shadow-md); border:1px solid var(--line); margin-bottom: 24px;">
+    <!-- swimlane SVG -->
+    <svg viewBox="0 0 1100 420" width="100%" height="auto" font-family="Inter, system-ui">
+      <defs>
+        <linearGradient id="laneA" x1="0" x2="1"><stop offset="0" stop-color="#fef3c7"/><stop offset="1" stop-color="#fde68a"/></linearGradient>
+        <linearGradient id="laneB" x1="0" x2="1"><stop offset="0" stop-color="#eef2ff"/><stop offset="1" stop-color="#e0e7ff"/></linearGradient>
+        <linearGradient id="laneC" x1="0" x2="1"><stop offset="0" stop-color="#ecfdf5"/><stop offset="1" stop-color="#d1fae5"/></linearGradient>
+        <linearGradient id="nodeMid" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#4f46e5"/></linearGradient>
+        <linearGradient id="nodeBot" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#10b981"/><stop offset="1" stop-color="#059669"/></linearGradient>
+        <linearGradient id="nodeTop" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f59e0b"/><stop offset="1" stop-color="#d97706"/></linearGradient>
+      </defs>
+
+      <!-- lanes -->
+      <rect x="20" y="30" width="1060" height="110" rx="14" fill="url(#laneA)"/>
+      <rect x="20" y="150" width="1060" height="110" rx="14" fill="url(#laneB)"/>
+      <rect x="20" y="270" width="1060" height="110" rx="14" fill="url(#laneC)"/>
+
+      <text x="38" y="55" font-size="12" font-weight="700" fill="#92400e">Conductor</text>
+      <text x="38" y="68" font-size="10" fill="#b45309">(Claude Code / Copilot)</text>
+
+      <text x="38" y="175" font-size="12" font-weight="700" fill="#4338ca">Kernel · tick 状态机</text>
+      <text x="38" y="188" font-size="10" fill="#6366f1">(orchestrator-tick.py)</text>
+
+      <text x="38" y="295" font-size="12" font-weight="700" fill="#065f46">Sub-agent (role)</text>
+      <text x="38" y="308" font-size="10" fill="#047857">(designer / planner / ...)</text>
+
+      <!-- Step 1: task new -->
+      <g>
+        <rect x="170" y="58" width="120" height="50" rx="10" fill="url(#nodeTop)"/>
+        <text x="230" y="80" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1. task new</text>
+        <text x="230" y="96" text-anchor="middle" font-size="10" fill="#fff" opacity=".9">--plugin writing</text>
+      </g>
+      <path d="M 230 108 L 230 175" stroke="#6366f1" stroke-width="2" stroke-dasharray="4 4" marker-end="url(#arrow)"/>
+
+      <!-- Step 2: tick advances -->
+      <g>
+        <rect x="170" y="178" width="120" height="50" rx="10" fill="url(#nodeMid)"/>
+        <text x="230" y="200" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2. tick</text>
+        <text x="230" y="216" text-anchor="middle" font-size="10" fill="#fff" opacity=".9">→ dispatch envelope</text>
+      </g>
+      <path d="M 230 228 L 230 295" stroke="#6366f1" stroke-width="2" stroke-dasharray="4 4" marker-end="url(#arrow)"/>
+
+      <!-- Step 3: role runs -->
+      <g>
+        <rect x="170" y="298" width="120" height="50" rx="10" fill="url(#nodeBot)"/>
+        <text x="230" y="320" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3. role 执行</text>
+        <text x="230" y="336" text-anchor="middle" font-size="10" fill="#fff" opacity=".9">写 outputs/*.md</text>
+      </g>
+
+      <!-- arrow up to verdict -->
+      <path d="M 290 323 Q 360 323 360 200 L 410 200" stroke="#6366f1" stroke-width="2" stroke-dasharray="4 4" marker-end="url(#arrow)"/>
+
+      <!-- Step 4: verdict + gate -->
+      <g>
+        <rect x="410" y="178" width="140" height="50" rx="10" fill="url(#nodeMid)"/>
+        <text x="480" y="200" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4. verdict 判定</text>
+        <text x="480" y="216" text-anchor="middle" font-size="10" fill="#fff" opacity=".9">ok / needs_changes</text>
+      </g>
+
+      <!-- HITL gate icon -->
+      <g transform="translate(580 165)">
+        <rect width="110" height="80" rx="12" fill="#fff" stroke="#fbbf24" stroke-width="2.5" stroke-dasharray="4 3"/>
+        <text x="55" y="32" text-anchor="middle" font-size="22">🚦</text>
+        <text x="55" y="52" text-anchor="middle" font-size="11" font-weight="700" fill="#92400e">HITL Gate</text>
+        <text x="55" y="68" text-anchor="middle" font-size="9" fill="#b45309">人工把关</text>
+      </g>
+
+      <path d="M 550 200 L 580 200" stroke="#6366f1" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M 635 165 Q 635 100 480 90 L 480 60" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4 3" fill="none" marker-end="url(#arrow)"/>
+
+      <!-- Step 5: decide on conductor lane -->
+      <g>
+        <rect x="420" y="58" width="140" height="50" rx="10" fill="url(#nodeTop)"/>
+        <text x="490" y="80" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">5. decide</text>
+        <text x="490" y="96" text-anchor="middle" font-size="10" fill="#fff" opacity=".9">approve / reject</text>
+      </g>
+
+      <path d="M 560 83 Q 700 83 700 200 L 730 200" stroke="#6366f1" stroke-width="2" stroke-dasharray="4 4" marker-end="url(#arrow)"/>
+
+      <!-- Step 6: next phase -->
+      <g>
+        <rect x="730" y="178" width="140" height="50" rx="10" fill="url(#nodeMid)"/>
+        <text x="800" y="200" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">6. advance</text>
+        <text x="800" y="216" text-anchor="middle" font-size="10" fill="#fff" opacity=".9">→ next phase</text>
+      </g>
+
+      <path d="M 870 200 Q 920 200 920 295 L 870 295" stroke="#6366f1" stroke-width="2" stroke-dasharray="4 4" marker-end="url(#arrow)"/>
+
+      <!-- Step 7: new role -->
+      <g>
+        <rect x="730" y="298" width="140" height="50" rx="10" fill="url(#nodeBot)"/>
+        <text x="800" y="320" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">7. 下一个 role</text>
+        <text x="800" y="336" text-anchor="middle" font-size="10" fill="#fff" opacity=".9">implementer / ...</text>
+      </g>
+
+      <!-- final ship -->
+      <g transform="translate(940 178)">
+        <rect width="120" height="50" rx="10" fill="#0f172a"/>
+        <text x="60" y="22" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">8. ship 🎉</text>
+        <text x="60" y="38" text-anchor="middle" font-size="10" fill="#94a3b8">verdict: done</text>
+      </g>
+      <path d="M 870 200 L 940 200" stroke="#0f172a" stroke-width="2" marker-end="url(#arrow)"/>
+
+      <!-- iteration loop arrow -->
+      <path d="M 800 348 Q 800 400 480 400 Q 230 400 230 348" stroke="#ec4899" stroke-width="2" stroke-dasharray="6 4" fill="none" marker-end="url(#arrow)"/>
+      <text x="500" y="415" text-anchor="middle" font-size="10" fill="#ec4899" font-weight="600">↻ post_validate 失败 / needs_changes → 自动 loop</text>
+    </svg>
+  </div>
+
+  <h3 style="font-size:18px; color:var(--ink2); margin-bottom: 8px;">development 插件 · feature profile · 11 个 phase</h3>
+  <div class="phase-strip">
+    <div class="phase-pill"><span class="num">01</span>clarify</div>
+    <div class="phase-pill"><span class="num">02</span>design</div>
+    <div class="phase-pill"><span class="num">03</span>plan</div>
+    <div class="phase-pill"><span class="num">04</span>implement</div>
+    <div class="phase-pill"><span class="num">05</span>build</div>
+    <div class="phase-pill"><span class="num">06</span>review</div>
+    <div class="phase-pill"><span class="num">07</span>submit</div>
+    <div class="phase-pill"><span class="num">08</span>test-plan</div>
+    <div class="phase-pill"><span class="num">09</span>test</div>
+    <div class="phase-pill"><span class="num">10</span>accept</div>
+    <div class="phase-pill"><span class="num">11</span>ship</div>
+  </div>
+
+  <div class="insight-box" style="margin-top: 24px;">
+    HITL 的意义 · <strong>人在关键节点把关，机器在重复劳动里加速。</strong>
+    每个非 implement 的 phase 都有一个 gate，<code>verdict</code> 不是 ok 时自动回退迭代。
+  </div>
+</section>
+
+<!-- ============ §6 记忆与技能 ============ -->
+<section id="s6">
+  <span class="section-tag">§ 06 · Memory & Skills</span>
+  <h2>让 AI <span class="gradient-text">越用越懂你</span></h2>
+  <p class="subtitle">CodeNook 不是又一个工作流编排器——它会自己长记性。每个 phase 完成后，三个抽取器并行从 transcript 里淘金。</p>
+
+  <div class="two-col">
+    <!-- Funnel SVG -->
+    <div style="background:#fff; border-radius:22px; padding:24px; box-shadow: var(--shadow-md); border:1px solid var(--line);">
+      <svg viewBox="0 0 480 460" width="100%" height="auto" font-family="Inter, system-ui">
+        <defs>
+          <linearGradient id="taskExec" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#06b6d4"/></linearGradient>
+          <linearGradient id="ext1" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#10b981"/><stop offset="1" stop-color="#059669"/></linearGradient>
+          <linearGradient id="ext2" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f59e0b"/><stop offset="1" stop-color="#d97706"/></linearGradient>
+          <linearGradient id="ext3" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ec4899"/><stop offset="1" stop-color="#db2777"/></linearGradient>
+        </defs>
+
+        <!-- task execution at top -->
+        <rect x="100" y="20" width="280" height="56" rx="14" fill="url(#taskExec)"/>
+        <text x="240" y="46" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">📋 任务执行 (transcript)</text>
+        <text x="240" y="64" text-anchor="middle" font-size="11" fill="#fff" opacity=".9">phase outputs · prompts · decisions</text>
+
+        <!-- funnel -->
+        <path d="M 100 76 L 380 76 L 320 160 L 160 160 Z" fill="#e0e7ff" opacity=".6"/>
+        <text x="240" y="125" text-anchor="middle" font-size="11" fill="#4338ca" font-weight="600">⬇ 三抽取器并行 ⬇</text>
+
+        <!-- 3 extractors -->
+        <g>
+          <rect x="40" y="170" width="120" height="58" rx="12" fill="url(#ext1)"/>
+          <text x="100" y="194" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">knowledge</text>
+          <text x="100" y="210" text-anchor="middle" font-size="9" fill="#fff" opacity=".9">extractor</text>
+          <text x="100" y="222" text-anchor="middle" font-size="9" fill="#fff" opacity=".9">"知道了什么"</text>
+        </g>
+        <g>
+          <rect x="180" y="170" width="120" height="58" rx="12" fill="url(#ext2)"/>
+          <text x="240" y="194" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">skill</text>
+          <text x="240" y="210" text-anchor="middle" font-size="9" fill="#fff" opacity=".9">extractor</text>
+          <text x="240" y="222" text-anchor="middle" font-size="9" fill="#fff" opacity=".9">"会做什么"</text>
+        </g>
+        <g>
+          <rect x="320" y="170" width="120" height="58" rx="12" fill="url(#ext3)"/>
+          <text x="380" y="194" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">config</text>
+          <text x="380" y="210" text-anchor="middle" font-size="9" fill="#fff" opacity=".9">extractor</text>
+          <text x="380" y="222" text-anchor="middle" font-size="9" fill="#fff" opacity=".9">"偏好什么"</text>
+        </g>
+
+        <!-- arrows down -->
+        <path d="M 100 228 L 100 270" stroke="#10b981" stroke-width="2" marker-end="url(#arrow)"/>
+        <path d="M 240 228 L 240 270" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow)"/>
+        <path d="M 380 228 L 380 270" stroke="#ec4899" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <!-- 3 folders -->
+        <g transform="translate(40 270)">
+          <path d="M 0 12 L 0 76 L 120 76 L 120 6 L 60 6 L 50 0 L 0 0 Z M 0 12 L 50 12" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+          <text x="60" y="42" text-anchor="middle" font-size="11" font-weight="700" fill="#065f46">knowledge/</text>
+          <text x="60" y="58" text-anchor="middle" font-size="9" fill="#047857" font-family="JetBrains Mono, monospace">*.md</text>
+        </g>
+        <g transform="translate(180 270)">
+          <path d="M 0 12 L 0 76 L 120 76 L 120 6 L 60 6 L 50 0 L 0 0 Z M 0 12 L 50 12" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+          <text x="60" y="42" text-anchor="middle" font-size="11" font-weight="700" fill="#92400e">skills/</text>
+          <text x="60" y="58" text-anchor="middle" font-size="9" fill="#b45309" font-family="JetBrains Mono, monospace">SKILL.md</text>
+        </g>
+        <g transform="translate(320 270)">
+          <path d="M 0 12 L 0 76 L 120 76 L 120 6 L 60 6 L 50 0 L 0 0 Z M 0 12 L 50 12" fill="#fdf2f8" stroke="#ec4899" stroke-width="2"/>
+          <text x="60" y="42" text-anchor="middle" font-size="11" font-weight="700" fill="#9d174d">configs/</text>
+          <text x="60" y="58" text-anchor="middle" font-size="9" fill="#be185d" font-family="JetBrains Mono, monospace">*.yaml</text>
+        </g>
+
+        <!-- index aggregator -->
+        <rect x="100" y="370" width="280" height="60" rx="14" fill="#0f172a"/>
+        <text x="240" y="395" text-anchor="middle" font-size="13" font-weight="700" fill="#fde68a">📇 .codenook/memory/index.yaml</text>
+        <text x="240" y="414" text-anchor="middle" font-size="10" fill="#94a3b8" font-family="JetBrains Mono, monospace">conductor 启动时一次读完，做向量化前的轻量索引</text>
+
+        <path d="M 100 346 L 240 370" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 3" fill="none"/>
+        <path d="M 240 346 L 240 370" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <path d="M 380 346 L 240 370" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 3" fill="none"/>
+      </svg>
+    </div>
+
+    <div>
+      <h3 style="font-size:22px; margin-bottom:14px;">三种沉淀 · 各管一段</h3>
+      <div class="feature-list">
+        <div class="feature-row">
+          <div class="fi" style="background: var(--grad-mint);">📚</div>
+          <div>
+            <h4>knowledge/ · 这个项目"是怎么回事"</h4>
+            <p>领域事实、设计取舍、术语定义。下次再做相关任务，conductor 会从 index 命中相关条目。</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="fi" style="background: var(--grad-warm);">🛠</div>
+          <div>
+            <h4>skills/ · 我"会做什么"</h4>
+            <p>可复用的操作流程（如"写公众号文章"、"发布到微博"），格式与 Claude Skills / Anthropic SKILL.md 兼容。</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="fi" style="background: var(--grad-pink);">⚙️</div>
+          <div>
+            <h4>configs/ · 我"偏好什么"</h4>
+            <p>用户口味（commit 用英文、不要 emoji 标题、push 前先 lint），自动叠加进每个新任务的 conductor 提示。</p>
+          </div>
+        </div>
+      </div>
+
+      <h4 style="margin: 26px 0 8px; font-size: 14px; color: var(--muted); letter-spacing: .08em;">真实片段 · <code>.codenook/memory/index.yaml</code></h4>
+      <pre class="code"><span class="c"># 自动维护，可读、可 diff、可版本化</span>
+<span class="k">version</span><span class="p">:</span> <span class="v">1</span>
+<span class="k">knowledge</span><span class="p">:</span>
+  <span class="p">-</span> <span class="k">topic</span><span class="p">:</span> <span class="s">"CodeNook 三层架构"</span>
+    <span class="k">summary</span><span class="p">:</span> <span class="s">"conductor / kernel / workspace"</span>
+    <span class="k">tags</span><span class="p">:</span> <span class="p">[</span><span class="s">architecture</span><span class="p">,</span> <span class="s">core</span><span class="p">]</span>
+    <span class="k">path</span><span class="p">:</span> <span class="s">memory/knowledge/architecture.md</span>
+<span class="k">skills</span><span class="p">:</span>
+  <span class="p">-</span> <span class="k">name</span><span class="p">:</span> <span class="s">"baoyu-post-to-wechat"</span>
+    <span class="k">summary</span><span class="p">:</span> <span class="s">"发布文章到公众号"</span>
+    <span class="k">path</span><span class="p">:</span> <span class="s">memory/skills/baoyu-post-to-wechat/</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ============ §7 可迁移性 ============ -->
+<section id="s7" style="background: linear-gradient(180deg, #fafbff 0%, #fdf2f8 100%);">
+  <span class="section-tag">§ 07 · Portability</span>
+  <h2>工作空间即一切：<span class="gradient-text">打包就能搬家</span></h2>
+  <p class="subtitle">"Nothing is global"——所有状态都在 <code>&lt;workspace&gt;/.codenook/</code> 下。设计纪律换来的，是几乎为零的迁移摩擦。</p>
+
+  <!-- migration scene SVG -->
+  <div style="background:#fff; border-radius:22px; padding:30px; box-shadow: var(--shadow-md); border:1px solid var(--line); margin-bottom: 30px;">
+    <svg viewBox="0 0 1080 280" width="100%" height="auto" font-family="Inter, system-ui">
+      <defs>
+        <linearGradient id="laptop" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#cbd5e1"/><stop offset="1" stop-color="#94a3b8"/></linearGradient>
+        <linearGradient id="suitcase" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#4f46e5"/></linearGradient>
+        <linearGradient id="server" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#0f172a"/><stop offset="1" stop-color="#1e293b"/></linearGradient>
+      </defs>
+
+      <!-- Laptop A -->
+      <g transform="translate(80 60)">
+        <rect x="20" y="20" width="180" height="120" rx="10" fill="url(#laptop)" stroke="#475569" stroke-width="2"/>
+        <rect x="32" y="32" width="156" height="96" rx="4" fill="#0f172a"/>
+        <text x="110" y="68" text-anchor="middle" font-size="11" font-family="JetBrains Mono, monospace" fill="#06b6d4">~/myproject/</text>
+        <text x="110" y="86" text-anchor="middle" font-size="11" font-family="JetBrains Mono, monospace" fill="#fbbf24">.codenook/</text>
+        <text x="110" y="104" text-anchor="middle" font-size="10" fill="#10b981" font-family="JetBrains Mono, monospace">$ tar czf ws.tgz</text>
+        <rect x="0" y="140" width="220" height="14" rx="3" fill="#475569"/>
+        <text x="110" y="178" text-anchor="middle" font-size="13" font-weight="700" fill="#475569">💻 你的笔记本 / Mac</text>
+        <text x="110" y="196" text-anchor="middle" font-size="11" fill="#94a3b8">Claude Code</text>
+      </g>
+
+      <!-- Arrow + suitcase -->
+      <g transform="translate(330 110)">
+        <path d="M 0 30 L 60 30" stroke="#6366f1" stroke-width="3" marker-end="url(#arrowBig)"/>
+        <defs><marker id="arrowBig" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#6366f1"/></marker></defs>
+
+        <!-- suitcase -->
+        <g transform="translate(80 -20)">
+          <rect x="0" y="20" width="120" height="80" rx="10" fill="url(#suitcase)" stroke="#3730a3" stroke-width="2"/>
+          <rect x="40" y="0" width="40" height="20" rx="4" fill="none" stroke="#3730a3" stroke-width="3"/>
+          <line x1="0" y1="55" x2="120" y2="55" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4 3"/>
+          <circle cx="60" cy="55" r="6" fill="#fbbf24"/>
+          <text x="60" y="40" text-anchor="middle" font-size="10" fill="#fff" font-weight="700" font-family="JetBrains Mono, monospace">.codenook</text>
+          <text x="60" y="80" text-anchor="middle" font-size="10" fill="#fff" opacity=".85">tasks · memory</text>
+          <text x="60" y="92" text-anchor="middle" font-size="10" fill="#fff" opacity=".85">plugins · state</text>
+        </g>
+
+        <path d="M 220 30 L 280 30" stroke="#6366f1" stroke-width="3" marker-end="url(#arrowBig)"/>
+        <text x="150" y="125" text-anchor="middle" font-size="11" fill="#6366f1" font-family="JetBrains Mono, monospace">scp ws.tgz remote:~</text>
+      </g>
+
+      <!-- Server / Laptop B -->
+      <g transform="translate(800 60)">
+        <rect x="20" y="20" width="180" height="120" rx="10" fill="url(#server)" stroke="#000" stroke-width="2"/>
+        <rect x="32" y="32" width="156" height="96" rx="4" fill="#0f172a"/>
+        <text x="110" y="68" text-anchor="middle" font-size="11" font-family="JetBrains Mono, monospace" fill="#06b6d4">~/myproject/</text>
+        <text x="110" y="86" text-anchor="middle" font-size="11" font-family="JetBrains Mono, monospace" fill="#fbbf24">.codenook/</text>
+        <text x="110" y="104" text-anchor="middle" font-size="10" fill="#10b981" font-family="JetBrains Mono, monospace">$ codenook tick ✓</text>
+        <rect x="0" y="140" width="220" height="14" rx="3" fill="#1e293b"/>
+        <text x="110" y="178" text-anchor="middle" font-size="13" font-weight="700" fill="#475569">🖥 远端服务器 / Linux</text>
+        <text x="110" y="196" text-anchor="middle" font-size="11" fill="#94a3b8">Copilot CLI · 接着干</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="migrate-row">
+    <table class="cmp">
+      <thead>
+        <tr><th>对比维度</th><th>传统 AI Session</th><th>CodeNook Task</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>状态位置</strong></td>
+          <td><span class="x">客户端 / 云账号</span></td>
+          <td><span class="ok">工作目录文件</span></td>
+        </tr>
+        <tr>
+          <td><strong>迁移成本</strong></td>
+          <td><span class="x">导出 + 重新喂上下文</span></td>
+          <td><span class="ok">tar + scp</span></td>
+        </tr>
+        <tr>
+          <td><strong>中断恢复</strong></td>
+          <td><span class="x">凭对方记忆 + 手动复盘</span></td>
+          <td><span class="ok">tick 接着跑</span></td>
+        </tr>
+        <tr>
+          <td><strong>跨工具</strong></td>
+          <td><span class="x">几乎不可能</span></td>
+          <td><span class="ok">协议相同即可换</span></td>
+        </tr>
+        <tr>
+          <td><strong>合规 / 离线</strong></td>
+          <td><span class="x">依赖云端</span></td>
+          <td><span class="ok">纯文件 · 可审计 · 可断网</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div>
+      <h3 style="font-size: 18px;">一条命令的搬家流程</h3>
+      <pre class="code"><span class="prompt">$</span> tar czf my-work.tgz <span class="n">.codenook/</span>
+<span class="prompt">$</span> scp my-work.tgz remote:~
+<span class="prompt">$</span> ssh remote
+<span class="prompt">$</span> tar xzf my-work.tgz
+<span class="prompt">$</span> codenook status   <span class="c"># T-006 phase=draft 0</span>
+<span class="prompt">$</span> codenook tick     <span class="c"># 接着跑，零损耗</span></pre>
+
+      <div class="insight-box" style="margin-top: 12px;">
+        <strong>设计哲学：</strong>把"上下文"从 LLM 厂商手里夺回来，交还给文件系统。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ §8 演示 + Q&A / 谢幕 ============ -->
+<section id="s8" class="closing">
+  <div class="closing-inner">
+    <span class="section-tag" style="background:rgba(255,255,255,.18); color:#fff;">§ 08 · DEMO &amp; CLOSING</span>
+
+    <h2 style="color:#fff; margin-top: 8px;">现场演示 &amp; Q&amp;A</h2>
+
+    <div class="terminal" style="text-align:left; max-width:800px; margin: 28px auto;">
+      <div class="bar"><i></i><i></i><i></i><span class="t">demo · ~/work</span></div>
+      <pre><span style="color:#06b6d4;">$</span> python3 install.py --target ~/demo --plugin writing
+<span style="color:#94a3b8;">✓ codenook v0.25.5 installed</span>
+<span style="color:#94a3b8;">✓ plugin writing installed</span>
+
+<span style="color:#06b6d4;">$</span> cd ~/demo
+<span style="color:#06b6d4;">claude</span>  <span style="color:#64748b;"># 或 copilot, 任何支持 MCP/工具调用的 conductor</span>
+
+<span style="color:#fbbf24;">you ›</span> 用 codenook 帮我写一篇技术博客，主题是 RAG 缺陷
+<span style="color:#10b981;">claude ›</span> 好的，我先创建任务...
+        <span style="color:#94a3b8;">$ codenook task new --plugin writing --title "rag-缺陷"</span>
+        <span style="color:#94a3b8;">$ codenook tick --task T-001 --json</span>
+        <span style="color:#fde68a;">🚦 HITL: outline 已生成，请审阅 outputs/phase-1-outliner.md</span>
+
+<span style="color:#fbbf24;">you ›</span> approve
+<span style="color:#10b981;">claude ›</span> 已 approve，进入 draft...
+        <span style="color:#ec4899;">📝 sub-agent 正在写正文 (model: claude-sonnet-4.5)</span>
+        <span style="color:#94a3b8;">📁 .codenook/memory/index.yaml ← 已沉淀 1 条 knowledge</span></pre>
+    </div>
+
+    <div class="big-thesis">
+      AI 助手不变，<br/>但它的<em>工作单位</em>变了。
+    </div>
+
+    <div class="recap">
+      <div>
+        <h4>RECAP · 01</h4>
+        <p>痛点 → <strong>session 是错误的工作单位</strong>，关闭即消失、压缩即丢失、绑定即孤岛。</p>
+      </div>
+      <div>
+        <h4>RECAP · 02</h4>
+        <p>解法 → <strong>任务 + 插件 + 记忆 + 工作空间</strong>，conductor 只做协议传话。</p>
+      </div>
+      <div>
+        <h4>RECAP · 03</h4>
+        <p>收益 → <strong>可恢复、可迁移、可审计</strong>。换电脑、换 AI、断网，工作都能继续。</p>
+      </div>
+    </div>
+
+    <div style="margin-top: 30px; opacity: .9; font-size: 14px;">
+      <strong style="color:#fde68a;">Q&amp;A 引导：</strong>
+      "和 LangGraph / CrewAI 的区别？" · "插件怎么写？" · "学习成本？" ·
+      "可以接公司内部模型吗？"
+    </div>
+
+    <div class="links">
+      <a href="#">📦 [GitHub: cintia09/CodeNook]</a>
+      <a href="#">📖 docs/ · PIPELINE.md</a>
+      <a href="#">🚀 install.py --plugin writing</a>
+    </div>
+
+    <div style="margin-top: 36px; font-size: 12px; opacity: .7; letter-spacing: .15em;">
+      THANK YOU · CODENOOK v0.25.5 · 内部技术分享
+    </div>
+  </div>
+</section>
+
+<script>
+  // Smooth dot-nav active state via IntersectionObserver
+  const sections = document.querySelectorAll('section');
+  const dots = document.querySelectorAll('.dot-nav a');
+  const map = {};
+  dots.forEach(d => { map[d.getAttribute('href').slice(1)] = d; });
+
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        dots.forEach(d => d.classList.remove('active'));
+        const dot = map[e.target.id];
+        if (dot) dot.classList.add('active');
+      }
+    });
+  }, { threshold: 0.5 });
+
+  sections.forEach(s => obs.observe(s));
+</script>
+
+</body>
+</html>
