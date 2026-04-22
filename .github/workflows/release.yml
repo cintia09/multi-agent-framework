@@ -1,0 +1,57 @@
+name: Release on tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VER="${TAG#v}"
+          OUT_FILE="$(mktemp)"
+
+          if [ -f CHANGELOG.md ]; then
+            # Capture the section starting with "## v<VER>" (or "## [<VER>]")
+            # and stop at the next "## v" / "## [" heading.
+            awk -v ver="$VER" '
+              BEGIN { capture = 0 }
+              /^##[[:space:]]+v[0-9]/ || /^##[[:space:]]+\[[0-9]/ {
+                if (capture) { exit }
+                if ($0 ~ ("^##[[:space:]]+v" ver "([[:space:]]|$)") ||
+                    $0 ~ ("^##[[:space:]]+\\[" ver "\\]")) {
+                  capture = 1
+                  next
+                }
+              }
+              capture { print }
+            ' CHANGELOG.md > "$OUT_FILE"
+          fi
+
+          if [ ! -s "$OUT_FILE" ]; then
+            printf 'Release %s\n\nSee CHANGELOG.md for details.\n' "$TAG" > "$OUT_FILE"
+          fi
+
+          echo "notes_path=$OUT_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: ${{ steps.notes.outputs.notes_path }}
+          draft: false
+          prerelease: false

@@ -1,3 +1,15 @@
+## v0.27.5 (2026-04-22)
+
+### Added
+- `.github/workflows/release.yml`  auto-create GitHub Release when a
+  `v*` tag is pushed. Release body is extracted from the matching
+  `CHANGELOG.md` section; falls back to a minimal placeholder when no
+  section is found.
+
+### Why
+Previously, every tag had to be promoted to a Release manually via the
+GitHub UI. v0.27.2 / v0.27.3 / v0.27.4 were all left without releases as
+a result. This workflow closes that gap going forward.
 ## v0.27.4 (2026-04-22)
 
 Boot-ritual hardening + parent-task aggregation CLI.
