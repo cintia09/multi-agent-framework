@@ -215,9 +215,10 @@ titles = [r['title'] for r in recs]
 assert titles == ['CLI flag conventions','no-frontmatter'], titles
 assert recs[0]['tags'] == ['cli','argparse']
 assert recs[0]['summary'].startswith('Long flags')
-# fallback row
+# fallback row — no frontmatter, but v0.21.0+ derives an implicit
+# summary from the first non-empty paragraph of the body.
 assert recs[1]['tags'] == []
-assert recs[1]['summary'] == ''
+assert recs[1]['summary'] == 'This file has no frontmatter. It should still be listed.'
 print('OK')
 "
   [ "$status" -eq 0 ] || { echo "$output"; return 1; }

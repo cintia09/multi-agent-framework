@@ -54,6 +54,15 @@ seed_empty_lookup() {
 }
 
 @test "[m9.2] TC-M9.2-06 watermark protocol documented in CLAUDE.md" {
+  # The repo-root CLAUDE.md was deleted in commit 08964fb (kernel template
+  # is now the single source of truth — rendered into each workspace by
+  # claude_md_sync.py). The v0.27+ bootloader template intentionally does
+  # NOT carry the M9.2 watermark protocol section any more (it was folded
+  # into other rituals). The 'codenook extract --reason context-pressure'
+  # affordance still exists in cmd_extract.py / extractor-batch.sh, but no
+  # longer surfaces in the conductor bootloader. Re-introducing it would
+  # be a documentation decision, tracked separately.
+  skip "watermark protocol section removed from bootloader; see commit 08964fb"
   [ -f "$ROOT_CLAUDE_MD" ] || { echo "no CLAUDE.md at $ROOT_CLAUDE_MD"; return 1; }
   count=$(grep -E '80%|water-?mark|context-pressure' "$ROOT_CLAUDE_MD" | wc -l | tr -d ' ')
   [ "$count" -ge 3 ] || { echo "expected ≥3 lines matching watermark vocab, got $count"; return 1; }

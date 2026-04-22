@@ -42,6 +42,7 @@ ml.write_knowledge(
         "applies_when": os.environ["AW"],
     },
     body=os.environ["BODY"],
+    fuzzy_merge=False,
 )
 PY
 }
@@ -215,6 +216,7 @@ for i in range(30):
         topic=f"k-{i:03d}",
         frontmatter={"summary": f"k {i}", "tags": [], "applies_when": "match"},
         body="b",
+        fuzzy_merge=False,
     )
 PY
 

@@ -66,6 +66,15 @@ STUB
 }
 
 @test "[route] TC-ROUTE-03 route_fallback logged on LLM error" {
+  # v0.25.0: extraction_router.route_artefacts() short-circuits to the
+  # cross_task fallback dict and never calls the LLM (the only legal
+  # destination is cross_task; the LLM hop was pure overhead). With no
+  # LLM call there is nothing to "fall back from", so route_fallback is
+  # now permanently false. CN_LLM_MOCK_ERROR_EXTRACTION_ROUTE has no
+  # observable effect. The TC-ROUTE-02 sibling above remains valid: it
+  # asserts the route lands on cross_task, which is the surviving
+  # behavior. See extraction_router.py:142-153 for the rationale.
+  skip "router LLM hop removed in v0.25.0; route_fallback is permanently false"
   ws=$(m9_seed_workspace); m9_init_memory "$ws"
   lookup=$(seed_routing_lookup "$ws")
   tid="T-ROUTE03"

@@ -74,6 +74,9 @@ PY
 }
 
 # m9_seed_n_knowledge <ws> <n> — generate N minimal frontmatter knowledge files.
+# Each entry uses a UNIQUE body so write_knowledge's fuzzy_merge does NOT
+# collapse them into the first one (post-Change-E behavior, where bodies
+# with similar fingerprints merge by default — see _fuzzy_match_existing_knowledge).
 m9_seed_n_knowledge() {
   local ws="$1" n="$2"
   PYTHONPATH="$M9_LIB_DIR" WS="$ws" N="$n" python3 - <<'PY'
@@ -81,8 +84,9 @@ import os
 import memory_layer as ml
 ws = os.environ["WS"]
 n = int(os.environ["N"])
-body = "x" * 1024
 for i in range(n):
+    # unique body per entry (≥1 KiB) so fuzzy_merge sees distinct fingerprints
+    body = f"unique-body-{i:08d} " * 64
     ml.write_knowledge(
         ws,
         topic=f"topic-{i:04d}",

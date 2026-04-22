@@ -1,3 +1,91 @@
+## v0.27.7 (2026-04-22)
+
+Continuation of the v0.27.6 deep-audit pass — recovers all 15
+remaining-out-of-scope bats failures. Two more real kernel bugs
+(both visible from existing-test investigation), four stale tests
+brought back in line with current behavior, and two tests
+explicitly skipped because the feature they covered was removed
+on purpose in earlier releases.
+
+### Fixed
+- **`.write.lock` leaked into the knowledge content directory**
+  (`memory_layer.py`). The directory-level merge-vs-merge sentinel
+  added in the post-D+E review (Change-E lock) was placed at
+  `<memory>/knowledge/.write.lock` and `<memory>/skills/.write.lock`.
+  Any caller that did a plain `os.listdir(.codenook/memory/knowledge/)`
+  after the first write saw the lock file alongside real entries.
+  Relocated under `<memory>/.locks/` so content directories stay pure.
+  Surfaces as TC-M9.1-05 ("same topic prefers patch") rejecting the
+  unexpected `.write.lock` in its expected listing.
+
+- **`CN_EXTRACTOR_BATCH` override silently swallowed non-zero
+  exits** (`orchestrator-tick/_tick.py`). The override path called
+  `_sh_run([...], capture_output=True)` (a thin `subprocess.run`
+  wrapper without `check=True`) and only logged when an *exception*
+  was raised — but a stub that exits 7 returns a `CompletedProcess`
+  cleanly, so the failure was completely invisible. Now inspects
+  `returncode` and prints `"extractor batch failed: override=...
+  exit=N"` on non-zero, while still letting the tick proceed
+  (best-effort hook contract: TC-M9.2-05 asserts failure does not
+  block the tick). **User-visible**: any operator using a custom
+  extractor-batch override saw silent failures.
+
+### Tests
+- **6 tests rescued from a single helper bug** — `m9_seed_n_knowledge`
+  in `tests/helpers/m9_memory.bash` seeded N entries with identical
+  body `"x" * 1024`. With Change-E `fuzzy_merge=True` (default since
+  v0.21.0+), every entry after the first matched the prior one's
+  body fingerprint and merged into it instead of becoming its own
+  topic, so callers that asked for 1000 / 30 / 3 distinct topics
+  got 1. Helper now produces a unique body per index.
+  Recovers TC-M9.1-08, TC-M9.1-12, M9.1 invalidate, TC-M9.3-07,
+  M9.6 cap-20, M9.6 applies_when-split.
+
+- **`m9-router-memory.bats`** — `seed_knowledge_aw` was test-only
+  scaffolding for routing/match assertions, not for fuzzy-merge
+  semantics. Pass `fuzzy_merge=False` so distinct topics with
+  identical bodies stay separate.
+
+- **`m9-knowledge-extractor.bats` TC-M9.3-07** — extractor cap test
+  used candidate bodies `"Body N unique content N"` (≈25 chars)
+  which still tripped the substring-overlap branch of
+  `is_fuzzy_match`. Replaced with longer, structurally-distinct
+  bodies so the cap-3 / dropped-by-2 assertion measures cap logic
+  rather than fuzzy-merge collateral.
+
+- **`m7-generic-manifest.bats` / `m7-writing-manifest.bats`** —
+  pinned `version == "0.1.0"` while the actual manifests are now
+  generic 0.1.2 / writing 0.1.1. Updated pins.
+
+- **`m8-discovery.bats` M8.3 plain-file fallback** — `_summary_from_body`
+  added in v0.21.0 now derives an implicit summary from the first
+  non-empty paragraph for files without frontmatter. Test still
+  expected an empty summary; updated to expect the actual paragraph.
+
+- **`m9-extractor-batch.bats` TC-M9.2-06** — asserted the M9.2
+  watermark protocol is documented in the repo-root CLAUDE.md, but
+  that file was deleted in commit 08964fb (template now lives in
+  `claude_md_sync.py` and renders into each workspace). The current
+  bootloader template intentionally does not carry the watermark
+  protocol section; the `extract --reason context-pressure`
+  affordance still exists but the operator-facing docs were
+  consolidated. Test now `skip`s with a pointer to the commit so
+  the gap is auditable. Re-introducing the documentation is a
+  separate decision.
+
+- **`m9-extraction-router.bats` TC-ROUTE-03** — asserted
+  `route_fallback=true` after a simulated LLM error. v0.25.0
+  rewrote `extraction_router.route_artefacts()` to short-circuit
+  to the cross_task fallback dict and never call the LLM (the LLM
+  hop was pure overhead since cross_task is the only legal route).
+  With no LLM call there is nothing to fall back from, so
+  `route_fallback` is permanently false. Sibling TC-ROUTE-02
+  (asserts cross_task lands) covers the surviving behavior. Test
+  `skip`s with the rationale.
+
+### Regression
+216 pytest / 930 bats ok / 8 skips / 0 fail.
+
 ## v0.27.6 (2026-04-22)
 
 Deep audit pass — fixes 5 latent bugs surfaced during the v0.27.5

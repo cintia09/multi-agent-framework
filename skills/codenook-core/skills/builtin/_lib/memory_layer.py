@@ -205,12 +205,21 @@ def _flock_release(fd: int) -> None:
 # review finding 1). Per-file locks in patch_* protect patch-vs-patch;
 # the directory lock covers merge-vs-merge and merge-vs-create on the
 # same target.
+#
+# v0.27.6: relocated under <memory>/.locks/ instead of inside the content
+# dir so os.listdir(knowledge/) returns only knowledge files (TC-M9.1-05).
+def _locks_dir(ws: Path | str) -> Path:
+    d = memory_root(ws) / ".locks"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def _knowledge_write_lock(ws: Path | str) -> Path:
-    return _knowledge_dir(ws) / ".write.lock"
+    return _locks_dir(ws) / "knowledge.write.lock"
 
 
 def _skills_write_lock(ws: Path | str) -> Path:
-    return _skills_dir(ws) / ".write.lock"
+    return _locks_dir(ws) / "skills.write.lock"
 
 
 # -------------------------------------------------------------- frontmatter

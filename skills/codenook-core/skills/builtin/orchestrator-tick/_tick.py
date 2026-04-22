@@ -1331,12 +1331,22 @@ def after_phase(workspace_root: Path, task_id: str, phase: str | None,
         if not os.path.exists(override):
             return
         try:
-            _sh_run([override,
+            r = _sh_run([override,
                      "--task-id", task_id,
                      "--reason", "after_phase",
                      "--workspace", str(workspace_root),
                      "--phase", phase or ""],
                     capture_output=True, text=True, timeout=10)
+            # _sh_run is a thin subprocess.run wrapper without check=True;
+            # surface a non-zero exit so the failure is observable but
+            # the tick itself is unaffected (the whole point of this hook
+            # is best-effort: TC-M9.2-05 asserts failure does not block).
+            if r.returncode != 0:
+                print(
+                    f"orchestrator-tick: extractor batch failed: "
+                    f"override={override} exit={r.returncode}",
+                    file=sys.stderr,
+                )
         except Exception as e:
             print(f"orchestrator-tick: extractor batch override failed: {e}",
                   file=sys.stderr)

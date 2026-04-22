@@ -105,7 +105,10 @@ print(len(fm['tags']))
   body_json='{"candidates":['
   for i in 1 2 3 4 5; do
     [ "$i" -gt 1 ] && body_json+=','
-    body_json+="{\"title\":\"Topic $i\",\"summary\":\"Summary $i\",\"tags\":[\"a$i\",\"b$i\"],\"body\":\"Body $i unique content $i\"}"
+    # Use sufficiently-long unique bodies so fuzzy_merge does NOT collapse
+    # candidates by substring overlap (cap test, not merge test).
+    pad=$(printf 'distinct-content-segment-%d-' $i)
+    body_json+="{\"title\":\"Topic $i\",\"summary\":\"Summary $i\",\"tags\":[\"a$i\",\"b$i\"],\"body\":\"${pad}${pad}${pad}${pad}${pad}${pad}${pad}${pad}\"}"
   done
   body_json+=']}'
   mock_dir=$(mock_extract_json "$ws" "$body_json")

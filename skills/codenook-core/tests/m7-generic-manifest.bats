@@ -16,7 +16,7 @@ CORE_VERSION="$(cat "$CORE_ROOT/../../VERSION" | tr -d '[:space:]')"
 import sys, yaml
 d = yaml.safe_load(open(sys.argv[1]))
 assert d["id"] == "generic"
-assert d["version"] == "0.1.0"
+assert d["version"] == "0.1.2"
 assert d["type"] == "domain"
 assert isinstance(d["entry_points"], dict) and d["entry_points"]
 assert isinstance(d["declared_subsystems"], list) and d["declared_subsystems"]

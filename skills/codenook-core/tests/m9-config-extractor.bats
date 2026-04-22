@@ -151,9 +151,13 @@ PY
 
   log="$ws/.codenook/memory/history/extraction-log.jsonl"
   # Count canonical 8-key extractor records whose `reason` carries the
-  # decide marker — proves the decide endpoint produced the rationale.
-  cnt=$(jq -c 'select(has("asset_type") and has("verdict") and has("outcome") and .reason=="DECIDE_MARKER_M95_04")' "$log" | wc -l | tr -d ' ')
-  [ "$cnt" -eq 1 ] || { echo "expected decide marker in exactly 1 canonical audit, got $cnt"; cat "$log"; return 1; }
+  # decide marker AND whose outcome is the final "merged" state — proves
+  # the decide endpoint produced the rationale and the merge went through.
+  # (The routing layer also emits an audit record carrying the same
+  # rationale via the route_diagnostic / outcome=diagnostic shape; we
+  # filter to the terminal merge to keep the count stable.)
+  cnt=$(jq -c 'select(has("asset_type") and has("verdict") and .outcome=="merged" and .reason=="DECIDE_MARKER_M95_04")' "$log" | wc -l | tr -d ' ')
+  [ "$cnt" -eq 1 ] || { echo "expected decide marker in exactly 1 merged audit, got $cnt"; cat "$log"; return 1; }
 }
 
 # ------------------------------------------------------------------ TC-M9.5-05
