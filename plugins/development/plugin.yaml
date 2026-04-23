@@ -118,11 +118,11 @@ config:
 routing:
   priority: 50
 
-# Skills shipped with this plugin. Each role MAY invoke any of these
-# via `skill-resolve --name <name> --plugin development`.
-# This list is the single source of truth: role files MUST NOT
-# hard-code skill names. To add or remove a SHIPPED skill, edit only
-# here. Users may also drop additional skills into
+# Skills shipped with this plugin live as sub-directories under
+# `skills/<name>/` (each containing an `index.md`); the discoverable
+# directory is the single source of truth. Run
+# `<codenook> discover plugins --plugin development --type skill` to
+# enumerate them. Users may also drop additional skills into
 # `<workspace>/.codenook/plugins/development/skills/<name>/` — those
-# are resolved by skill-resolve at the plugin_shipped tier but are
-# user-managed and intentionally not listed here.
+# are resolved by skill-resolve at the plugin_shipped tier and are
+# user-managed.

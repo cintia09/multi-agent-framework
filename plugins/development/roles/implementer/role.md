@@ -60,13 +60,16 @@ Plugin-shipped knowledge lives at
 
 ## Skills
 
-Available skills are declared in `.codenook/plugins/development/plugin.yaml`
-under the `available_skills:` field. Read that list first, pick what is
-relevant to your phase, and invoke via:
+Skills are auto-discovered from the plugin's `skills/` sub-directories. Run
+
+    <codenook> discover plugins --plugin development --type skill --json
+
+to list available skills, then read the chosen `skills/<name>/index.md` for
+usage. Invoke a skill via:
 
     .codenook/codenook-core/skills/builtin/skill-resolve/resolve-skill.sh \
         --name <skill> --plugin development --workspace .
 
 The resolver does the 4-tier lookup (memory > plugin_shipped > workspace_custom
-> builtin). Do NOT hard-code skill names in role outputs; treat
-`available_skills:` in plugin.yaml as the single source of truth.
+> builtin). Do NOT hard-code skill names in role outputs; treat the
+discoverable `skills/` directory as the single source of truth.
