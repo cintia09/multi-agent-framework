@@ -34,6 +34,10 @@ Subcommands:
   task set-profile --task T-NNN --profile <name>
   plugin info <id>     show profiles + phases summary for a plugin
   plugin lint <id|path>  static validator for a plugin's wiring
+  plugin diff <id> [--src <path> | --repo <root>] [--json]
+                       show diff between installed snapshot and source
+  plugin update <id> [--src <path> | --repo <root>] [--dry-run] [--yes]
+                       reinstall a single plugin (delegates to install.py)
   config show --task T-NNN [--phase P] [--json]
                        explain the 4-layer model resolution chain
   router   --task T-NNN [--user-turn "…" | --user-turn-file <p> | --confirm]

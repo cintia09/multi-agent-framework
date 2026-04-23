@@ -347,3 +347,53 @@ def test_upgrade_v1_to_v2(installed_workspace: Path) -> None:
     cp = _run(_bin_cmd(ws) + ["upgrade", "--yes", "--json"])
     payload = json.loads(cp.stdout)
     assert all(u["task"] != tid for u in payload["upgraded"])
+
+
+def test_plugin_diff_no_changes(installed_workspace: Path) -> None:
+    """Just-installed plugin should diff clean against its source."""
+    ws = installed_workspace
+    cp = _run(_bin_cmd(ws) + ["plugin", "diff", "development", "--json",
+                              "--repo", str(REPO_ROOT)])
+    payload = json.loads(cp.stdout)
+    assert payload["plugin"] == "development"
+    assert payload["changes"] == [], payload
+
+
+def test_plugin_diff_detects_modification(
+    installed_workspace: Path, tmp_path: Path,
+) -> None:
+    """Mutate one file in the installed snapshot — diff must surface it."""
+    import shutil
+    ws = installed_workspace
+    target = ws / ".codenook" / "plugins" / "development" / "phases.yaml"
+    backup = target.read_text(encoding="utf-8")
+    try:
+        target.write_text(backup + "\n# locally hacked\n", encoding="utf-8")
+        cp = _run(_bin_cmd(ws) + ["plugin", "diff", "development", "--json",
+                                  "--repo", str(REPO_ROOT)],
+                  check=False)
+        assert cp.returncode == 1, cp.stdout
+        payload = json.loads(cp.stdout)
+        paths = {c["path"]: c["status"] for c in payload["changes"]}
+        assert paths.get("phases.yaml") == "modified"
+    finally:
+        target.write_text(backup, encoding="utf-8")
+
+
+def test_plugin_update_idempotent_on_same_version(
+    installed_workspace: Path,
+) -> None:
+    """plugin update on a same-version install should exit 0 (refreshes
+    state.json via the install.py idempotent short-circuit). Re-staging
+    file content requires bumping the plugin's source version — this is
+    documented in HELP_UPDATE."""
+    ws = installed_workspace
+    cp = _run(_bin_cmd(ws) + ["plugin", "update", "development",
+                              "--repo", str(REPO_ROOT), "--yes"],
+              check=False)
+    assert cp.returncode == 0, cp.stdout + cp.stderr
+    # state.json should still record the development plugin.
+    state = json.loads(
+        (ws / ".codenook" / "state.json").read_text(encoding="utf-8"))
+    plugins = {p["id"] for p in state.get("installed_plugins", [])}
+    assert "development" in plugins

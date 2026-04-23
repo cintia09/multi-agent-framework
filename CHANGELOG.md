@@ -1,3 +1,52 @@
+## v0.27.14 (2026-04-23)
+
+Phase C3 of the v0.27.9 follow-up plan: per-plugin diff + update.
+Closes the loop on "I edited a plugin under `plugins/` — what
+exactly is different from what the workspace has installed, and how
+do I push it out?" without forcing a full `python install.py`.
+
+### Added
+- **`codenook plugin diff <id>`** — file-level comparison between
+  `<ws>/.codenook/plugins/<id>/` and the source tree. Walks both
+  recursively (skipping `__pycache__`, dotfiles, `*.pyc`),
+  sha256-hashes every file, and emits unified text diffs for
+  modified UTF-8 files. Source resolution ladder: `--src` >
+  `--repo` > `$CODENOOK_REPO` > walk-up from workspace/cwd
+  looking for an `install.py`+`plugins/` sibling pair.
+  `--json` for machine output. Exit 1 when changes exist
+  (informational, scriptable as "needs update?"); 0 when clean.
+- **`codenook plugin update <id>`** — thin wrapper that
+  re-invokes `install.py --target <ws> --plugin <id> --upgrade`,
+  using the same source-resolution ladder. Forwards
+  `--dry-run` / `--yes`.
+
+### Changed
+- `cmd_plugin.HELP` now lists all four subcommands
+  (`info`/`lint`/`diff`/`update`).
+- `app.USAGE` mirrors the new lines under `plugin …`.
+
+### Known limitation
+`install.py` short-circuits when source `plugin.yaml.version`
+matches the installed version (idempotent path: only refreshes
+state.json, does NOT re-stage files). To re-stage local edits
+without bumping the source version, run install.py manually after
+incrementing `plugin.yaml.version`. Documented in `HELP_UPDATE`.
+
+### Tests
+- `tests/python/test_cli_smoke.py` (+3):
+  - `plugin diff` clean against source = exit 0, empty changes
+  - `plugin diff` after mutating one installed file surfaces
+    `{"path": "phases.yaml", "status": "modified"}` and exit 1
+  - `plugin update` on same-version install = exit 0, state.json
+    still records the plugin
+
+### Verification
+- `python install.py --target /Users/mingdw/Documents/nook --yes`
+  then `.codenook/bin/codenook plugin diff development --repo
+  $REPO --json` returns `"changes": []`.
+
+---
+
 ## v0.27.13 (2026-04-23)
 
 Phase C2 of the v0.27.9 follow-up plan: bats → pytest first batch.

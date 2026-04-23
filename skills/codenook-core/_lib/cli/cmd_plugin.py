@@ -26,11 +26,22 @@ from .config import CodenookContext
 
 
 HELP = """\
-Usage: codenook plugin <info|lint> [args...]
+Usage: codenook plugin <info|lint|diff|update> [args...]
 
-  info <id>          print profiles + phases summary for an installed plugin
-  lint <id|path>     statically validate a plugin's YAML + role + manifest
-                     wiring (use --json for machine output)
+  info <id>                       print profiles + phases summary for an
+                                  installed plugin
+  lint <id|path>                  statically validate a plugin's YAML +
+                                  role + manifest wiring (use --json for
+                                  machine output)
+  diff <id> [--src <path> | --repo <root>]
+                                  compare the installed snapshot against
+                                  the plugin source (per-file unified
+                                  diff for text, sha256 mismatch for
+                                  binaries)
+  update <id> [--src <path> | --repo <root>] [--dry-run] [--yes]
+                                  re-run install for a single plugin
+                                  (delegates to install.py --plugin <id>
+                                  --upgrade)
 """
 
 HELP_LINT = """\
@@ -77,6 +88,10 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
         return 0
     if args[0] == "lint":
         return _plugin_lint(ctx, list(args[1:]))
+    if args[0] == "diff":
+        return _plugin_diff(ctx, list(args[1:]))
+    if args[0] == "update":
+        return _plugin_update(ctx, list(args[1:]))
     if args[0] != "info":
         sys.stderr.write(f"codenook plugin: unknown subcommand: {args[0]}\n")
         sys.stderr.write(HELP)
@@ -333,3 +348,318 @@ def _emit_lint(pdir: Path, plugin_id: str | None,
         for w in warnings:
             print(f"  [{w['code']}] {w['message']}")
     return 0 if not violations else 1
+
+
+# ── plugin diff / plugin update ─────────────────────────────────────────
+
+
+HELP_DIFF = """\
+Usage: codenook plugin diff <id> [--src <path> | --repo <root>] [--json]
+
+Compares the installed plugin snapshot at .codenook/plugins/<id>/
+against an authoritative source tree, surfacing every file-level
+difference. Useful before running ``plugin update`` so you know what
+will change.
+
+Source resolution (first match wins):
+  1. --src <path>            explicit plugin source dir
+  2. --repo <root>           uses <root>/plugins/<id>
+  3. $CODENOOK_REPO env var  uses $CODENOOK_REPO/plugins/<id>
+  4. walk up from the workspace looking for a plugins/<id>/plugin.yaml
+
+Output:
+  text mode — per-file status (M / + / - / ≡), unified diff for text
+              files that changed
+  --json    — {"plugin": id, "src": path, "changes": [
+                {"path": "phases.yaml", "status": "modified",
+                 "src_sha256": "…", "installed_sha256": "…"} … ]}
+
+Exit codes:
+  0  no differences
+  1  one or more differences (still considered success — diff is
+     informational; use exit code to script "needs update?")
+  2  usage error (no source found, plugin not installed)
+"""
+
+HELP_UPDATE = """\
+Usage: codenook plugin update <id> [--src <path> | --repo <root>]
+                                   [--dry-run] [--yes]
+
+Re-runs the install pipeline for a single plugin. Equivalent to:
+    python <repo>/install.py --target <ws> --plugin <id> --upgrade
+
+Source resolution: same as ``plugin diff`` (--src / --repo /
+$CODENOOK_REPO / walk-up).
+
+Flags:
+  --dry-run    forwarded to install.py (no files written)
+  --yes / -y   forwarded (skip the install.py confirm prompt)
+
+Exit codes mirror install.py:
+  0  ok      1  gate failure     2  usage / IO error
+  3  already installed at the same version (no-op)
+
+Note on idempotency:
+  install.py short-circuits when the source plugin.yaml.version
+  matches the installed version — it only refreshes state.json,
+  it does NOT re-stage files. To pick up local edits without
+  bumping the version, run install.py manually with --upgrade
+  after temporarily incrementing plugin.yaml.version.
+"""
+
+
+def _flag_value(args: list[str], flag: str) -> str | None:
+    if flag not in args:
+        return None
+    i = args.index(flag)
+    if i + 1 >= len(args):
+        return None
+    return args[i + 1]
+
+
+def _strip_flag(args: list[str], flag: str, takes_value: bool) -> list[str]:
+    out: list[str] = []
+    i = 0
+    while i < len(args):
+        if args[i] == flag:
+            i += 2 if takes_value else 1
+            continue
+        out.append(args[i])
+        i += 1
+    return out
+
+
+def _resolve_repo_root(start: Path) -> Path | None:
+    cur = start.resolve()
+    for _ in range(20):
+        if (cur / "install.py").is_file() and (cur / "plugins").is_dir():
+            return cur
+        if cur.parent == cur:
+            break
+        cur = cur.parent
+    return None
+
+
+def _resolve_src(
+    ctx: CodenookContext, plugin_id: str, args: list[str],
+) -> tuple[Path | None, str | None]:
+    """Return (src_dir, error_message)."""
+    explicit_src = _flag_value(args, "--src")
+    if explicit_src:
+        p = Path(explicit_src).expanduser().resolve()
+        if not (p / "plugin.yaml").is_file():
+            return None, f"--src {p}: plugin.yaml not found"
+        return p, None
+
+    explicit_repo = _flag_value(args, "--repo")
+    if explicit_repo:
+        cand = Path(explicit_repo).expanduser().resolve() / "plugins" / plugin_id
+        if not (cand / "plugin.yaml").is_file():
+            return None, f"--repo {explicit_repo}: {cand} has no plugin.yaml"
+        return cand, None
+
+    import os
+    env_repo = os.environ.get("CODENOOK_REPO")
+    if env_repo:
+        cand = Path(env_repo).expanduser().resolve() / "plugins" / plugin_id
+        if (cand / "plugin.yaml").is_file():
+            return cand, None
+
+    repo = _resolve_repo_root(ctx.workspace)
+    if repo is None:
+        repo = _resolve_repo_root(Path.cwd())
+    if repo is not None:
+        cand = repo / "plugins" / plugin_id
+        if (cand / "plugin.yaml").is_file():
+            return cand, None
+
+    return None, (
+        f"could not locate plugin source for '{plugin_id}'. "
+        f"Pass --src <dir>, --repo <root>, or set CODENOOK_REPO."
+    )
+
+
+def _walk_files(root: Path) -> dict[str, Path]:
+    """Map relative-posix-path → absolute Path for every file under root."""
+    out: dict[str, Path] = {}
+    if not root.is_dir():
+        return out
+    for p in root.rglob("*"):
+        if not p.is_file():
+            continue
+        # Skip .DS_Store, __pycache__, *.pyc and other build noise.
+        rel = p.relative_to(root)
+        parts = rel.parts
+        if any(part == "__pycache__" or part.startswith(".")
+               for part in parts):
+            continue
+        if p.suffix in (".pyc", ".pyo"):
+            continue
+        out[rel.as_posix()] = p
+    return out
+
+
+def _sha256(path: Path) -> str:
+    import hashlib
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _is_text(path: Path, sniff_bytes: int = 4096) -> bool:
+    try:
+        sample = path.read_bytes()[:sniff_bytes]
+    except OSError:
+        return False
+    if b"\x00" in sample:
+        return False
+    try:
+        sample.decode("utf-8")
+        return True
+    except UnicodeDecodeError:
+        return False
+
+
+def _plugin_diff(ctx: CodenookContext, args: list[str]) -> int:
+    if not args or args[0] in ("-h", "--help"):
+        print(HELP_DIFF)
+        return 0
+
+    as_json = "--json" in args
+    args = _strip_flag(args, "--json", takes_value=False)
+
+    # First positional is the plugin id; flags consumed by _resolve_src.
+    positional = [a for a in args if not a.startswith("-")]
+    if not positional:
+        sys.stderr.write("codenook plugin diff: <id> required\n")
+        return 2
+    plugin_id = positional[0]
+
+    installed = ctx.workspace / ".codenook" / "plugins" / plugin_id
+    if not installed.is_dir():
+        sys.stderr.write(
+            f"codenook plugin diff: plugin not installed: {plugin_id}\n")
+        return 2
+
+    src, err = _resolve_src(ctx, plugin_id, args)
+    if src is None:
+        sys.stderr.write(f"codenook plugin diff: {err}\n")
+        return 2
+
+    inst_files = _walk_files(installed)
+    src_files = _walk_files(src)
+
+    changes: list[dict] = []
+    for rel in sorted(set(inst_files) | set(src_files)):
+        in_inst = rel in inst_files
+        in_src = rel in src_files
+        if in_inst and not in_src:
+            changes.append({"path": rel, "status": "removed",
+                            "installed_sha256": _sha256(inst_files[rel])})
+        elif in_src and not in_inst:
+            changes.append({"path": rel, "status": "added",
+                            "src_sha256": _sha256(src_files[rel])})
+        else:
+            ish = _sha256(inst_files[rel])
+            ssh = _sha256(src_files[rel])
+            if ish != ssh:
+                changes.append({"path": rel, "status": "modified",
+                                "installed_sha256": ish, "src_sha256": ssh})
+
+    if as_json:
+        print(json.dumps({
+            "plugin": plugin_id, "src": str(src),
+            "installed": str(installed),
+            "changes": changes,
+        }, indent=2))
+        return 1 if changes else 0
+
+    print(f"Plugin    : {plugin_id}")
+    print(f"Installed : {installed}")
+    print(f"Source    : {src}")
+    if not changes:
+        print("\n≡ no differences")
+        return 0
+
+    print(f"\n{len(changes)} file(s) differ:\n")
+    import difflib
+    for c in changes:
+        if c["status"] == "added":
+            print(f"  + {c['path']}")
+        elif c["status"] == "removed":
+            print(f"  - {c['path']}")
+        else:
+            print(f"  M {c['path']}")
+    # Inline unified diffs for modified text files.
+    for c in changes:
+        if c["status"] != "modified":
+            continue
+        ip = installed / c["path"]
+        sp = src / c["path"]
+        if not (_is_text(ip) and _is_text(sp)):
+            continue
+        try:
+            il = ip.read_text(encoding="utf-8").splitlines(keepends=True)
+            sl = sp.read_text(encoding="utf-8").splitlines(keepends=True)
+        except OSError:
+            continue
+        diff = difflib.unified_diff(
+            il, sl,
+            fromfile=f"installed/{c['path']}",
+            tofile=f"src/{c['path']}",
+            n=3,
+        )
+        body = "".join(diff)
+        if body:
+            print(f"\n--- {c['path']} ---")
+            sys.stdout.write(body)
+            if not body.endswith("\n"):
+                sys.stdout.write("\n")
+
+    return 1
+
+
+def _plugin_update(ctx: CodenookContext, args: list[str]) -> int:
+    if not args or args[0] in ("-h", "--help"):
+        print(HELP_UPDATE)
+        return 0
+
+    positional = [a for a in args if not a.startswith("-")]
+    if not positional:
+        sys.stderr.write("codenook plugin update: <id> required\n")
+        return 2
+    plugin_id = positional[0]
+
+    src, err = _resolve_src(ctx, plugin_id, args)
+    if src is None:
+        sys.stderr.write(f"codenook plugin update: {err}\n")
+        return 2
+
+    # install.py requires a repo root that contains plugins/<id>. The
+    # user may have passed --src directly to a foreign location; in that
+    # case we synthesise a temporary repo skeleton.
+    repo = src.parent.parent
+    if not (repo / "install.py").is_file() or (repo / "plugins" / plugin_id) != src:
+        sys.stderr.write(
+            "codenook plugin update: --src must point at "
+            "<repo>/plugins/<id>; pass --repo <root> if your layout "
+            "differs.\n")
+        return 2
+
+    install_py = repo / "install.py"
+
+    cmd = [sys.executable, str(install_py),
+           "--target", str(ctx.workspace),
+           "--plugin", plugin_id,
+           "--upgrade"]
+    if "--dry-run" in args:
+        cmd.append("--dry-run")
+    if "--yes" in args or "-y" in args:
+        cmd.append("--yes")
+
+    print(f"→ {' '.join(cmd)}")
+    import subprocess
+    cp = subprocess.run(cmd)
+    return cp.returncode
