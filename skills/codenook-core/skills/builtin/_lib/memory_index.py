@@ -105,7 +105,7 @@ def _write_snapshot(workspace_root: Path | str, snapshot: dict[str, Any]) -> Non
     lock_path = p.with_name(p.name + ".lock")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(json.dumps(snapshot, ensure_ascii=False))
+            f.write(json.dumps(snapshot, ensure_ascii=False, default=str))
             f.flush()
             os.fsync(f.fileno())
         # Serialize the rename across threads/processes so concurrent

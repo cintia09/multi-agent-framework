@@ -89,6 +89,19 @@ a CodeNook task.
   "你看着办" — that exemption applies ONLY to the pre-task
   interview, never to exec mode or model. See §Pre-creation
   config ask for the exact protocol.
+- **MUST** explicitly confirm the chosen plugin with the user
+  via `ask_user` BEFORE creating the task, even when the user's
+  request maps unambiguously to a single installed plugin.
+  Present the ranked recommendation as the first choice and
+  list other installed plugins as alternatives. See §Pick a
+  plugin.
+- **MUST** explicitly pick a profile via `ask_user` when the
+  chosen plugin declares more than one profile, and pass the
+  result as `--profile <name>` to `task new`. Never rely on
+  `--accept-defaults` to silently select the default profile
+  when alternatives exist — different profiles usually mean
+  different phase chains (e.g. `feature` vs `bugfix`). See
+  §Pick a profile.
 - **MUST** complete the §Session-start ritual reads as a single
   batch (`state.json` + every installed `plugin.yaml` +
   `memory/index.yaml` + `<codenook> status`) before answering
@@ -105,6 +118,13 @@ a CodeNook task.
   that the new task is unique. See §Duplicate / parent check.
 - **MUST NOT** interpret, paraphrase, or summarise the HITL `prompt`
   field or per-phase outputs. Relay verbatim.
+- **MUST** proactively query workspace knowledge and skills via
+  `<codenook> knowledge search "<keywords>"` (and a keyword scan
+  of `memory/index.yaml` skill entries) BEFORE answering any
+  investigation, debugging, "how do I …", "why does …", symptom,
+  or explanation request that might be covered by indexed
+  content. Do not answer from LLM training alone when the index
+  has a plausible hit. See §Proactive knowledge lookup.
 - **MUST** end every reply by asking the user what their next step
   is (use the host's interactive prompt facility when available).
   This applies whether or not a task is active.
@@ -141,7 +161,12 @@ them.
 1. `.codenook/state.json` — `installed_plugins` is the
    authoritative plugin id list (do not glob).
 2. `.codenook/plugins/<id>/plugin.yaml` for every id in (1) — read
-   the `match` fields (use-cases, keywords, examples).
+   the `match` fields (use-cases, keywords, examples). A single
+   `<codenook> plugin list --json` call returns the same data
+   (id + version + profiles + phase chains) and is preferred
+   when you want a compact, one-shot read; fall back to reading
+   each `plugin.yaml` only when you need fields `plugin list`
+   omits.
 3. `.codenook/memory/index.yaml` — workspace knowledge + skill
    inventory (a few KB; cheap). View specific entries by their
    `path` only when their summary suggests they matter. Treat
@@ -154,6 +179,59 @@ them.
 
 Re-read only when the user signals "something changed" (new
 install, new task, new memory entry).
+
+### Proactive knowledge lookup (during investigation)
+
+Whenever the user asks an investigation-style question — symptom
+reports, debugging questions, "why does X happen?", "how do I
+…?", error-message triage, or any "explain / analyse / advise"
+request where the answer might already live in the workspace —
+run this sequence BEFORE drafting your reply. This is distinct
+from the task-creation flow: it applies even when no CodeNook
+task is being started.
+
+1. **Extract 3–6 keywords** from the user's message (error
+   tokens, domain nouns, tool names, CLI subcommand fragments,
+   filenames).
+2. **Search the knowledge index:**
+   ```bash
+   <codenook> knowledge search "<keywords space-separated>" --limit 10
+   ```
+   The command ranks entries across every installed plugin's
+   `knowledge/` folder plus any promoted workspace knowledge
+   under `.codenook/memory/knowledge/`. Its output is safe to
+   consume in conductor context — it returns summaries + paths,
+   not file contents.
+3. **Scan `memory/index.yaml` skill entries** for the same
+   keywords (summary / title / tags). Skills are the workspace's
+   "how-to" playbooks and are often more actionable than pure
+   knowledge entries.
+4. **Open what you're allowed to open:**
+   - For hits whose `path` starts with `.codenook/memory/` —
+     open the file and read the relevant section.
+   - For hits whose `path` starts with `.codenook/plugins/` —
+     **stop at the summary**. Conductor context is forbidden
+     from reading plugin knowledge/skills/roles files (see Hard
+     rules). If the plugin summary suggests the answer is
+     inside that file, surface this to the user and offer to
+     start a CodeNook task so a sub-agent can read it
+     legitimately in a phase.
+5. **Cite what you used.** When drafting the reply, briefly name
+   the entries that informed it (e.g. "per the `pytest-
+   conventions` knowledge entry in the development plugin…"), so
+   the user can verify and so the reliance on indexed content is
+   auditable.
+6. **Skip only when** the question is clearly chit-chat, a
+   direct CLI how-to already covered by the bootloader itself,
+   or when the user explicitly says "don't search, just answer
+   from memory". A zero-hit result still counts as having
+   searched — note it in passing ("no workspace knowledge
+   covers this, answering from general expertise").
+
+When a skill entry looks directly applicable, offer it to the
+user as a candidate action (e.g. "the `pr-analysis` skill looks
+like a fit — want me to invoke it?") rather than silently
+invoking it or silently ignoring it.
 
 ### Task lifecycle
 
@@ -168,11 +246,30 @@ Only when the user explicitly asks. Recognise:
 
 When unsure, ask the user before spawning a task.
 
-#### Pick a plugin
+#### Pick a plugin (MANDATORY explicit confirm)
 
 Rank `installed_plugins` against the user's request using each
 plugin's `match` fields and the workspace skill entries from
-`memory/index.yaml`. If two tie or none fits, ask the user.
+`memory/index.yaml`. Then — **regardless of ranking confidence,
+even when only one plugin is installed** — issue one `ask_user`
+with the ranked recommendation as the first choice (labelled
+"(Recommended)") and every other installed plugin as an
+alternative. The user's reply decides which `--plugin <id>` is
+passed to `task new`. Never silently pick on the user's behalf.
+
+#### Pick a profile (MANDATORY when >1 profile)
+
+After the plugin is confirmed, read that plugin's profile list
+(from the cached `plugin list --json` output, or
+`<codenook> plugin info <id>`). If the plugin declares more than
+one profile (e.g. `development` offers `feature`, `bugfix`,
+`refactor`, …), issue one `ask_user` with every profile as a
+choice — mark the plugin's declared default as "(default)". Pass
+the reply as `--profile <name>` to `task new`. When a plugin
+declares exactly one profile, pass that profile name explicitly
+to `--profile` without asking; do NOT rely on `--accept-defaults`
+to fill it in, because silent-pick hides the choice from the
+audit log.
 
 #### Pre-task interview (mandatory, 2–4 questions)
 
@@ -268,6 +365,7 @@ when defaults seem obvious.
                     --summary "<verbatim user request>" \
                     --input "<multi-line interview answers>" \
                     --plugin <chosen-plugin-id> \
+                    --profile <chosen-profile> \
                     --exec sub-agent \
                     --model claude-opus-4-7 \
                     --accept-defaults
@@ -277,6 +375,7 @@ when defaults seem obvious.
                     --summary "<verbatim user request>" \
                     --input "<multi-line interview answers>" \
                     --plugin <chosen-plugin-id> \
+                    --profile <chosen-profile> \
                     --exec sub-agent \
                     --accept-defaults
 ```
@@ -352,9 +451,13 @@ runs inline, an `inline_dispatch` action runs inline, and the
 
 #### HITL gates
 
-When `tick --json` returns `waiting`, scan
-`.codenook/hitl-queue/*.json` for entries with `decision == null`.
-For each open entry:
+When `tick --json` returns `waiting`, enumerate pending HITL
+gates by calling `<codenook> task show <T-NNN> --json` and
+reading its `pending_hitl` array (one entry per open gate,
+`decision == null`). Fall back to scanning
+`.codenook/hitl-queue/*.json` only when `task show` is
+unavailable (older kernels) or when you need a field the
+`pending_hitl` view omits. For each open entry:
 
 **If the tick envelope itself carries a `conductor_instruction`
 field, that string is authoritative**: it spells out the exact
@@ -482,7 +585,18 @@ runtimes on Windows.
   HITL gate or post-phase signoff.
 - `status` (or `status --task <T-NNN>`) — list active tasks
   (or print one task's full state).
-- `plugin info <id>` — discover profiles + phase catalogue.
+- `task show <T-NNN> [--json] [--history-limit N]` — render
+  a single task's full state (identity, in-flight agent,
+  task_input preview, pending HITL gates, history tail) in
+  one call. `--json` returns `state.json` + `_resolved_task`
+  + `pending_hitl` as one object — prefer this over manually
+  reading `state.json` and scanning `hitl-queue/`.
+- `plugin list [--json]` — list every installed plugin with
+  id, version, profiles, and each profile's full phase chain
+  in one call. Prefer over reading each `plugin.yaml` when you
+  only need match/profile data.
+- `plugin info <id>` — discover profiles + phase catalogue
+  for a single plugin (more detail than `plugin list`).
 - `task set-profile / set-model / set-exec` — switch task
   config before the first phase verdict is recorded.
 - `chain link` — wire `parent_id` / `chain_root` for task

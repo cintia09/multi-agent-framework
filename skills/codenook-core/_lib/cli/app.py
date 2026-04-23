@@ -59,6 +59,9 @@ Subcommands:
   knowledge reindex
   knowledge list [--plugin <id>] [--limit N]
   knowledge search <query> [--limit N]
+  memory doctor [--repair] [--json]
+                       diagnose (and optionally auto-repair)
+                       workspace memory frontmatter issues
   upgrade  [--task T-NNN] [--dry-run] [--yes] [--json]
                        migrate task state.json files to the current
                        schema_version (idempotent)
@@ -143,6 +146,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if sub == "knowledge":
         from . import cmd_knowledge
         return cmd_knowledge.run(ctx, rest)
+    if sub == "memory":
+        from . import cmd_memory
+        return cmd_memory.run(ctx, rest)
     if sub == "config":
         from . import cmd_config
         return cmd_config.run(ctx, rest)

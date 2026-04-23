@@ -169,6 +169,12 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print("  ⚠ skipped CLAUDE.md augmentation (--no-claude-md)")
 
+    # 3b) v0.27.21 — run `memory doctor --repair` so any pre-existing
+    # frontmatter damage (stray datetime.date values, non-list tags,
+    # hex-literal ints) gets fixed before the workspace is used. Only
+    # runs during a real install (skipped for --check / --dry-run).
+    _run_post_install_doctor(staged, workspace)
+
     # 4) Schemas + memory + bin shim seeding.
     seed_workspace.seed_schemas(staged, workspace)
     seed_workspace.seed_memory(staged, workspace)
@@ -204,6 +210,73 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print("    .codenook/bin/codenook --help")
     return 0
+
+
+def _run_post_install_doctor(staged_kernel: Path, workspace: Path) -> None:
+    """Best-effort ``memory doctor --repair`` as a post-install hook.
+
+    Imports the doctor module off the staged kernel so the hook works
+    even when the workspace does not yet have the bin shim on PATH.
+    Never aborts install: prints a warning on any failure.
+    """
+    lib_dir = staged_kernel / "skills" / "builtin" / "_lib"
+    if not lib_dir.is_dir():
+        return
+    import sys as _sys
+    added = False
+    if str(lib_dir) not in _sys.path:
+        _sys.path.insert(0, str(lib_dir))
+        added = True
+    try:
+        import memory_doctor  # type: ignore
+        report = memory_doctor.diagnose(workspace, repair=True)
+    except Exception as e:  # pragma: no cover — defensive
+        sys.stderr.write(f"install: memory doctor skipped ({e})\n")
+        return
+    finally:
+        if added:
+            try:
+                _sys.path.remove(str(lib_dir))
+            except ValueError:
+                pass
+
+    repaired = report.get("repaired") or []
+    ws_issues = report.get("workspace_issues") or []
+    plug_issues = report.get("plugin_issues") or []
+    unresolved = [
+        d for d in ws_issues
+        if not any(r["path"] == d["path"] for r in repaired)
+    ]
+
+    clean = report.get("workspace_clean", 0)
+    if repaired:
+        print(f"  ✓ memory doctor: repaired {len(repaired)} file(s) "
+              f"({clean} already clean)")
+        for r in repaired:
+            rel = _short(workspace, r["path"])
+            print(f"      · {rel}: {', '.join(r['actions'])}")
+    elif ws_issues:
+        print(f"  ⚠ memory doctor: {len(unresolved)} workspace issue(s) "
+              f"needing manual review")
+    else:
+        print(f"  ✓ memory doctor: {clean} memory file(s) clean")
+
+    if plug_issues:
+        print(f"  ⚠ memory doctor: {len(plug_issues)} plugin file(s) "
+              f"with frontmatter issues (read-only — report upstream):")
+        for d in plug_issues[:5]:
+            rel = _short(workspace, d["path"])
+            pid = d.get("plugin", "?")
+            print(f"      · [{pid}] {rel}")
+        if len(plug_issues) > 5:
+            print(f"      · … and {len(plug_issues) - 5} more")
+
+
+def _short(workspace: Path, path: str) -> str:
+    try:
+        return str(Path(path).relative_to(workspace)).replace("\\", "/")
+    except ValueError:
+        return path
 
 
 def _repo_root() -> Path:

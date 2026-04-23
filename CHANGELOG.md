@@ -1,3 +1,87 @@
+## v0.27.21 (2026-04-23)
+
+Memory-layer reliability: unblock `knowledge search` / `index.yaml`
+from crashing on common frontmatter mistakes, extend search to cover
+skills, and ship a new `memory doctor` CLI + auto-repair hook.
+
+### Fixed
+- **`memory_index.build_index` no longer crashes on `datetime.date`
+  frontmatter values** (e.g. `created: 2026-04-22`). The atomic
+  snapshot writer now serialises via `json.dumps(..., default=str)`
+  so YAML-native dates round-trip as ISO strings instead of aborting
+  the write. Prior to this fix, `full_index._scan_memory` silently
+  swallowed the `TypeError` and returned `([], [])`, which meant
+  the entire `memory/knowledge/` and `memory/skills/` layer was
+  invisible to `knowledge search` and to the unified
+  `.codenook/memory/index.yaml` (`skills/builtin/_lib/memory_index.py`).
+- **`knowledge search` no longer crashes on non-string tags.** YAML
+  parses bare literals like `0x2c2000` or `2026-01-01` into int /
+  date objects; the aggregator now coerces every tag with
+  `[str(t) for t in ...]` before handing it to `find_relevant`
+  (`_lib/cli/cmd_knowledge.py`).
+
+### Added
+- **`knowledge search` now searches skills too.** Memory-extracted
+  and plugin-shipped skills entries go into the same scoring pool as
+  knowledge; the output line tags each hit with `[K]` or `[S]` so
+  users can tell the two apart (`_lib/cli/cmd_knowledge.py`).
+- **New `codenook memory doctor [--repair] [--json]` command**
+  (`_lib/cli/cmd_memory.py` + `skills/builtin/_lib/memory_doctor.py`).
+  Diagnoses common frontmatter issues in
+  `<ws>/.codenook/memory/knowledge/*.md` and
+  `memory/skills/<name>/SKILL.md`:
+  - missing `title` / `name`  derive from first H1 or filename
+  - missing `summary`  derive via `_summary_from_body`
+  - `tags` not a list (string / null / scalar)  split / coerce
+  - `tags` contains non-string items  `str()` each
+  - `created:` / `updated:` as `datetime.date` / `datetime`
+     rewrite as ISO string
+  - stray `memory/skills/SKILL.md` at the wrong level  warn only
+  - no frontmatter block  warn only (never synthesise a stub)
+  `--repair` applies all safe fixes in place and writes a backup of
+  every modified file to
+  `<ws>/.codenook/memory/.repair-backup/<ISO-timestamp>/` (Windows-
+  safe timestamp: `:` replaced by `-`). Plugin files under
+  `<ws>/.codenook/plugins/<id>/{knowledge,skills}/` are scanned
+  read-only and surfaced in a separate report section for upstream
+  filing. `--json` emits the full report as structured JSON.
+- **`install.py` post-install hook auto-runs `memory doctor --repair`**
+  after `sync_claude_md`. Repaired files are listed inline; plugin-
+  side issues print as warnings and do not abort install. Skipped for
+  `--check` and `--dry-run` (`_lib/install/cli.py`).
+- **Top-level `codenook --help` and subcommand wiring for
+  `memory doctor`** (`_lib/cli/app.py`).
+
+### Bootloader (CLAUDE.md)
+- v0.27.21 bootloader (already synced in this release branch) makes
+  plugin picking require explicit confirmation, makes profile picking
+  require an explicit choice when a plugin has >1 profile, adds a new
+  Proactive knowledge lookup section, documents `task show` and
+  `plugin list` in the CLI reference, and prefers
+  `task show --json` for HITL gate discovery.
+
+### Tests
+- **Windows path-separator tolerance** in
+  `test_index_yaml_export.py`  the two `.endswith(...)` assertions
+  now `.replace("\\", "/")` first so they also pass on Windows where
+  paths contain backslashes.
+- **UTF-8 write fix** in `test_extractor_real_role_output.py`  the
+  test now writes role outputs with `encoding="utf-8"` so Windows
+  default-codepage does not corrupt the `'` in "Python's".
+- **New regression tests** under `tests/python/`:
+  - `test_v0_27_21_memory_index_date_fix.py` 
+    `memory_index.build_index` tolerates `created: 2026-04-22`.
+  - `test_v0_27_21_cmd_knowledge_tag_coerce.py`  `knowledge search`
+    renders entries with hex-literal tags without crashing.
+  - `test_v0_27_21_knowledge_search_skills.py`  `knowledge search`
+    finds a skill by name / summary / tags.
+  - `test_v0_27_21_memory_doctor.py`  full-surface tests for the
+    new doctor (missing summary, non-list tags, `--repair` writes
+    backups, plugin files stay read-only, `--json` parseable).
+  - `test_v0_27_21_install_post_repair.py`  `install.py` invokes
+    doctor and prints the summary line.
+
+---
 ## v0.27.20 (2026-04-23)
 
 `codenook task show` — quick single-task detail view.

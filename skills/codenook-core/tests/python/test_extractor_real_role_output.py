@@ -29,7 +29,7 @@ def test_real_role_output_yields_fallback_candidate(workspace: Path):
     tid = "T-real-1"
     out_dir = workspace / ".codenook" / "tasks" / tid / "outputs"
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "phase-1-clarifier.md").write_text(REAL_ROLE_OUTPUT)
+    (out_dir / "phase-1-clarifier.md").write_text(REAL_ROLE_OUTPUT, encoding="utf-8")
     cands = extract._candidates_from_role_outputs(workspace, tid)
     assert isinstance(cands, list) and len(cands) >= 1
     c = cands[0]
@@ -42,7 +42,7 @@ def test_real_role_output_main_creates_knowledge_file(workspace: Path, monkeypat
     tid = "T-real-2"
     out_dir = workspace / ".codenook" / "tasks" / tid / "outputs"
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "phase-1-clarifier.md").write_text(REAL_ROLE_OUTPUT)
+    (out_dir / "phase-1-clarifier.md").write_text(REAL_ROLE_OUTPUT, encoding="utf-8")
     monkeypatch.setenv("CN_LLM_MODE", "mock")
     rc = extract.main([
         "--task-id", tid,
@@ -60,7 +60,8 @@ def test_role_output_with_needs_revision_does_not_emit(workspace: Path):
     out_dir = workspace / ".codenook" / "tasks" / tid / "outputs"
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "phase-1.md").write_text(
-        "---\nverdict: needs_revision\nsummary: x\n---\nbody\n"
+        "---\nverdict: needs_revision\nsummary: x\n---\nbody\n",
+        encoding="utf-8",
     )
     cands = extract._candidates_from_role_outputs(workspace, tid)
     # needs_revision must not seed memory.

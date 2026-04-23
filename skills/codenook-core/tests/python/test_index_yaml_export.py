@@ -47,7 +47,7 @@ def test_write_skill_triggers_index_yaml_refresh(workspace: Path):
     skill = next(s for s in data["skills"] if s["name"] == "run-tests")
     assert skill["summary"] == "Run pytest"
     assert skill["tags"] == ["dev"]
-    assert skill["path"].endswith(".codenook/memory/skills/run-tests/SKILL.md")
+    assert skill["path"].replace("\\", "/").endswith(".codenook/memory/skills/run-tests/SKILL.md")
 
 
 def test_write_knowledge_triggers_index_yaml_refresh(workspace: Path):
@@ -68,7 +68,7 @@ def test_write_knowledge_triggers_index_yaml_refresh(workspace: Path):
     entry = next(k for k in data["knowledge"] if k["topic"] == "cache-strategy")
     assert entry["summary"] == "Use Redis for L2 cache"
     assert entry["tags"] == ["cache"]
-    assert entry["path"].endswith(".codenook/memory/knowledge/cache-strategy.md")
+    assert entry["path"].replace("\\", "/").endswith(".codenook/memory/knowledge/cache-strategy.md")
 
 
 def test_index_yaml_has_expected_top_level_keys(workspace: Path):

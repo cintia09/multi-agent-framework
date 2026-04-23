@@ -169,25 +169,46 @@ def _cmd_search(ctx: CodenookContext, args: list[str]) -> int:
     payload = build_full_index(ctx.workspace)
 
     # Group entries by plugin so find_relevant can score uniformly.
+    # Entries from both `knowledge` and `skills` go into the same pool
+    # so `search` reflects everything installed / extracted. We remember
+    # the per-record kind so the output line can label it.
     aggregated: dict[str, list[dict]] = {}
+    kinds: dict[tuple[str, str], str] = {}
+
     for e in payload.get("knowledge", []):
         plug = e.get("plugin") or "(memory)"
-        aggregated.setdefault(plug, []).append(
-            {
-                "path": e.get("path") or "",
-                "title": e.get("title") or e.get("topic") or "",
-                "summary": e.get("summary") or "",
-                "tags": list(e.get("tags") or []),
-            }
-        )
+        path = e.get("path") or ""
+        rec = {
+            "path": path,
+            "title": e.get("title") or e.get("topic") or "",
+            "summary": e.get("summary") or "",
+            "tags": [str(t) for t in (e.get("tags") or [])],
+        }
+        aggregated.setdefault(plug, []).append(rec)
+        kinds[(plug, path)] = "knowledge"
+
+    for e in payload.get("skills", []):
+        plug = e.get("plugin") or "(memory)"
+        path = e.get("path") or ""
+        # Skills use `name` where knowledge uses `title`; normalise.
+        rec = {
+            "path": path,
+            "title": e.get("name") or e.get("title") or "",
+            "summary": e.get("summary") or "",
+            "tags": [str(t) for t in (e.get("tags") or [])],
+        }
+        aggregated.setdefault(plug, []).append(rec)
+        kinds[(plug, path)] = "skill"
 
     hits = ki.find_relevant(query, aggregated, limit=limit)
     if not hits:
         sys.stdout.write(f"(no hits for query: {query})\n")
         return 0
     for h in hits:
+        kind = kinds.get((h["plugin"], h["path"]), "knowledge")
+        tag = "[S]" if kind == "skill" else "[K]"
         sys.stdout.write(
-            f"[{h['score']}] {h['plugin']}  {h['title']}\n"
+            f"[{h['score']}] {tag} {h['plugin']}  {h['title']}\n"
             f"      path: {h['path']}\n"
         )
         if h.get("tags"):
