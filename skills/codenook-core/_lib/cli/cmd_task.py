@@ -423,6 +423,7 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
     if not target_dir:
         target_dir = "src/"
 
+    prompted_any = False
     if not plugin:
         installed = [
             p.get("id") for p in (ctx.state.get("installed_plugins") or [])
@@ -446,6 +447,7 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
                 sys.stderr.write(
                     "codenook task new: plugin selection aborted.\n")
                 return 1
+            prompted_any = True
     else:
         # Explicit --plugin: validate it's actually installed.
         installed_ids = [
@@ -460,6 +462,7 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
 
     # Profile selection: if the plugin advertises profiles and none
     # was passed, prompt interactively (unless --accept-defaults).
+    prompted_profile = False
     if profile:
         valid = _load_plugin_profiles(ctx, plugin)
         if valid and profile not in valid:
@@ -483,6 +486,41 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
                     "codenook task new: profile selection aborted.\n")
                 return 1
             profile = chosen
+            prompted_profile = True
+
+    # Summary + confirm page — only when we actually prompted the
+    # user for something AND stdin is a TTY (keeps scripted / CI
+    # flows from blocking). Non-TTY pipelines already saw the
+    # auto-select transparency lines above; re-confirming via a
+    # blocking prompt would hang them.
+    if (prompted_any or prompted_profile) and sys.stdin.isatty() \
+            and not accept_defaults:
+        sys.stdout.write("\nSummary:\n")
+        sys.stdout.write(f"  title     : {title}\n")
+        sys.stdout.write(f"  plugin    : {plugin}\n")
+        sys.stdout.write(f"  profile   : {profile or '(default)'}\n")
+        sys.stdout.write(f"  priority  : {priority}\n")
+        if parent:
+            sys.stdout.write(f"  parent    : {parent}\n")
+        if model:
+            sys.stdout.write(f"  model     : {model}\n")
+        if exec_mode_val:
+            sys.stdout.write(f"  exec mode : {exec_mode_val}\n")
+        if dual_mode_set:
+            sys.stdout.write(f"  dual-mode : {dual_mode}\n")
+        if task_input:
+            preview = task_input[:60] + ("…" if len(task_input) > 60 else "")
+            sys.stdout.write(f"  input     : {preview}\n")
+        confirm_raw = _prompt("Create? [Y/n]", default="Y")
+        if confirm_raw is _PROMPT_EOF:
+            sys.stderr.write(
+                "codenook task new: stdin closed during confirmation; "
+                "aborted.\n")
+            return 1
+        confirm = confirm_raw.strip().lower()
+        if confirm and confirm not in ("y", "yes"):
+            sys.stdout.write("aborted.\n")
+            return 1
 
     if not task_id:
         # Reserve the slot atomically by mkdir(exist_ok=False). Two

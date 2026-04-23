@@ -130,3 +130,93 @@ def test_task_new_invalid_profile_rejected(ws: Path) -> None:
     assert cp.returncode == 2, (cp.stdout, cp.stderr)
     assert "invalid --profile" in cp.stderr
     assert "valid:" in cp.stderr
+
+
+# ---------------------------------------------------------------- summary + confirm (v0.27.19)
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="pty module is POSIX-only")
+def test_task_new_tty_shows_summary_and_confirm(ws: Path) -> None:
+    """Under a real TTY, a prompted task new renders Summary + confirm."""
+    import pty
+    import select
+
+    pid, fd = pty.fork()
+    if pid == 0:  # child
+        os.execvpe(sys.executable, _bin(ws) + [
+            "task", "new", "--title", "tty-confirm-probe",
+        ], os.environ.copy() | {
+            "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8",
+        })
+    # parent: drive the PTY
+    buf = b""
+    deadline = __import__("time").time() + 10.0
+    sent_plugin = sent_profile = sent_confirm = False
+    while __import__("time").time() < deadline:
+        r, _, _ = select.select([fd], [], [], 0.25)
+        if fd in r:
+            try:
+                chunk = os.read(fd, 4096)
+            except OSError:
+                break
+            if not chunk:
+                break
+            buf += chunk
+        # Send a newline (accept default) for each prompt.
+        text = buf.decode("utf-8", errors="replace")
+        if not sent_plugin and "Pick one" in text:
+            os.write(fd, b"\n")
+            sent_plugin = True
+            buf = b""
+            continue
+        if sent_plugin and not sent_profile and "Pick one" in text:
+            os.write(fd, b"\n")
+            sent_profile = True
+            buf = b""
+            continue
+        if sent_profile and not sent_confirm and "Create?" in text:
+            os.write(fd, b"Y\n")
+            sent_confirm = True
+            buf = b""
+            continue
+        # Child exited (dual_mode entry_question → exit 2) after create.
+        try:
+            _, status = os.waitpid(pid, os.WNOHANG)
+            if _:
+                break
+        except ChildProcessError:
+            break
+
+    # Drain any remaining output.
+    try:
+        while True:
+            r, _, _ = select.select([fd], [], [], 0.25)
+            if not r:
+                break
+            c = os.read(fd, 4096)
+            if not c:
+                break
+            buf += c
+    except OSError:
+        pass
+    os.close(fd)
+    try:
+        os.waitpid(pid, 0)
+    except ChildProcessError:
+        pass
+
+    full = buf.decode("utf-8", errors="replace")
+    assert sent_plugin, f"plugin prompt never appeared; output so far:\n{full}"
+    assert sent_profile, f"profile prompt never appeared; output so far:\n{full}"
+    assert sent_confirm, f"Create? confirm never appeared; output so far:\n{full}"
+
+    # Post-condition: a task dir should have been created.
+    created = list(
+        (ws / ".codenook" / "tasks").glob("T-*-tty-confirm-probe")
+    )
+    assert created, "no task dir created after TTY confirm"
+    # Clean up.
+    for tdir in created:
+        _run(_bin(ws) + [
+            "task", "delete", tdir.name, "--purge", "--yes", "--force",
+        ])

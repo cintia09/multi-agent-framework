@@ -1,3 +1,38 @@
+## v0.27.19 (2026-04-23)
+
+Follow-up to v0.27.18: `task new` now renders a **Summary + confirm**
+page after the interactive plugin/profile selection (mirroring the
+`--interactive` wizard's pattern). Keeps scripted flows unblocked.
+
+### Added
+- **Summary + Y/n confirmation** in `_task_new` (`_lib/cli/cmd_task.py`)
+  — shown only when ALL three conditions hold:
+  - the user was actually prompted for plugin and/or profile
+    (not just `--title` with single-plugin auto-pick), AND
+  - stdin is a TTY (pipes / CI skip the confirm to avoid hangs), AND
+  - `--accept-defaults` is not set.
+  Summary includes title, plugin, profile, priority, parent (if
+  any), model override, exec mode, dual-mode, and a 60-char input
+  preview. On a non-"y" answer, task creation is aborted with
+  exit 1 and no directory is created.
+
+### Tests
+- **1 new PTY-based regression test** in the same v0.27.18 file,
+  using `pty.fork()` to drive a real terminal and assert that:
+  - the Plugin menu appears and accepts `\n` (default)
+  - the Profile menu appears and accepts `\n` (default)
+  - the "Create? [Y/n]" confirm appears and accepts `Y`
+  - a task dir with the expected slug gets created afterwards
+  Skipped on Windows (pty is POSIX-only).
+- Full suite: 297 passed / 2 skipped (was 296 / 2).
+
+### Verification
+- Live-installed into `/Users/mingdw/Documents/nook`: non-TTY
+  pipeline still auto-selects without prompting for confirmation;
+  `--accept-defaults` skips confirm; new probe tasks cleaned up.
+
+---
+
 ## v0.27.18 (2026-04-23)
 
 `plugin list` subcommand + interactive plugin/profile selection in
