@@ -129,7 +129,8 @@ def run(ctx: CodenookContext, argv: Sequence[str]) -> int:
             errors.append({"task": tdir.name,
                            "error": "could not read state.json"})
             continue
-        cur = int(st.get("schema_version", 1))
+        cur_raw = st.get("schema_version", 1)
+        cur = int(cur_raw) if cur_raw is not None else 1
         try:
             new_state, applied = migrations_proxy.upgrade(st)
         except Exception as exc:  # noqa: BLE001

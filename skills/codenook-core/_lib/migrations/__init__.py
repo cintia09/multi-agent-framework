@@ -40,7 +40,8 @@ def upgrade(state: dict) -> Tuple[dict, List[int]]:
     """
     out = dict(state)
     applied: List[int] = []
-    cur = int(out.get("schema_version", 1))
+    ver = out.get("schema_version", 1)
+    cur = int(ver) if ver is not None else 1
     while cur < CURRENT_SCHEMA_VERSION:
         fn = MIGRATIONS.get(cur)
         if fn is None:
@@ -50,7 +51,8 @@ def upgrade(state: dict) -> Tuple[dict, List[int]]:
             )
         out = fn(out)
         applied.append(cur)
-        new_cur = int(out.get("schema_version", cur))
+        new_ver = out.get("schema_version", cur)
+        new_cur = int(new_ver) if new_ver is not None else cur
         if new_cur <= cur:
             raise RuntimeError(
                 f"migration {cur} → {cur + 1} did not advance "

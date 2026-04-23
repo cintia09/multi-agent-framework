@@ -56,3 +56,21 @@ def test_upgrade_defaults_missing_schema_version_to_one():
     out, applied = migrations.upgrade(src)
     assert applied == [1]
     assert out["schema_version"] == migrations.CURRENT_SCHEMA_VERSION
+
+
+def test_upgrade_handles_null_schema_version():
+    """Regression: Phase C deep review found int(None) crash when
+    state.json contains an explicit ``"schema_version": null``."""
+    src = {"schema_version": None, "task_id": "T-x"}
+    out, applied = migrations.upgrade(src)
+    assert applied == [1]
+    assert out["schema_version"] == migrations.CURRENT_SCHEMA_VERSION
+
+
+def test_upgrade_handles_string_schema_version():
+    """Regression: tolerate ``"schema_version": "1"`` (some migrations
+    or hand-edits may stringify the int)."""
+    src = {"schema_version": "1", "task_id": "T-x"}
+    out, applied = migrations.upgrade(src)
+    assert applied == [1]
+    assert out["schema_version"] == migrations.CURRENT_SCHEMA_VERSION

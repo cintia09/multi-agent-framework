@@ -1,3 +1,50 @@
+## v0.27.16 (2026-04-23)
+
+Phase C deep-review fixpack. One real bug surfaced + one defensive
+hardening.
+
+### Fixed
+- **`int(None)` crash in migration walker** — `migrations.upgrade()`
+  and `cmd_upgrade._load_state` both did
+  `int(state.get("schema_version", 1))`. The `.get(..., 1)` default
+  only fires when the key is missing, NOT when it's present with an
+  explicit `null` value. A hand-edited or buggy state.json
+  containing `"schema_version": null` therefore raised an uncaught
+  `TypeError` from `int(None)`. Now both call sites read the raw
+  value first and substitute `1` whenever the value is `None`.
+  Same fix applied to the post-migration validation check that
+  reads `new_state["schema_version"]`.
+
+### Hardening
+- The migration walker also now tolerates `"schema_version": "1"`
+  (string form). Some external tooling stringifies ints; rather
+  than fail validation, we coerce.
+
+### Tests
+- `test_migrations.py` (+2 regression tests):
+  - `test_upgrade_handles_null_schema_version`
+  - `test_upgrade_handles_string_schema_version`
+
+### Verification
+- 266 pytest passing / 2 skipped (was 264).
+
+### Review credit
+Issue surfaced by Phase C code-review pass (gpt code-review agent,
+deep audit of v0.27.12 → v0.27.15 commits). Other issues
+investigated and ruled out as false positives: hitl serve path
+traversal (double-defended via `_safe_id` + helper-side
+`_check_eid`), POST validation (decision whitelist + helper-side
+state check), env-var injection (subprocess invoked as list, no
+shell), notify mid-write race (json parse errors caught and
+skipped), notify webhook persistence ordering (documented
+at-least-once semantics), plugin diff symlink loops (`Path.rglob`
+does not follow symlinks), plugin diff size cap (chunked read,
+will not OOM), `_resolve_repo_root` walk (bounded to 20
+iterations), priority-default change (no callers depended on
+absence).
+
+---
+
 ## v0.27.15 (2026-04-23)
 
 Phase C4 of the v0.27.9 follow-up plan: HTTP UI + webhook fan-out for
