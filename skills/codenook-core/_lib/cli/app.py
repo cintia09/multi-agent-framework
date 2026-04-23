@@ -33,6 +33,7 @@ Subcommands:
   task set-model   --task T-NNN (--model <name> | --clear)
   task set-exec    --task T-NNN --mode <sub-agent|inline>
   task set-profile --task T-NNN --profile <name>
+  task set-phase   --task T-NNN --phase <id> [--keep-outputs] [--yes]
   plugin list [--json]
                        list installed plugins with version + profiles
   plugin info <id>     show profiles + phases summary for a plugin

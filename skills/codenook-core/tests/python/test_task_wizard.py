@@ -218,6 +218,62 @@ def test_backward_compat_no_new_flags(installed_ws: Path) -> None:
     assert s["status"] == "in_progress"
 
 
+# 9. set-phase rewinds a task to an earlier phase with history trim + audit.
+def test_set_phase_rewind(installed_ws: Path) -> None:
+    tid = _new_task(installed_ws,
+                    "--title", "p-setphase", "--profile", "feature",
+                    "--accept-defaults")
+    sf = installed_ws / ".codenook" / "tasks" / tid / "state.json"
+    s = _state(installed_ws, tid)
+    # Simulate a task that has advanced through clarify/design/plan and is
+    # parked on implement.
+    s["profile"] = "feature"
+    s["phase"] = "implement"
+    s["history"] = [
+        {"ts": "2026-01-01T00:00:00Z", "phase": "clarify", "verdict": "ok"},
+        {"ts": "2026-01-01T00:01:00Z", "phase": "design", "verdict": "ok"},
+        {"ts": "2026-01-01T00:02:00Z", "phase": "plan", "verdict": "ok"},
+    ]
+    s["in_flight_agent"] = {"agent_id": "x", "role": "implementer",
+                            "expected_output": "outputs/phase-4-implementer.md"}
+    sf.write_text(json.dumps(s, indent=2), encoding="utf-8")
+
+    # Rewind to design.
+    cp = _run(_bin_cmd(installed_ws) + [
+        "task", "set-phase", "--task", tid, "--phase", "design", "--yes",
+    ])
+    out = json.loads(cp.stdout.strip())
+    assert out["value"] == "design"
+    assert out["direction"] == "rewind"
+    assert out["trimmed_history_entries"] == 2  # design + plan trimmed
+
+    s = _state(installed_ws, tid)
+    assert s["phase"] == "design"
+    assert s["in_flight_agent"] is None
+    assert s["iteration"] == 0
+    # clarify entry preserved; design+plan entries removed; new audit marker appended.
+    phases_in_history = [h.get("phase") for h in s["history"]]
+    assert phases_in_history.count("clarify") == 1
+    assert "plan" not in phases_in_history[:-1]
+    assert any(h.get("_warning", "").startswith("phase_reset_from_")
+               for h in s["history"])
+
+
+# 10. set-phase rejects unknown phase id with helpful list.
+def test_set_phase_invalid(installed_ws: Path) -> None:
+    tid = _new_task(installed_ws,
+                    "--title", "p-setphase-bad", "--profile", "feature",
+                    "--accept-defaults")
+    cp = _run(_bin_cmd(installed_ws) + [
+        "task", "set-phase", "--task", tid,
+        "--phase", "no-such-phase", "--yes",
+    ], check=False)
+    assert cp.returncode == 2
+    assert "invalid --phase" in cp.stderr
+    assert "valid:" in cp.stderr
+
+
+
 # 9. plugin info <id> prints profiles + phases.
 def test_plugin_info(installed_ws: Path) -> None:
     cp = _run(_bin_cmd(installed_ws) + ["plugin", "info", "development"])

@@ -35,7 +35,7 @@ from .config import (
 
 
 HELP_TASK = """\
-codenook task <new|list|show|delete|restore|set|set-model|set-exec|set-profile|suggest-parent>
+codenook task <new|list|show|delete|restore|set|set-model|set-exec|set-profile|set-phase|suggest-parent>
 
   new             create a new T-NNN under .codenook/tasks/
   list            list tasks grouped by status (with HITL-pending hints)
@@ -46,6 +46,7 @@ codenook task <new|list|show|delete|restore|set|set-model|set-exec|set-profile|s
   set-model       set or clear the per-task LLM model_override
   set-exec        set the per-task execution_mode (sub-agent | inline)
   set-profile     set the per-task profile (must match plugin's phases.yaml)
+  set-phase       rewind/jump task to any phase in the active profile chain
   suggest-parent  rank open tasks by similarity to a child brief (Jaccard)
 """
 
@@ -218,6 +219,40 @@ Usage: codenook task set-profile --task T-NNN --profile <name>
                      instead.
 """
 
+HELP_SET_PHASE = """\
+Usage: codenook task set-phase --task T-NNN --phase <id> [--keep-outputs] [--yes]
+
+  --phase <id>       phase id to jump/rewind to. Must exist in the active
+                     profile chain (run `codenook task show` to see the
+                     chain). Backward jumps trim history entries for
+                     phases at or after the target so the next `tick`
+                     re-dispatches the target phase.
+
+  --keep-outputs     by default, output files for the trimmed phases are
+                     archived to outputs/_archive/<ts>/ to avoid stale
+                     replies leaking into a re-dispatch. Pass this flag
+                     to leave them in place (the next dispatch will
+                     overwrite them anyway).
+
+  --yes              skip the confirmation prompt (required for
+                     non-interactive use).
+
+Behavior:
+  • Validates the phase id against the active profile's chain.
+  • Clears state.in_flight_agent (any pending sub-agent dispatch is
+    abandoned; tick will re-dispatch the target phase).
+  • Trims state.history of all entries whose phase appears at or after
+    the target in the chain.
+  • Resets state.iteration to 0 (the target phase starts a fresh round).
+  • Appends a `phase_reset_from_<old>` warning marker to history for
+    audit.
+  • Archives matching outputs/phase-N-*.md files to outputs/_archive/<ts>/
+    unless --keep-outputs.
+
+Forward jumps (skipping ahead) are also supported but will leave any
+intermediate phases unrun — `tick` will resume from the new pointer.
+"""
+
 ALLOWED = {
     "dual_mode": ("serial", "parallel"),
     "priority": ("P0", "P1", "P2", "P3"),
@@ -287,6 +322,8 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
         return _task_set_exec(ctx, rest)
     if sub == "set-profile":
         return _task_set_profile(ctx, rest)
+    if sub == "set-phase":
+        return _task_set_phase(ctx, rest)
     if sub == "suggest-parent":
         return _task_suggest_parent(ctx, rest)
     sys.stderr.write(f"codenook task: unknown subcommand: {sub}\n")
@@ -312,6 +349,43 @@ def _load_plugin_profiles(ctx: CodenookContext, plugin: str) -> list[str]:
     if not isinstance(profiles, dict):
         return []
     return [str(k) for k in profiles.keys()]
+
+
+def _load_plugin_phase_chain(
+    ctx: CodenookContext, plugin: str, profile: str | None,
+) -> list[str]:
+    """Return the ordered phase id chain for ``plugin`` under ``profile``.
+
+    Falls back to the flat ``phases:`` list when phases.yaml has no
+    ``profiles:`` block (legacy layout). Returns ``[]`` on any error so
+    callers can surface a friendly message.
+    """
+    phases_yaml = (
+        ctx.workspace / ".codenook" / "plugins" / plugin / "phases.yaml"
+    )
+    if not phases_yaml.is_file():
+        return []
+    try:
+        import yaml  # type: ignore[import-untyped]
+        doc = yaml.safe_load(phases_yaml.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return []
+    profiles = doc.get("profiles")
+    if isinstance(profiles, dict) and profile and profile in profiles:
+        spec = profiles.get(profile)
+        chain = spec.get("phases") if isinstance(spec, dict) else spec
+        if isinstance(chain, list):
+            return [str(x) for x in chain]
+        return []
+    raw = doc.get("phases", [])
+    if isinstance(raw, list):
+        return [
+            str(ph.get("id")) for ph in raw
+            if isinstance(ph, dict) and ph.get("id")
+        ]
+    if isinstance(raw, dict):
+        return [str(k) for k in raw.keys()]
+    return []
 
 
 def _read_input_file(path: str) -> tuple[str | None, str | None]:
@@ -895,6 +969,161 @@ def _task_set_profile(ctx: CodenookContext, args: list[str]) -> int:
         "task": state.get("task_id"),
         "field": "profile",
         "value": profile,
+    }))
+    return 0
+
+
+def _task_set_phase(ctx: CodenookContext, args: list[str]) -> int:
+    if args and args[0] in ("-h", "--help"):
+        print(HELP_SET_PHASE)
+        return 0
+
+    task = phase = ""
+    keep_outputs = False
+    yes = False
+    it = iter(args)
+    try:
+        for a in it:
+            if a == "--task":
+                task = next(it)
+            elif a == "--phase":
+                phase = next(it)
+            elif a == "--keep-outputs":
+                keep_outputs = True
+            elif a == "--yes" or a == "-y":
+                yes = True
+            else:
+                sys.stderr.write(f"codenook task set-phase: unknown arg: {a}\n")
+                return 2
+    except StopIteration:
+        sys.stderr.write("codenook task set-phase: missing value for last flag\n")
+        return 2
+
+    if not task or not phase:
+        sys.stderr.write(
+            "codenook task set-phase: --task and --phase are both required\n")
+        return 2
+
+    sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
+    if not sf.is_file():
+        resolved, rc = _resolve_or_error(ctx, task, "set-phase")
+        if resolved is None:
+            return rc
+        task = resolved
+        sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
+
+    state = json.loads(sf.read_text(encoding="utf-8"))
+    plugin = state.get("plugin", "")
+    profile = state.get("profile") or None
+
+    chain = _load_plugin_phase_chain(ctx, plugin, profile)
+    if not chain:
+        sys.stderr.write(
+            f"codenook task set-phase: cannot resolve phase chain for "
+            f"plugin='{plugin}' profile='{profile or '<unset>'}'. Check "
+            f"phases.yaml is present and the profile name matches.\n")
+        return 2
+    if phase not in chain:
+        sys.stderr.write(
+            f"codenook task set-phase: invalid --phase '{phase}' for "
+            f"plugin '{plugin}' profile '{profile or '<default>'}' "
+            f"(valid: {', '.join(chain)})\n")
+        return 2
+
+    cur_phase = state.get("phase")
+    target_idx = chain.index(phase)
+    cur_idx = chain.index(cur_phase) if cur_phase in chain else len(chain)
+    direction = "rewind" if target_idx < cur_idx else (
+        "forward" if target_idx > cur_idx else "self")
+
+    history = state.get("history") or []
+    # Trim history of all entries whose phase is at-or-after target_idx in
+    # the chain. Entries for phases not in the chain (legacy / cross-
+    # plugin) are kept as-is.
+    keep_history: list[dict] = []
+    trimmed_phases: set[str] = set()
+    for entry in history:
+        ep = entry.get("phase")
+        if ep in chain and chain.index(ep) >= target_idx:
+            trimmed_phases.add(ep)
+            continue
+        keep_history.append(entry)
+
+    # Confirm prompt unless --yes
+    if not yes:
+        sys.stderr.write(
+            f"set-phase preview for {state.get('task_id')}:\n"
+            f"  plugin/profile : {plugin} / {profile or '<default>'}\n"
+            f"  current phase  : {cur_phase}\n"
+            f"  target phase   : {phase} ({direction})\n"
+            f"  history trim   : {len(history) - len(keep_history)} entries "
+            f"(phases: {', '.join(sorted(trimmed_phases)) or '<none>'})\n"
+            f"  in_flight      : "
+            f"{'cleared' if state.get('in_flight_agent') else 'none'}\n"
+            f"  outputs        : "
+            f"{'archived to outputs/_archive/' if not keep_outputs else 'kept in place'}\n"
+            f"Confirm? [y/N] ")
+        sys.stderr.flush()
+        try:
+            ans = sys.stdin.readline().strip().lower()
+        except Exception:
+            ans = ""
+        if ans not in ("y", "yes"):
+            sys.stderr.write("aborted (pass --yes to skip this prompt)\n")
+            return 1
+
+    # Archive outputs for trimmed phases (best-effort).
+    archived: list[str] = []
+    if not keep_outputs and trimmed_phases:
+        from datetime import datetime, timezone
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        outputs_dir = ctx.workspace / ".codenook" / "tasks" / task / "outputs"
+        archive_dir = outputs_dir / "_archive" / f"set-phase-{ts}"
+        if outputs_dir.is_dir():
+            archive_dir.mkdir(parents=True, exist_ok=True)
+            for f in sorted(outputs_dir.glob("phase-*.md")):
+                # filename like phase-4-implementer.md → phase id is whatever
+                # phase the role belongs to; cheapest match is by role name
+                # in filename, but role↔phase mapping isn't trivial. Safer:
+                # archive any phase-N output where N is at-or-after target's
+                # 1-based index.
+                m = f.name.split("-", 2)
+                if len(m) >= 2 and m[0] == "phase":
+                    try:
+                        n = int(m[1])
+                    except ValueError:
+                        continue
+                    if n - 1 >= target_idx:
+                        f.rename(archive_dir / f.name)
+                        archived.append(f.name)
+
+    # Mutate state.
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    state["phase"] = phase
+    state["in_flight_agent"] = None
+    state["iteration"] = 0
+    trimmed_count = len(history) - len(keep_history)
+    state["history"] = keep_history
+    state["history"].append({
+        "ts": now,
+        "phase": phase,
+        "_warning": f"phase_reset_from_{cur_phase}",
+    })
+    state["status"] = "in_progress"
+    state["phase_started_at"] = now
+    state["updated_at"] = now
+    if "last_tick_ts" in state:
+        del state["last_tick_ts"]
+
+    _persist_state(sf, state)
+    print(json.dumps({
+        "task": state.get("task_id"),
+        "field": "phase",
+        "value": phase,
+        "direction": direction,
+        "trimmed_history_entries": trimmed_count,
+        "archived_outputs": archived,
     }))
     return 0
 
