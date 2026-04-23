@@ -115,3 +115,57 @@ def test_task_new_entry_question_without_dual_mode(installed_workspace: Path) ->
     payload = json.loads(cp.stdout.strip().splitlines()[-1])
     assert payload["action"] == "entry_question"
     assert payload["field"] == "dual_mode"
+
+
+def test_task_list_human_and_json(installed_workspace: Path) -> None:
+    """`task list` should surface tasks created earlier in this module."""
+    cp = _run(_bin_cmd(installed_workspace) + ["task", "list"])
+    assert "Workspace:" in cp.stdout
+    assert "Total tasks:" in cp.stdout
+    cp = _run(_bin_cmd(installed_workspace) + ["task", "list", "--json"])
+    payload = json.loads(cp.stdout)
+    assert isinstance(payload, list)
+    assert all("task_id" in r and "status" in r for r in payload)
+
+
+def test_task_delete_archive_and_purge(installed_workspace: Path) -> None:
+    ws = installed_workspace
+    # Create two throwaway tasks first.
+    a = _run(_bin_cmd(ws) + [
+        "task", "new", "--title", "to-archive", "--accept-defaults",
+    ]).stdout.strip().splitlines()[-1]
+    b = _run(_bin_cmd(ws) + [
+        "task", "new", "--title", "to-purge", "--accept-defaults",
+    ]).stdout.strip().splitlines()[-1]
+    a_dir = ws / ".codenook" / "tasks" / a
+    b_dir = ws / ".codenook" / "tasks" / b
+    assert a_dir.is_dir() and b_dir.is_dir()
+
+    # Default = archive; --force needed because new tasks land in_progress.
+    cp = _run(_bin_cmd(ws) + [
+        "task", "delete", a, "--yes", "--force", "--json",
+    ])
+    payload = json.loads(cp.stdout)
+    assert payload[0]["action"] == "archived"
+    assert not a_dir.is_dir()
+    archive_root = ws / ".codenook" / "tasks" / "_archive"
+    assert any(p.name.startswith(a + "-") for p in archive_root.iterdir())
+
+    # Purge irrecoverably.
+    cp = _run(_bin_cmd(ws) + [
+        "task", "delete", b, "--purge", "--yes", "--force", "--json",
+    ])
+    payload = json.loads(cp.stdout)
+    assert payload[0]["action"] == "purged"
+    assert not b_dir.is_dir()
+
+
+def test_task_delete_unknown_task(installed_workspace: Path) -> None:
+    cp = _run(
+        _bin_cmd(installed_workspace) + [
+            "task", "delete", "T-9999", "--yes",
+        ],
+        check=False,
+    )
+    assert cp.returncode == 1
+    assert "no such task" in cp.stderr

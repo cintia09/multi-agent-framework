@@ -1,3 +1,49 @@
+## v0.27.9 (2026-04-23)
+
+Adds two long-missing built-in subcommands so operators no longer
+need to `rm -rf .codenook/tasks/T-NNN` by hand or eyeball
+`codenook status` JSON to figure out what's stuck.
+
+### Added
+- **`codenook task list`** — group active tasks by status
+  (`in_progress` / `waiting` / `done` / other), surface per-task
+  HITL queue counts (`⚠ HITL pending: N`), and support
+  `--status` / `--phase` / `--plugin` filters plus `--json` for
+  machine consumption. `done` tasks are hidden by default; pass
+  `--include-done` to show them. Implemented in
+  `_lib/cli/cmd_task.py :: _task_list` on top of the existing
+  `iter_active_task_dirs` helper.
+- **`codenook task delete`** — archive (default) or `--purge`
+  tasks plus their HITL queue files. Accepts bare positional
+  `T-NNN` ids or `--task` flags (repeatable), plus `--status` for
+  bulk selection (e.g. `--status waiting`). Default behaviour is
+  non-destructive: each task dir is moved to
+  `.codenook/tasks/_archive/<orig>-<UTC-ts>/` and matching HITL
+  queue `.json` entries are moved into
+  `.codenook/hitl-queue/_consumed/` so the audit trail survives.
+  Refuses `status=in_progress` tasks unless `--force`. Supports
+  `--dry-run`, `--yes`, and `--json`.
+
+### Changed
+- `_lib/cli/app.py` USAGE — documents the two new subcommands
+  alongside `task new` / `task set*`.
+- `_lib/cli/cmd_task.py` HELP_TASK — lists `list` and `delete` in
+  the per-`task` help dispatcher.
+
+### Tests
+- `tests/python/test_cli_smoke.py`: three new smoke tests
+  (`test_task_list_human_and_json`,
+  `test_task_delete_archive_and_purge`,
+  `test_task_delete_unknown_task`) covering the human + JSON
+  outputs of `task list`, archive vs `--purge` semantics of
+  `task delete`, and the unresolved-id error path.
+
+### Verification
+- 219 pytest passing / 2 skipped (was 216 / 2 — the +3 are the
+  new smoke tests).
+
+---
+
 ## v0.27.8 (2026-04-22)
 
 Fixes a real kernel bug discovered while investigating an HITL

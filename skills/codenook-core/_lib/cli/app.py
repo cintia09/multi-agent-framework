@@ -22,6 +22,10 @@ Subcommands:
                        [--max-iterations N] [--parent T-X]
                        [--priority P0|P1|P2|P3] [--accept-defaults]
                        [--model <name>] [--exec sub-agent|inline]
+  task list [--status <s>] [--phase <p>] [--plugin <id>]
+            [--include-done] [--json]
+  task delete <T-NNN> [T-NNN ...] [--task T-NNN] [--status <s>]
+              [--purge] [--force] [--yes] [--dry-run] [--json]
   task set --task T-NNN --field <field> --value <val>
   task set-model   --task T-NNN (--model <name> | --clear)
   task set-exec    --task T-NNN --mode <sub-agent|inline>
