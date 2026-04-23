@@ -1,3 +1,70 @@
+## v0.27.18 (2026-04-23)
+
+`plugin list` subcommand + interactive plugin/profile selection in
+`task new`. Removes the "which plugin/workflow do I pick?" guesswork
+for workspaces that host more than one plugin or profiles-heavy
+plugins like ``development`` (which ships 7 profiles).
+
+### Added
+- **`codenook plugin list [--json]`** (`_lib/cli/cmd_plugin.py`)
+  lists every plugin installed under ``.codenook/plugins/`` with:
+  - id + version
+  - declared profiles with their full phase chain
+    (``feature: clarify → design → plan → … → ship``)
+  - the raw phase catalogue
+  Text mode is human-friendly (tree-style); ``--json`` emits one
+  object per plugin with keys ``id`` / ``version`` / ``path`` /
+  ``profiles[]`` / ``phases[]`` for tool piping.
+- **Interactive plugin + profile selection in `task new`**
+  (`_lib/cli/cmd_task.py`):
+  - `--plugin` omitted with multiple installed: numbered menu
+    prompt; user picks by number OR name; 3 invalid attempts aborts.
+  - `--plugin` omitted with exactly one installed: auto-use with a
+    transparency line (``only one plugin installed — using 'X'``).
+  - `--plugin` omitted with ``--accept-defaults``: silent auto-pick
+    of the first installed plugin (preserves CI / scripted flows).
+  - `--profile` omitted and plugin advertises profiles: numbered
+    menu with "default" highlighted (or first profile if none named
+    "default"). Same 3-strike abort.
+  - Non-TTY stdin (pipes / CI): menu is still echoed to stdout so
+    the choice is visible in the log, then the default is
+    auto-selected. No infinite prompt hangs.
+  - Explicit `--plugin <unknown>` now rejected with exit 2 and the
+    list of available ids (previously silently proceeded to a
+    mkdir race later in the pipeline).
+  - Helper ``_prompt_choice`` generalized for reuse by future
+    wizards that need a menu-style picker.
+
+### Changed
+- `codenook plugin --help` now lists ``list`` as the first
+  subcommand; top-level ``--help`` USAGE block updated to match.
+- `task new --help` rewrites the ``--plugin`` and ``--profile``
+  descriptions to document the new interactive behavior and the
+  ``--accept-defaults`` escape hatch.
+
+### Tests
+- **7 new regression tests** in
+  ``tests/python/test_v0_27_18_plugin_list_prompts.py``:
+  - `plugin list` human output includes every installed plugin id
+  - `plugin list --json` parses and has the expected structure
+  - `plugin list --bogus` rejected with exit 2
+  - `task new --plugin does-not-exist` rejected with exit 2 +
+    "available: …" list
+  - `--accept-defaults` with multiple plugins does NOT render the
+    menu (silent auto-pick)
+  - Non-TTY stdin renders the menu + auto-selects default
+  - `task new --profile <invalid>` rejected with exit 2 + valid list
+- Full suite: 296 passed / 2 skipped (was 289 / 2).
+
+### Verification
+- Live-installed into `/Users/mingdw/Documents/nook`; the workspace
+  has 3 plugins (``development`` with 7 profiles, plus ``generic`` /
+  ``writing``). `plugin list` renders all three with chains;
+  non-TTY ``task new`` prints both menus and picks defaults
+  visibly; ``--plugin bogus`` rejected as designed.
+
+---
+
 ## v0.27.17 (2026-04-23)
 
 Multi-angle audit fixpack (security + resilience + concurrency).

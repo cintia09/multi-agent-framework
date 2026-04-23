@@ -26,8 +26,10 @@ from .config import CodenookContext
 
 
 HELP = """\
-Usage: codenook plugin <info|lint|diff|update> [args...]
+Usage: codenook plugin <list|info|lint|diff|update> [args...]
 
+  list [--json]                   list installed plugins with their
+                                  id, version, and available profiles
   info <id>                       print profiles + phases summary for an
                                   installed plugin
   lint <id|path>                  statically validate a plugin's YAML +
@@ -86,6 +88,8 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
     if not args or args[0] in ("-h", "--help"):
         print(HELP)
         return 0
+    if args[0] == "list":
+        return _plugin_list(ctx, list(args[1:]))
     if args[0] == "lint":
         return _plugin_lint(ctx, list(args[1:]))
     if args[0] == "diff":
@@ -144,6 +148,100 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
         for p in raw:
             if isinstance(p, dict):
                 print(f"  {p.get('id','?'):<12} role={p.get('role','?')}")
+    return 0
+
+
+# ── plugin list ──────────────────────────────────────────────────────────
+
+
+HELP_LIST = """\
+Usage: codenook plugin list [--json]
+
+List every plugin present in .codenook/plugins/ with its installed
+version and its declared profiles (workflow presets). Use this to
+discover what you can pass to `task new --plugin <id> [--profile <p>]`
+without consulting the raw manifests.
+
+Human output (default):
+  <id>  v<version>  profiles: default, fast-track
+
+--json emits one object per plugin on stdout with keys:
+  {"id", "version", "path", "profiles": [...], "phases": [...]}
+"""
+
+
+def _plugin_list(ctx: CodenookContext, args: list[str]) -> int:
+    as_json = False
+    for a in args:
+        if a in ("-h", "--help"):
+            print(HELP_LIST)
+            return 0
+        if a == "--json":
+            as_json = True
+        else:
+            sys.stderr.write(f"codenook plugin list: unknown arg: {a}\n")
+            return 2
+
+    pdir = ctx.workspace / ".codenook" / "plugins"
+    entries: list[dict] = []
+    if pdir.is_dir():
+        for child in sorted(pdir.iterdir()):
+            if not child.is_dir() or child.name.startswith((".", "_")):
+                continue
+            plugin_yaml, _ = _safe_yaml(child / "plugin.yaml")
+            phases_doc, _ = _safe_yaml(child / "phases.yaml")
+            version = str(plugin_yaml.get("version") or "?")
+            profiles_block = phases_doc.get("profiles") or {}
+            profiles: list[dict] = []
+            if isinstance(profiles_block, dict):
+                for pname, pspec in profiles_block.items():
+                    chain = (pspec.get("phases")
+                             if isinstance(pspec, dict) else pspec)
+                    if isinstance(chain, list):
+                        profiles.append({
+                            "name": str(pname),
+                            "phases": [str(x) for x in chain],
+                        })
+                    else:
+                        profiles.append({"name": str(pname), "phases": []})
+            phases_catalog: list[str] = []
+            raw = phases_doc.get("phases", [])
+            if isinstance(raw, dict):
+                phases_catalog = [str(k) for k in raw.keys()]
+            elif isinstance(raw, list):
+                phases_catalog = [
+                    str(p.get("id")) for p in raw
+                    if isinstance(p, dict) and p.get("id")
+                ]
+            entries.append({
+                "id": child.name,
+                "version": version,
+                "path": str(child),
+                "profiles": profiles,
+                "phases": phases_catalog,
+            })
+
+    if as_json:
+        print(json.dumps(entries, ensure_ascii=False, indent=2))
+        return 0
+
+    if not entries:
+        print("(no plugins installed under .codenook/plugins/)")
+        return 0
+
+    print(f"Installed plugins ({len(entries)}):\n")
+    for e in entries:
+        prof_names = [p["name"] for p in e["profiles"]] or ["(none)"]
+        print(f"  {e['id']}  v{e['version']}")
+        print(f"      profiles: {', '.join(prof_names)}")
+        if e["profiles"]:
+            for p in e["profiles"]:
+                if p["phases"]:
+                    print(f"        - {p['name']}: "
+                          f"{' → '.join(p['phases'])}")
+        if e["phases"]:
+            print(f"      phases  : {', '.join(e['phases'])}")
+        print("")
     return 0
 
 

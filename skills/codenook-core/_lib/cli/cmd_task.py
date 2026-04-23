@@ -140,13 +140,21 @@ Usage: codenook task new --title "..." [options]
 Options:
   --title <str>           required (unless --interactive)
   --summary <str>
-  --plugin <id>           defaults to first installed plugin
+  --plugin <id>           installed plugin id. When omitted:
+                            * single plugin installed → use it silently
+                            * multiple plugins → interactive menu prompt
+                              (or auto-pick first with --accept-defaults)
+                            Unknown plugin ids are rejected with the
+                            list of available ones.
   --profile <name>        v0.20 — pick a profile from the plugin's
                           phases.yaml :: profiles. Validated against
                           declared profile keys; rejected with a list
-                          of valid choices if unknown. When omitted,
-                          falls back to the kernel's profile resolution
-                          (clarifier output, then default).
+                          of valid choices if unknown. When omitted
+                          AND the plugin advertises profiles, an
+                          interactive menu prompt is shown (or the
+                          profile named "default" is auto-picked
+                          silently with --accept-defaults, falling
+                          back to the first declared profile).
   --input <text>          v0.20 — seed the initial task description
                           (used by phase agents / inline conductor as
                           additional context).
@@ -416,13 +424,42 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
         target_dir = "src/"
 
     if not plugin:
-        installed = ctx.state.get("installed_plugins") or []
-        plugin = (installed[0].get("id") if installed else "") or ""
-    if not plugin:
-        sys.stderr.write(
-            "codenook task new: no installed plugin found in state.json\n")
-        return 1
+        installed = [
+            p.get("id") for p in (ctx.state.get("installed_plugins") or [])
+            if isinstance(p, dict) and p.get("id")
+        ]
+        if not installed:
+            sys.stderr.write(
+                "codenook task new: no installed plugin found in state.json\n")
+            return 1
+        if len(installed) == 1 or accept_defaults:
+            plugin = installed[0]
+            if not accept_defaults and len(installed) == 1:
+                sys.stdout.write(
+                    f"(only one plugin installed — using '{plugin}')\n")
+        else:
+            plugin = _prompt_choice(
+                "Plugin", installed, default=installed[0],
+                label_for=lambda pid: pid,
+            )
+            if plugin is None:
+                sys.stderr.write(
+                    "codenook task new: plugin selection aborted.\n")
+                return 1
+    else:
+        # Explicit --plugin: validate it's actually installed.
+        installed_ids = [
+            p.get("id") for p in (ctx.state.get("installed_plugins") or [])
+            if isinstance(p, dict) and p.get("id")
+        ]
+        if installed_ids and plugin not in installed_ids:
+            sys.stderr.write(
+                f"codenook task new: plugin '{plugin}' is not installed "
+                f"(available: {', '.join(installed_ids)})\n")
+            return 2
 
+    # Profile selection: if the plugin advertises profiles and none
+    # was passed, prompt interactively (unless --accept-defaults).
     if profile:
         valid = _load_plugin_profiles(ctx, plugin)
         if valid and profile not in valid:
@@ -432,6 +469,20 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
             return 2
         # When the plugin has no profiles block, accept silently — the
         # field becomes a no-op for legacy pipelines.
+    else:
+        valid = _load_plugin_profiles(ctx, plugin)
+        if valid and not accept_defaults:
+            default_profile = (
+                "default" if "default" in valid else valid[0])
+            chosen = _prompt_choice(
+                f"Profile for '{plugin}'", valid, default=default_profile,
+                label_for=lambda p: p,
+            )
+            if chosen is None:
+                sys.stderr.write(
+                    "codenook task new: profile selection aborted.\n")
+                return 1
+            profile = chosen
 
     if not task_id:
         # Reserve the slot atomically by mkdir(exist_ok=False). Two
@@ -848,6 +899,54 @@ def _prompt_multiline(prompt: str) -> str:
             break
         lines.append(stripped)
     return "\n".join(lines)
+
+
+def _prompt_choice(title: str, choices: list[str], default: str,
+                   label_for=None) -> str | None:
+    """Render a numbered menu for *choices* and prompt the user.
+
+    Accepts either the 1-based index or the literal choice string.
+    Returns the chosen string, or ``None`` on EOF / aborted input.
+    When stdin is not a TTY AND no explicit choice is made, falls
+    back to *default* after echoing the menu (keeps scripted pipes
+    working while still making the decision visible in the log).
+    """
+    if not choices:
+        return None
+    label = label_for or (lambda x: x)
+    sys.stdout.write(f"\n{title}:\n")
+    for i, c in enumerate(choices, start=1):
+        marker = " (default)" if c == default else ""
+        sys.stdout.write(f"  {i}. {label(c)}{marker}\n")
+    sys.stdout.flush()
+
+    if not sys.stdin.isatty():
+        sys.stdout.write(
+            f"(stdin is not a TTY — auto-selecting default: {default})\n")
+        sys.stdout.flush()
+        return default
+
+    for _ in range(3):
+        raw = _prompt("Pick one (number or name)", default=default)
+        if raw is _PROMPT_EOF:
+            return None
+        pick = raw.strip()
+        if not pick:
+            return default
+        if pick.isdigit():
+            idx = int(pick)
+            if 1 <= idx <= len(choices):
+                return choices[idx - 1]
+            sys.stdout.write(
+                f"  ! out of range (1..{len(choices)}); try again.\n")
+            continue
+        if pick in choices:
+            return pick
+        sys.stdout.write(
+            f"  ! '{pick}' is not one of: {', '.join(choices)}; try again.\n")
+    sys.stderr.write(
+        f"{title}: too many invalid attempts; aborting.\n")
+    return None
 
 
 def _task_new_interactive(ctx: CodenookContext, args: list[str]) -> int:
