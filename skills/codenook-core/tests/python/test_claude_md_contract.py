@@ -70,12 +70,25 @@ def test_contract_02_pure_conductor_role():
 
 
 def test_contract_02_no_self_initiated_tasks():
-    """CONTRACT-02b: LLM must not decide to start tasks on its own."""
+    """CONTRACT-02b: LLM may recommend a task but never silently creates one.
+
+    v0.27.22 flipped the default from "only on explicit ask" to
+    "proactively recommend on substantial requests" — but the LLM
+    still never spawns a task without user confirmation.
+    """
     out = render()
     assert has_any(
         out,
+        r"never silently create a CodeNook task",
         r"do \*?\*?not\*?\*? decide on your own",
         r"only when the user explicitly asks",
+    )
+    assert has_any(
+        out,
+        r"user always confirms",
+        r"user confirms before",
+        r"after the user confirms",
+        r"let the user decide",
     )
 
 

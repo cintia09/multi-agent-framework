@@ -1,3 +1,62 @@
+## v0.27.22 (2026-04-23)
+
+Bootloader auto-engagement: an installed CodeNook now actively
+participates in every session, instead of waiting for the user to
+type a magic phrase. The conductor LLM loads workspace inventory
+on the first tool call and proactively recommends a CodeNook task
+whenever a request is substantial.
+
+### Changed (bootloader template, `claude_md_sync.py`)
+
+- **Session-start ritual now triggers on the first tool call of
+  any session performed inside a workspace where `.codenook/`
+  exists.** Previously the ritual only ran "the first time the
+  user mentions CodeNook in a session", which meant memory and
+  plugin context were invisible for normal coding questions —
+  defeating the point of having an installed CodeNook.
+- **New §Auto-engagement section** with a substantial-vs-trivial
+  rubric (≥2 files, plugin `match` hit, deliverable wording,
+  decomposes into phases) and a 3-choice recommendation flow
+  (`create task` / `handle inline` / `explain what CodeNook would
+  do`). Trigger phrases (`走 codenook 流程`, `use codenook to …`,
+  …) are preserved as a fast-path that skips the recommendation
+  ask but still runs the rest of the pre-task interview.
+- **Hard rules flipped:**
+  - removed: *"MUST start a task only when the user explicitly
+    asks"*.
+  - added: *"MUST proactively recommend a CodeNook task whenever
+    the user's request is substantial; user always confirms before
+    `task new`"*.
+  - added: *"MUST complete the §Session-start ritual on the first
+    tool call of every session where `.codenook/` exists"*.
+  - added: *"MUST NOT spawn a CodeNook task for trivial requests;
+    handle inline but still apply §Proactive knowledge lookup"*.
+- **Removed §When to start subsection** (replaced by
+  §Auto-engagement). The legacy text "Only when the user
+  explicitly asks. Recognise: …" is gone.
+
+### Tests
+
+- New `test_v0_27_22_bootloader_auto_engagement.py` (9 tests)
+  pins the four-layer auto-engagement model: awareness fires on
+  first tool call, §Auto-engagement section exists with the
+  substantial / trivial rubric and 3-choice recommendation flow,
+  trivial-inline path keeps proactive knowledge lookup, old
+  explicit-only wording removed, trigger phrases preserved as
+  fast-path.
+- `test_claude_md_contract.py::test_contract_02_no_self_initiated_tasks`
+  updated for the new contract (LLM may *recommend* a task but
+  never silently creates one) — still asserts user-confirmation
+  invariant.
+
+### Non-goals
+
+- No CLI changes (no new kernel subcommands).
+- No phase-agent or dispatch-protocol changes.
+- No cross-host discoverability work — Copilot CLI is confirmed
+  to read `CLAUDE.md` already, so a separate
+  `.github/copilot-instructions.md` shim is unnecessary.
+
 ## v0.27.21 (2026-04-23)
 
 Memory-layer reliability: unblock `knowledge search` / `index.yaml`
