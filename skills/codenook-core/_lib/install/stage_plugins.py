@@ -15,6 +15,8 @@ from pathlib import Path
 
 import yaml  # type: ignore[import-untyped]
 
+from .stage_kernel import _FINGERPRINT_NAME, _compute_tree_fingerprint
+
 
 def discover_plugins(repo_root: Path) -> list[str]:
     plugins_dir = repo_root / "plugins"
@@ -92,6 +94,22 @@ def install_plugin(
         )
         return 3
 
+    # Content-fingerprint check: VERSION-only short-circuit silently drops
+    # in-version edits to plugin files (role.md, phases.yaml, …). If the
+    # staged tree's ``.fingerprint`` is missing or stale relative to the
+    # source, fall through to a full restage so dev-loop edits land.
+    plugin_dst = workspace / ".codenook" / "plugins" / plugin_id
+    if idempotent:
+        fp_path = plugin_dst / _FINGERPRINT_NAME
+        staged_fp = ""
+        if fp_path.is_file():
+            try:
+                staged_fp = fp_path.read_text(encoding="utf-8").strip()
+            except Exception:
+                staged_fp = ""
+        if not staged_fp or staged_fp != _compute_tree_fingerprint(plugin_src):
+            idempotent = False
+
     builtin_dir = staged_kernel / "skills" / "builtin"
     core_version = (staged_kernel / "VERSION").read_text(encoding="utf-8").strip()
 
@@ -153,4 +171,16 @@ def install_plugin(
         env=env,
         text=True,
     )
+    if cp.returncode == 0 and not dry_run:
+        # Write content fingerprint into the staged plugin tree so the
+        # next install can detect in-version source edits and restage.
+        try:
+            fp = _compute_tree_fingerprint(plugin_src)
+            (plugin_dst / _FINGERPRINT_NAME).write_text(
+                fp + "\n", encoding="utf-8"
+            )
+        except Exception as e:
+            sys.stderr.write(
+                f"install: warning: failed to write plugin fingerprint: {e}\n"
+            )
     return cp.returncode
