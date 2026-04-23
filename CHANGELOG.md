@@ -1,3 +1,66 @@
+## v0.27.10 (2026-04-23)
+
+Operational follow-ups to v0.27.9 (`task list` / `task delete`): a
+restore command, a real fix for an HITL queue matching bug, and a
+status/list refactor that removes duplicated row-building code.
+
+### Added
+- **`codenook task restore`** — reverse of `task delete`. Moves
+  archived snapshots from `.codenook/tasks/_archive/<orig>-<UTC-ts>/`
+  back to `.codenook/tasks/<orig>/` and (best-effort) re-promotes
+  any *undecided* HITL queue entries from
+  `.codenook/hitl-queue/_consumed/` to the active queue. Decided
+  entries stay in `_consumed/` as audit history. Refuses to
+  overwrite an existing active dir. Supports `--list` (just show
+  what's in `_archive/`), `--from <archived-name>` for
+  disambiguation when multiple snapshots share a prefix,
+  `--no-hitl-restore`, `--yes`, `--dry-run`, `--json`.
+
+### Fixed
+- **HITL queue prefix-matching false positives**
+  (`_lib/cli/cmd_task.py :: _hitl_pending_for`). The previous
+  implementation matched queue files by `filename.startswith(task_id + "-")`,
+  which would mis-claim `T-10-foo_signoff.json` when the operator
+  ran `task delete T-1`. The current numbering scheme uses
+  zero-padded `T-NNN` ids and so happened to be safe, but the
+  fragility was real and would surface on any plugin that allowed
+  custom ids. Now reads each queue JSON and matches by the body's
+  `task_id` field — the same source of truth the kernel uses to
+  write the entry. Regression test included
+  (`test_hitl_pending_uses_json_task_id_not_prefix`).
+
+### Changed
+- **`codenook status` task table** now reuses
+  `cmd_task._collect_task_records` instead of duplicating the
+  task-walking + state.json parsing. The output shape is unchanged
+  (`test_status` continues to pass) but the model column is still
+  resolved here (kept `cmd_task` decoupled from `models`).
+- **`_collect_task_records` row shape**: renamed `short_id` → `task_id`
+  (now sourced from the state.json `task_id` field) and added a
+  `dir_name` field (the on-disk directory name). Both `task list`
+  and `task delete` updated to use the new fields. JSON consumers
+  may need to update if they relied on the removed `short_id`.
+- **`_lib/cli/app.py` USAGE** — adds the `task restore` synopsis
+  alongside `task delete`.
+- **README.md** — adds a "Special directories under `.codenook/`"
+  table documenting `_archive/`, `_consumed/`, and the legacy
+  `.archive/` so operators understand where deleted tasks go and
+  how restore works.
+- **`cmd_task.py` module docstring** — formal definition of the
+  archive contract (paths, lifecycle, who manages them).
+
+### Tests
+- `tests/python/test_cli_smoke.py`: two new smoke tests
+  (`test_task_restore_round_trip` for the delete→restore cycle and
+  `test_hitl_pending_uses_json_task_id_not_prefix` for the queue
+  matching regression).
+
+### Verification
+- 221 pytest passing / 2 skipped (was 219 / 2 — the +2 are the
+  new restore + HITL regression tests).
+
+---
+
 ## v0.27.9 (2026-04-23)
 
 Adds two long-missing built-in subcommands so operators no longer

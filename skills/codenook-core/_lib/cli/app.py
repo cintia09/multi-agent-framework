@@ -26,6 +26,8 @@ Subcommands:
             [--include-done] [--json]
   task delete <T-NNN> [T-NNN ...] [--task T-NNN] [--status <s>]
               [--purge] [--force] [--yes] [--dry-run] [--json]
+  task restore [<T-NNN> | <archived-name>] [--task T-NNN] [--from <name>]
+               [--list] [--no-hitl-restore] [--yes] [--dry-run] [--json]
   task set --task T-NNN --field <field> --value <val>
   task set-model   --task T-NNN (--model <name> | --clear)
   task set-exec    --task T-NNN --mode <sub-agent|inline>

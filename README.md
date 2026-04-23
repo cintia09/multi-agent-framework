@@ -74,6 +74,18 @@ CodeNook is a **three-layer system**:
 
 The diagram at the top of this README shows the same picture with the dispatch arrows drawn in. For the full deep dive, see [`docs/architecture.md`](docs/architecture.md).
 
+### Special directories under `.codenook/`
+
+A few prefixed directories are managed automatically and skipped by every "active list" iterator (`task list`, `status`, `iter_active_task_dirs`):
+
+| Path | Created by | Purpose | Restored / cleared by |
+|------|------------|---------|----------------------|
+| `tasks/_archive/<orig>-<UTC-ts>/` | `codenook task delete` (default mode) | Soft-deleted task snapshots. Leading `_` keeps them out of the active task table. | `codenook task restore` (or `rm -rf` for hard delete). |
+| `hitl-queue/_consumed/` | `codenook hitl decide` and `codenook task delete` | Decided HITL gate entries (audit trail) plus undecided gates moved here when their task is archived. | `codenook task restore` re-promotes the undecided ones; decided ones stay forever. |
+| `tasks/.archive/` | legacy v0.13.x and earlier | Pre-v0.27.10 archive folder. Kept readable; new archives land under `_archive/`. | manual. |
+
+You can hard-delete a task (skipping `_archive/`) with `codenook task delete <T-NNN> --purge --yes`.
+
 ## How it works
 
 1. **Install** — `python3 install.py --target <ws> --plugin <id>` stages the kernel and plugin atomically into `<ws>/.codenook/`, then syncs the bootloader block in `<ws>/CLAUDE.md`.

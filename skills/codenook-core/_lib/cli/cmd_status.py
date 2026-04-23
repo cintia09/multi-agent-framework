@@ -5,7 +5,7 @@ import json
 import sys
 from typing import Sequence
 
-from .config import CodenookContext, iter_active_task_dirs, resolve_task_id
+from .config import CodenookContext, resolve_task_id
 
 
 def run(ctx: CodenookContext, args: Sequence[str]) -> int:
@@ -63,28 +63,34 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
     except Exception:
         _resolve = None  # graceful degrade — model column shows <unknown>
 
-    tasks_dir = ctx.workspace / ".codenook" / "tasks"
-    rows = []
-    for d in iter_active_task_dirs(tasks_dir):
-        sf = d / "state.json"
-        try:
-            s = json.loads(sf.read_text(encoding="utf-8"))
-            ph = s.get("phase") or "<none>"
-            st = s.get("status") or "?"
-            ex = s.get("execution_mode") or "sub-agent"
-            pr = s.get("profile") or "<auto>"
-            md = "<unknown>"
-            if _resolve is not None:
-                try:
-                    md = (_resolve(ctx.workspace, s.get("plugin") or "",
-                                   s.get("phase") or "", s)
-                          or "<default>")
-                except Exception:
-                    md = "<unknown>"
-        except Exception:
-            ph, st, ex, pr, md = "?", "?", "?", "?", "?"
+    # Reuse the canonical record collector from cmd_task — keeps the
+    # row shape (and the HITL-by-JSON-task_id matching) in sync with
+    # ``codenook task list``. We still resolve the model column here
+    # because list does not (it would over-couple list to models.py).
+    from . import cmd_task
+    records = cmd_task._collect_task_records(ctx)
+    rows: list[str] = []
+    for r in records:
+        ph = r["phase"] or "<none>"
+        st = r["status"] or "?"
+        ex = r["execution_mode"] or "sub-agent"
+        pr = r["profile"] or "<auto>"
+        md = "<unknown>"
+        if _resolve is not None:
+            try:
+                # Reload state to pass to resolve_model (it needs the
+                # full state dict, not just the summary fields).
+                state = json.loads(
+                    (ctx.workspace / ".codenook" / "tasks"
+                     / r["dir_name"] / "state.json").read_text(
+                        encoding="utf-8"))
+                md = (_resolve(ctx.workspace, state.get("plugin") or "",
+                               state.get("phase") or "", state)
+                      or "<default>")
+            except Exception:
+                md = "<unknown>"
         rows.append(
-            f"  {d.name} phase={ph} status={st} "
+            f"  {r['dir_name']} phase={ph} status={st} "
             f"exec={ex} profile={pr} model={md}")
     if rows:
         print("Tasks:")

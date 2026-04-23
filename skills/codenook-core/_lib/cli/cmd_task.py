@@ -1,5 +1,19 @@
 """``codenook task new`` and ``codenook task set`` — direct in-process
 implementations of the bash wrapper's task subcommands.
+
+Workspace conventions used by ``task list/delete/restore``:
+
+  .codenook/tasks/<id>/        active task dir (state.json + outputs/)
+  .codenook/tasks/_archive/    soft-deleted tasks (``task delete`` default).
+                               Leading ``_`` makes ``iter_active_task_dirs``
+                               skip them so they never resurface in the
+                               active table. ``task restore`` moves them
+                               back.
+  .codenook/hitl-queue/        active gate entries (one *.json per gate)
+  .codenook/hitl-queue/_consumed/
+                               historical gate entries — either decided
+                               by ``codenook hitl decide`` or moved here
+                               by ``task delete`` when archiving a task.
 """
 from __future__ import annotations
 
@@ -21,11 +35,12 @@ from .config import (
 
 
 HELP_TASK = """\
-codenook task <new|list|delete|set|set-model|set-exec|set-profile|suggest-parent>
+codenook task <new|list|delete|restore|set|set-model|set-exec|set-profile|suggest-parent>
 
   new             create a new T-NNN under .codenook/tasks/
   list            list tasks grouped by status (with HITL-pending hints)
   delete          archive (default) or purge tasks + their HITL queue files
+  restore         restore archived tasks from .codenook/tasks/_archive/
   set             mutate a writable field on an existing task
   set-model       set or clear the per-task LLM model_override
   set-exec        set the per-task execution_mode (sub-agent | inline)
@@ -246,6 +261,8 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
         return _task_list(ctx, rest)
     if sub == "delete":
         return _task_delete(ctx, rest)
+    if sub == "restore":
+        return _task_restore(ctx, rest)
     if sub == "set":
         return _task_set(ctx, rest)
     if sub == "set-model":
@@ -1028,22 +1045,32 @@ def _hitl_pending_for(workspace: Path, task_id: str) -> list[str]:
     """Return basenames of pending HITL queue files for *task_id*.
 
     A pending entry is any ``.json`` directly under
-    ``.codenook/hitl-queue/`` whose name starts with ``<task_id>-``
-    (or equals ``<task_id>.json``) and that has not been moved into
-    the ``_consumed/`` sibling.
+    ``.codenook/hitl-queue/`` whose JSON body has ``task_id == task_id``
+    AND that has not been moved into the ``_consumed/`` sibling.
+
+    The implementation reads each JSON to match by its ``task_id``
+    field rather than by filename prefix. This avoids false positives
+    when the workspace contains both ``T-1`` and ``T-10``: filename
+    ``T-10-foo_signoff.json`` starts with ``T-1-`` lexically only when
+    the writer uses zero-padded ids; relying on JSON content removes
+    that fragility entirely.
+
+    Files that fail to parse are skipped silently — they would also
+    be invisible to ``codenook hitl list`` and so should not block
+    delete / list either.
     """
     q = workspace / ".codenook" / "hitl-queue"
     if not q.is_dir():
         return []
     out: list[str] = []
-    prefix = task_id + "-"
-    exact = task_id + ".json"
     for entry in sorted(q.iterdir()):
-        if not entry.is_file():
+        if not entry.is_file() or not entry.name.endswith(".json"):
             continue
-        if not entry.name.endswith(".json"):
+        try:
+            payload = json.loads(entry.read_text(encoding="utf-8"))
+        except Exception:
             continue
-        if entry.name == exact or entry.name.startswith(prefix):
+        if payload.get("task_id") == task_id:
             out.append(entry.name)
     return out
 
@@ -1051,9 +1078,15 @@ def _hitl_pending_for(workspace: Path, task_id: str) -> list[str]:
 def _collect_task_records(ctx: CodenookContext) -> list[dict]:
     """Walk active task dirs and return a list of summary dicts.
 
-    Each dict has: task_id (dir name), short_id (T-NNN), title, plugin,
-    profile, phase, status, model_override, hitl_pending (list of
-    queue basenames), updated_at.
+    Each dict has: task_id (state.json's task_id, falls back to dir
+    name), dir_name, title, plugin, profile, phase, status,
+    model_override, hitl_pending (list of queue basenames),
+    updated_at.
+
+    The HITL pending list is sourced by reading every queue JSON's
+    ``task_id`` field (see ``_hitl_pending_for``), so two tasks whose
+    dir names are prefixes of each other can never cross-pollute the
+    list.
     """
     rows: list[dict] = []
     tasks_dir = ctx.workspace / ".codenook" / "tasks"
@@ -1063,20 +1096,19 @@ def _collect_task_records(ctx: CodenookContext) -> list[dict]:
             s = json.loads(sf.read_text(encoding="utf-8"))
         except Exception:
             s = {}
-        short = s.get("task_id") or d.name.split("-", 2)[0:2]
-        if isinstance(short, list):
-            short = "-".join(short[:2]) if len(short) >= 2 else d.name
+        canonical = s.get("task_id") or d.name
         rows.append({
-            "task_id": d.name,
-            "short_id": short or d.name,
+            "task_id": canonical,
+            "dir_name": d.name,
             "title": s.get("title") or "",
             "plugin": s.get("plugin") or "",
             "profile": s.get("profile") or "",
             "phase": s.get("phase") or "",
             "status": s.get("status") or "",
             "model_override": s.get("model_override") or "",
+            "execution_mode": s.get("execution_mode") or "sub-agent",
             "updated_at": s.get("updated_at") or "",
-            "hitl_pending": _hitl_pending_for(ctx.workspace, short or d.name),
+            "hitl_pending": _hitl_pending_for(ctx.workspace, canonical),
         })
     return rows
 
@@ -1177,7 +1209,7 @@ def _task_list(ctx: CodenookContext, args: list[str]) -> int:
             hitl_s = f"  ⚠ HITL pending: {len(hitl)}" if hitl else ""
             pending_total += len(hitl)
             title = r["title"] or "(no title)"
-            print(f"  {r['task_id']}  phase={r['phase'] or '-'}  "
+            print(f"  {r['dir_name']}  phase={r['phase'] or '-'}  "
                   f"status={r['status'] or '-'}  — {title}{extra_s}{hitl_s}")
         print("")
 
@@ -1185,7 +1217,7 @@ def _task_list(ctx: CodenookContext, args: list[str]) -> int:
     if others:
         print(f"Other ({len(others)}):")
         for r in others:
-            print(f"  {r['task_id']}  phase={r['phase'] or '-'}  "
+            print(f"  {r['dir_name']}  phase={r['phase'] or '-'}  "
                   f"status={r['status'] or '-'}  — {r['title'] or '(no title)'}")
         print("")
 
@@ -1265,7 +1297,7 @@ def _task_delete(ctx: CodenookContext, args: list[str]) -> int:
     if bulk_status:
         for r in _collect_task_records(ctx):
             if r["status"] in bulk_status:
-                selected.setdefault(r["task_id"], {"source": "status"})
+                selected.setdefault(r["dir_name"], {"source": "status"})
 
     if not selected:
         sys.stderr.write(
@@ -1280,14 +1312,11 @@ def _task_delete(ctx: CodenookContext, args: list[str]) -> int:
     for tid in sorted(selected):
         sf = tasks_dir / tid / "state.json"
         status = ""
-        short_id = tid
+        canonical = tid
         try:
             s = json.loads(sf.read_text(encoding="utf-8"))
             status = s.get("status") or ""
-            short_id = s.get("task_id") or tid.split("-", 2)[0:2]
-            if isinstance(short_id, list):
-                short_id = (
-                    "-".join(short_id[:2]) if len(short_id) >= 2 else tid)
+            canonical = s.get("task_id") or tid
         except Exception:
             pass
         if status == "in_progress" and not force:
@@ -1296,17 +1325,16 @@ def _task_delete(ctx: CodenookContext, args: list[str]) -> int:
                 f"(status=in_progress) — pass --force to override\n")
             rc_resolve = 1
             continue
+        # Match HITL queue entries by JSON ``task_id`` field — never by
+        # filename prefix (would mis-claim T-10's files when deleting
+        # T-1, etc).
         hitl_files = (
-            _hitl_pending_for(ctx.workspace, short_id)
+            _hitl_pending_for(ctx.workspace, canonical)
             if queue_dir.is_dir() else []
         )
-        # Also clean up sibling .html copies and consumed audit hint:
-        # we only auto-move the .json entries (those gate the HITL list);
-        # leave any .html beside them alone unless --purge, which removes
-        # everything matching the prefix anyway.
         plan.append({
-            "task_id": tid,
-            "short_id": short_id,
+            "dir_name": tid,
+            "task_id": canonical,
             "status": status,
             "hitl_pending": hitl_files,
         })
@@ -1322,7 +1350,7 @@ def _task_delete(ctx: CodenookContext, args: list[str]) -> int:
             extra = (f" (+{len(p['hitl_pending'])} HITL queue files)"
                      if p["hitl_pending"] else "")
             sys.stderr.write(
-                f"  - {p['task_id']}  status={p['status'] or '-'}{extra}\n")
+                f"  - {p['dir_name']}  status={p['status'] or '-'}{extra}\n")
         sys.stderr.write("Proceed? [y/N] ")
         sys.stderr.flush()
         try:
@@ -1341,7 +1369,7 @@ def _task_delete(ctx: CodenookContext, args: list[str]) -> int:
     results: list[dict] = []
     rc = rc_resolve
     for p in plan:
-        tid = p["task_id"]
+        tid = p["dir_name"]
         src = tasks_dir / tid
         moved_hitl: list[str] = []
         try:
@@ -1354,17 +1382,16 @@ def _task_delete(ctx: CodenookContext, args: list[str]) -> int:
                     f = queue_dir / name
                     if f.exists():
                         f.unlink()
-                # Best-effort: matching .html sidecars
-                if queue_dir.is_dir():
-                    for sib in queue_dir.iterdir():
-                        if sib.is_file() and (
-                            sib.name.startswith(p["short_id"] + "-")
-                            or sib.name == p["short_id"] + ".html"
-                        ):
-                            try:
-                                sib.unlink()
-                            except OSError:
-                                pass
+                # Sidecar .html companions: derive their names by
+                # swapping the .json suffix on the matched entries.
+                # This stays correctly scoped (no prefix matching).
+                for name in p["hitl_pending"]:
+                    side = queue_dir / (name[:-5] + ".html")
+                    if side.is_file():
+                        try:
+                            side.unlink()
+                        except OSError:
+                            pass
             else:
                 archive_root.mkdir(parents=True, exist_ok=True)
                 dest = archive_root / f"{tid}-{ts}"
@@ -1377,9 +1404,15 @@ def _task_delete(ctx: CodenookContext, args: list[str]) -> int:
                         if f.exists():
                             shutil.move(str(f), str(consumed_root / name))
                             moved_hitl.append(name)
+                        # Move .html sidecar too if present.
+                        side = queue_dir / (name[:-5] + ".html")
+                        if side.is_file():
+                            shutil.move(
+                                str(side),
+                                str(consumed_root / side.name))
             results.append({
-                "task_id": tid,
-                "short_id": p["short_id"],
+                "dir_name": tid,
+                "task_id": p["task_id"],
                 "action": "dry-run" if dry_run else (
                     "purged" if purge else "archived"),
                 "hitl_files": p["hitl_pending"] if purge else moved_hitl,
@@ -1394,7 +1427,7 @@ def _task_delete(ctx: CodenookContext, args: list[str]) -> int:
                 f"codenook task delete: failed for {tid}: {exc}\n")
             rc = 1
             results.append({
-                "task_id": tid, "short_id": p["short_id"],
+                "dir_name": tid, "task_id": p["task_id"],
                 "action": "error", "error": str(exc),
             })
 
@@ -1410,6 +1443,280 @@ def _task_delete(ctx: CodenookContext, args: list[str]) -> int:
                 extra = f" → {r['archive_dest']}"
             hitl_n = len(r.get("hitl_files") or [])
             hitl_s = f" (+{hitl_n} HITL files)" if hitl_n else ""
-            print(f"{r['action']}: {r['task_id']}{extra}{hitl_s}")
+            print(f"{r['action']}: {r['dir_name']}{extra}{hitl_s}")
+
+    return rc
+
+
+# ── task restore ─────────────────────────────────────────────────────────
+
+HELP_RESTORE = """\
+Usage: codenook task restore [<T-NNN> | <archived-name>] [options]
+
+Restore a task previously archived by ``codenook task delete``. Each
+archived entry lives at ``.codenook/tasks/_archive/<orig>-<UTC-ts>/``;
+restore moves it back to ``.codenook/tasks/<orig>/`` and (best-effort)
+moves any associated HITL queue entries from
+``.codenook/hitl-queue/_consumed/`` back to ``.codenook/hitl-queue/``.
+
+Selectors (one of):
+  <T-NNN>           bare positional id; if multiple archived
+                    snapshots match, ``--from`` is required to
+                    disambiguate.
+  --task <T-NNN>    same as bare positional (repeatable).
+  --from <name>     full archived dir name under
+                    ``_archive/`` (e.g.
+                    ``T-007-...-20260423T020000Z``).
+  --list            don't restore — just list everything in
+                    ``_archive/`` (with timestamps), exit 0.
+
+Options:
+  --no-hitl-restore  skip moving HITL entries from _consumed/
+                     back to the active queue.
+  --yes              skip the y/N confirmation.
+  --dry-run          print what would happen, change nothing.
+  --json             emit one JSON object per processed entry.
+
+Refuses to overwrite an existing active task dir; remove or rename
+the active one first.
+"""
+
+
+def _archive_entries_for(workspace: Path, prefix: str) -> list[Path]:
+    """Return archived snapshots whose name starts with ``<prefix>-``.
+
+    *prefix* is typically a bare ``T-NNN`` or a slugged dir name.
+    Snapshots are named ``<prefix>-YYYYMMDDTHHMMSSZ`` so the trailing
+    timestamp uniquely identifies each restore candidate.
+    """
+    arc = workspace / ".codenook" / "tasks" / "_archive"
+    if not arc.is_dir():
+        return []
+    out: list[Path] = []
+    needle = prefix + "-"
+    for d in sorted(arc.iterdir()):
+        if d.is_dir() and d.name.startswith(needle):
+            out.append(d)
+    return out
+
+
+def _task_restore(ctx: CodenookContext, args: list[str]) -> int:
+    import shutil
+
+    explicit_ids: list[str] = []
+    explicit_archives: list[str] = []
+    list_only = False
+    no_hitl = False
+    yes = False
+    dry_run = False
+    as_json = False
+
+    it = iter(args)
+    try:
+        for a in it:
+            if a in ("-h", "--help"):
+                sys.stdout.write(HELP_RESTORE)
+                return 0
+            if a == "--task":
+                explicit_ids.append(next(it))
+            elif a == "--from":
+                explicit_archives.append(next(it))
+            elif a == "--list":
+                list_only = True
+            elif a == "--no-hitl-restore":
+                no_hitl = True
+            elif a == "--yes":
+                yes = True
+            elif a == "--dry-run":
+                dry_run = True
+            elif a == "--json":
+                as_json = True
+            elif a.startswith("-"):
+                sys.stderr.write(f"codenook task restore: unknown flag: {a}\n")
+                sys.stderr.write(HELP_RESTORE)
+                return 2
+            else:
+                explicit_ids.append(a)
+    except StopIteration:
+        sys.stderr.write(
+            "codenook task restore: missing value for last flag\n")
+        return 2
+
+    arc_root = ctx.workspace / ".codenook" / "tasks" / "_archive"
+    tasks_dir = ctx.workspace / ".codenook" / "tasks"
+    queue_dir = ctx.workspace / ".codenook" / "hitl-queue"
+    consumed_dir = queue_dir / "_consumed"
+
+    # --list mode: show everything under _archive/.
+    if list_only:
+        if not arc_root.is_dir():
+            print("(_archive/ is empty)")
+            return 0
+        entries = sorted(p for p in arc_root.iterdir() if p.is_dir())
+        if not entries:
+            print("(_archive/ is empty)")
+            return 0
+        if as_json:
+            payload = [{"name": p.name,
+                        "path": str(p.relative_to(ctx.workspace))}
+                       for p in entries]
+            sys.stdout.write(json.dumps(payload, ensure_ascii=False, indent=2))
+            sys.stdout.write("\n")
+        else:
+            print(f"Archived tasks ({len(entries)}):")
+            for p in entries:
+                print(f"  {p.name}")
+        return 0
+
+    # Resolve each --task / positional id to an archive snapshot.
+    plan: list[dict] = []
+    rc_resolve = 0
+    for raw in explicit_ids:
+        candidates = _archive_entries_for(ctx.workspace, raw)
+        if not candidates:
+            sys.stderr.write(
+                f"codenook task restore: no archived snapshot matching "
+                f"{raw}\n")
+            rc_resolve = 1
+            continue
+        if len(candidates) > 1:
+            sys.stderr.write(
+                f"codenook task restore: ambiguous {raw}; "
+                f"{len(candidates)} candidates — pass --from <name>:\n")
+            for c in candidates:
+                sys.stderr.write(f"  {c.name}\n")
+            rc_resolve = 1
+            continue
+        plan.append({"src": candidates[0]})
+
+    for arc_name in explicit_archives:
+        src = arc_root / arc_name
+        if not src.is_dir():
+            sys.stderr.write(
+                f"codenook task restore: not an archive entry: {arc_name}\n")
+            rc_resolve = 1
+            continue
+        plan.append({"src": src})
+
+    if not plan:
+        sys.stderr.write(
+            "codenook task restore: no entries selected — pass <T-NNN>, "
+            "--task, --from, or --list\n")
+        return 2 if rc_resolve == 0 else 1
+
+    # Resolve original dir names + check destination collisions.
+    for p in plan:
+        src: Path = p["src"]
+        # Snapshot name = <orig>-<YYYYMMDDTHHMMSSZ>; strip 17 chars
+        # ("-YYYYMMDDTHHMMSSZ") to recover the original.
+        name = src.name
+        orig = name[:-17] if (
+            len(name) > 17 and name[-1] == "Z" and name[-17] == "-"
+        ) else name
+        p["orig"] = orig
+        p["dest"] = tasks_dir / orig
+        # Best-effort canonical task_id from the snapshot's state.json.
+        canonical = orig
+        try:
+            s = json.loads((src / "state.json").read_text(encoding="utf-8"))
+            canonical = s.get("task_id") or orig
+        except Exception:
+            pass
+        p["task_id"] = canonical
+        p["hitl_consumed"] = []
+        if not no_hitl and consumed_dir.is_dir():
+            for entry in sorted(consumed_dir.iterdir()):
+                if not entry.is_file() or not entry.name.endswith(".json"):
+                    continue
+                try:
+                    payload = json.loads(entry.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                # Only restore entries that were NEVER decided —
+                # decided ones already carry their verdict and should
+                # stay in _consumed/ as audit history.
+                if (payload.get("task_id") == canonical
+                        and not payload.get("decision")):
+                    p["hitl_consumed"].append(entry.name)
+
+    if not yes and not dry_run:
+        sys.stderr.write(f"About to restore {len(plan)} task(s):\n")
+        for p in plan:
+            extra = (f" (+{len(p['hitl_consumed'])} HITL entries)"
+                     if p["hitl_consumed"] else "")
+            collide = " ⚠ destination exists" if p["dest"].exists() else ""
+            sys.stderr.write(
+                f"  - {p['src'].name} → tasks/{p['orig']}{extra}{collide}\n")
+        sys.stderr.write("Proceed? [y/N] ")
+        sys.stderr.flush()
+        try:
+            answer = sys.stdin.readline().strip().lower()
+        except KeyboardInterrupt:
+            sys.stderr.write("\naborted.\n")
+            return 1
+        if answer not in ("y", "yes"):
+            sys.stderr.write("aborted.\n")
+            return 1
+
+    results: list[dict] = []
+    rc = rc_resolve
+    for p in plan:
+        src: Path = p["src"]
+        dest: Path = p["dest"]
+        try:
+            if dest.exists():
+                sys.stderr.write(
+                    f"codenook task restore: destination exists, "
+                    f"refusing to overwrite: {dest.relative_to(ctx.workspace)}\n")
+                rc = 1
+                results.append({
+                    "snapshot": src.name, "task_id": p["task_id"],
+                    "action": "error", "error": "destination_exists",
+                })
+                continue
+            restored_hitl: list[str] = []
+            if dry_run:
+                pass
+            else:
+                shutil.move(str(src), str(dest))
+                if p["hitl_consumed"]:
+                    queue_dir.mkdir(parents=True, exist_ok=True)
+                    for name in p["hitl_consumed"]:
+                        f = consumed_dir / name
+                        if f.exists():
+                            shutil.move(str(f), str(queue_dir / name))
+                            restored_hitl.append(name)
+                        # html sidecar:
+                        side = consumed_dir / (name[:-5] + ".html")
+                        if side.is_file():
+                            shutil.move(
+                                str(side), str(queue_dir / side.name))
+            results.append({
+                "snapshot": src.name,
+                "task_id": p["task_id"],
+                "action": "dry-run" if dry_run else "restored",
+                "destination": str(dest.relative_to(ctx.workspace)),
+                "hitl_files": (
+                    p["hitl_consumed"] if dry_run else restored_hitl),
+            })
+        except Exception as exc:
+            sys.stderr.write(
+                f"codenook task restore: failed for {src.name}: {exc}\n")
+            rc = 1
+            results.append({
+                "snapshot": src.name, "task_id": p["task_id"],
+                "action": "error", "error": str(exc),
+            })
+
+    if as_json:
+        sys.stdout.write(json.dumps(results, ensure_ascii=False, indent=2))
+        sys.stdout.write("\n")
+    else:
+        for r in results:
+            if r["action"] == "error":
+                continue
+            hitl_n = len(r.get("hitl_files") or [])
+            hitl_s = f" (+{hitl_n} HITL files)" if hitl_n else ""
+            print(f"{r['action']}: {r['snapshot']} → {r['destination']}{hitl_s}")
 
     return rc

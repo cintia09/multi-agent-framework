@@ -169,3 +169,72 @@ def test_task_delete_unknown_task(installed_workspace: Path) -> None:
     )
     assert cp.returncode == 1
     assert "no such task" in cp.stderr
+
+
+def test_task_restore_round_trip(installed_workspace: Path) -> None:
+    """delete (archive) then restore should round-trip the task dir."""
+    ws = installed_workspace
+    tid = _run(_bin_cmd(ws) + [
+        "task", "new", "--title", "round-trip", "--accept-defaults",
+    ]).stdout.strip().splitlines()[-1]
+    task_dir = ws / ".codenook" / "tasks" / tid
+    assert task_dir.is_dir()
+
+    _run(_bin_cmd(ws) + [
+        "task", "delete", tid, "--yes", "--force", "--json",
+    ])
+    assert not task_dir.is_dir()
+
+    # --list should show the archived snapshot.
+    cp = _run(_bin_cmd(ws) + ["task", "restore", "--list", "--json"])
+    archived = json.loads(cp.stdout)
+    assert any(p["name"].startswith(tid + "-") for p in archived)
+
+    # Restore by bare T-NNN.
+    cp = _run(_bin_cmd(ws) + [
+        "task", "restore", tid, "--yes", "--json",
+    ])
+    payload = json.loads(cp.stdout)
+    assert payload[0]["action"] == "restored"
+    assert task_dir.is_dir()
+    s = json.loads((task_dir / "state.json").read_text(encoding="utf-8"))
+    assert s["title"] == "round-trip"
+
+
+def test_hitl_pending_uses_json_task_id_not_prefix(
+    installed_workspace: Path, tmp_path,
+) -> None:
+    """Regression: a queue file whose name starts with another task's
+    id prefix must NOT be claimed by ``task list`` / ``task delete``.
+
+    We seed two HITL queue files manually — one belonging to T-AAA,
+    one belonging to T-AAA-extra (whose dir name starts with T-AAA-).
+    Calling ``_collect_task_records`` on a task whose canonical id is
+    T-AAA must return only the first one.
+    """
+    ws = installed_workspace
+    queue = ws / ".codenook" / "hitl-queue"
+    queue.mkdir(parents=True, exist_ok=True)
+    a = queue / "T-AAA-foo_signoff.json"
+    b = queue / "T-AAA-extra-bar_signoff.json"
+    a.write_text(json.dumps({"task_id": "T-AAA", "id": "T-AAA-foo"}),
+                 encoding="utf-8")
+    b.write_text(json.dumps({"task_id": "T-AAA-extra", "id": "T-AAA-extra-bar"}),
+                 encoding="utf-8")
+
+    # Invoke the helper directly via a bin shim subprocess so we exercise
+    # the full installed kernel path (mirrors how `task list` would call it).
+    code = (
+        "import json,sys;"
+        "sys.path.insert(0,'_BIN_PARENT_/codenook-core');"
+        "from _lib.cli.cmd_task import _hitl_pending_for;"
+        "from pathlib import Path;"
+        "print(json.dumps(_hitl_pending_for(Path(sys.argv[1]), sys.argv[2])))"
+    ).replace("_BIN_PARENT_", str(ws / ".codenook"))
+    cp = _run([sys.executable, "-c", code, str(ws), "T-AAA"])
+    found = json.loads(cp.stdout)
+    assert found == ["T-AAA-foo_signoff.json"], found
+
+    # Cleanup so other tests aren't polluted.
+    a.unlink()
+    b.unlink()
