@@ -1,3 +1,40 @@
+## v0.27.13 (2026-04-23)
+
+Phase C2 of the v0.27.9 follow-up plan: bats → pytest first batch.
+Both the bats and pytest implementations stay green during the
+transition so contributors can opt into the python toolchain
+without breaking CI.
+
+### Tests
+- **`tests/python/test_m1_task_config_set.py`** — 13 tests
+  (parametrised) covering `task-config-set/set.sh` (M1 Unit 10):
+  arg validation, allowlist enforcement, tier symbols, idempotent
+  re-set, `--unset`, nested-not-dotted persistence.
+- **`tests/python/test_m2_plugin_id_validate.py`** — 15 tests
+  (parametrised) covering `plugin-id-validate/id-validate.sh` (M2
+  Unit 3 / G03): id pattern, reserved-set, already-installed
+  conflict, `--upgrade` bypass, `--json` envelope shape and
+  `code: already_installed` discriminator.
+
+### Changed
+- No production code changes — tests-only commit.
+
+### Migration plan
+The bats counterparts (`m1-task-config-set.bats`,
+`m2-plugin-id-validate.bats`) remain in `tests/` for now. They will
+be deleted in a later patch once a few weeks of parallel runs
+confirm the python tests catch every regression the bats tests
+historically did. Subsequent batches will continue picking
+CLI-surface bats files (no LLM, no claude-md) one milestone group
+at a time.
+
+### Verification
+- 259 pytest passing / 2 skipped (was 231 in v0.27.12).
+- Original `bats m1-task-config-set.bats m2-plugin-id-validate.bats`
+  also still green (26 ok).
+
+---
+
 ## v0.27.12 (2026-04-23)
 
 Phase C1 of the v0.27.9 follow-up plan: schema migrations + an
