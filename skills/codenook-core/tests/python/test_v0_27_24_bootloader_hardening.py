@@ -148,6 +148,7 @@ def test_issue13_pending_is_extractor_staging():
     # confounds positional regexes, so just check the substantive wording exists.
     assert _has(out, r"extractor staging area")
     assert _has(out, r"NOT.{0,40}searched by.{0,40}knowledge search|NOT in .index\.yaml")
-    assert _has(out, r"memory/knowledge/<slug>\.md|memory/knowledge/.{0,80}directly")
+    assert _has(out, r"memory/knowledge/<slug>/index\.md")
+    assert _has(out, r"flat\s+.?<slug>\.md.?\s+(file\s+)?is\s+silently\s+ignored")
     assert _has(out, r"Do not write hand-authored\s+notes to .?_pending"), \
         "must explicitly forbid manual writes to _pending/"
