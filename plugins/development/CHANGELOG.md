@@ -1,5 +1,9 @@
 # development plugin — changelog
 
+## 0.2.2 — frontmatter fix
+
+- Add missing `name: test-runner` field to `skills/test-runner/SKILL.md` frontmatter so `memory doctor` no longer emits a warning during install.
+
 ## 0.2.0 — profile-aware pipeline
 
 Major redesign: the 8-phase serial pipeline is now an 11-phase
