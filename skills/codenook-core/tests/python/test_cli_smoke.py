@@ -238,3 +238,70 @@ def test_hitl_pending_uses_json_task_id_not_prefix(
     # Cleanup so other tests aren't polluted.
     a.unlink()
     b.unlink()
+
+
+def test_config_show_human_and_json(installed_workspace: Path) -> None:
+    """`config show` should walk all four layers."""
+    ws = installed_workspace
+    tid = _run(_bin_cmd(ws) + [
+        "task", "new", "--title", "config-show-fixture",
+        "--accept-defaults",
+    ]).stdout.strip().splitlines()[-1]
+
+    cp = _run(_bin_cmd(ws) + ["config", "show", "--task", tid])
+    assert "Resolution chain" in cp.stdout
+    assert "C  task model_override" in cp.stdout
+    assert "D  workspace default_model" in cp.stdout
+
+    cp = _run(_bin_cmd(ws) + ["config", "show", "--task", tid, "--json"])
+    payload = json.loads(cp.stdout)
+    assert payload["task_id"].startswith("T-")
+    assert {l["id"] for l in payload["layers"]} == {"A", "B", "C", "D"}
+
+
+def test_plugin_lint_clean_and_broken(
+    installed_workspace: Path, tmp_path,
+) -> None:
+    """Lint should pass on the shipped development plugin and fail
+    when we corrupt a referenced role."""
+    ws = installed_workspace
+    cp = _run(_bin_cmd(ws) + ["plugin", "lint", "development", "--json"])
+    payload = json.loads(cp.stdout)
+    assert payload["ok"] is True, payload
+
+    # Corrupt: remove a roles/<role>.md and re-lint a copied plugin.
+    bad = tmp_path / "broken-plugin"
+    import shutil
+    shutil.copytree(
+        ws / ".codenook" / "plugins" / "development", bad)
+    (bad / "roles" / "implementer.md").unlink()
+
+    cp = _run(_bin_cmd(ws) + ["plugin", "lint", str(bad), "--json"],
+              check=False)
+    payload = json.loads(cp.stdout)
+    assert payload["ok"] is False
+    codes = [v["code"] for v in payload["violations"]]
+    assert "E_ROLE_MISSING" in codes
+
+
+def test_task_list_tree(installed_workspace: Path) -> None:
+    """--tree should show parent/child indentation."""
+    ws = installed_workspace
+    parent = _run(_bin_cmd(ws) + [
+        "task", "new", "--title", "tree-parent", "--accept-defaults",
+    ]).stdout.strip().splitlines()[-1]
+    child = _run(_bin_cmd(ws) + [
+        "task", "new", "--title", "tree-child",
+        "--parent", parent, "--accept-defaults",
+    ]).stdout.strip().splitlines()[-1]
+
+    cp = _run(_bin_cmd(ws) + ["task", "list", "--tree", "--include-done"])
+    out = cp.stdout
+    assert parent in out
+    assert child in out
+    p_pos = out.index(parent)
+    c_pos = out.index(child)
+    assert p_pos < c_pos
+    # child line must start with indentation that the parent line lacks
+    child_line = [ln for ln in out.splitlines() if child in ln][0]
+    assert child_line.startswith("  "), child_line

@@ -33,6 +33,9 @@ Subcommands:
   task set-exec    --task T-NNN --mode <sub-agent|inline>
   task set-profile --task T-NNN --profile <name>
   plugin info <id>     show profiles + phases summary for a plugin
+  plugin lint <id|path>  static validator for a plugin's wiring
+  config show --task T-NNN [--phase P] [--json]
+                       explain the 4-layer model resolution chain
   router   --task T-NNN [--user-turn "…" | --user-turn-file <p> | --confirm]
                        [DEPRECATED — slated for removal in a future release;
                         prefer the conductor-driven `task new --plugin <id>`
@@ -130,6 +133,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if sub == "knowledge":
         from . import cmd_knowledge
         return cmd_knowledge.run(ctx, rest)
+    if sub == "config":
+        from . import cmd_config
+        return cmd_config.run(ctx, rest)
 
     sys.stderr.write(f"codenook: unknown subcommand: {sub}\n")
     sys.stderr.write(USAGE)

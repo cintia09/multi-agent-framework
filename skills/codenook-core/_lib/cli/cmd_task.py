@@ -53,7 +53,8 @@ Usage: codenook task list [options]
 
 Group active tasks under .codenook/tasks/ by status and surface
 HITL-pending counts per task. By default emits a human-readable
-table; pass --json for machine-readable output.
+table; pass --json for machine-readable output, or --tree to render
+parent → child relationships (from state.json :: parent_id).
 
 Options:
   --status <s>      filter by status (e.g. in_progress, waiting, done)
@@ -62,6 +63,10 @@ Options:
   --plugin <id>     filter by plugin id
   --include-done    include status=done tasks in the human table
                     (always included in --json)
+  --tree            print roots first then indent each child by 2
+                    spaces under its parent (status filters still
+                    apply, but a filtered-out parent shows up as a
+                    placeholder so children stay reachable)
   --json            emit a JSON array on stdout, one object per task
 """
 
@@ -1108,6 +1113,7 @@ def _collect_task_records(ctx: CodenookContext) -> list[dict]:
             "model_override": s.get("model_override") or "",
             "execution_mode": s.get("execution_mode") or "sub-agent",
             "updated_at": s.get("updated_at") or "",
+            "parent_id": s.get("parent_id") or "",
             "hitl_pending": _hitl_pending_for(ctx.workspace, canonical),
         })
     return rows
@@ -1128,6 +1134,7 @@ def _task_list(ctx: CodenookContext, args: list[str]) -> int:
     plugin = ""
     include_done = False
     as_json = False
+    as_tree = False
 
     it = iter(args)
     try:
@@ -1145,6 +1152,8 @@ def _task_list(ctx: CodenookContext, args: list[str]) -> int:
                 include_done = True
             elif a == "--json":
                 as_json = True
+            elif a == "--tree":
+                as_tree = True
             else:
                 sys.stderr.write(f"codenook task list: unknown arg: {a}\n")
                 sys.stderr.write(HELP_LIST)
@@ -1156,7 +1165,8 @@ def _task_list(ctx: CodenookContext, args: list[str]) -> int:
     statuses = _split_csv_repeatable(statuses)
     phases = _split_csv_repeatable(phases)
 
-    rows = _collect_task_records(ctx)
+    all_rows = _collect_task_records(ctx)
+    rows = list(all_rows)
     if statuses:
         rows = [r for r in rows if r["status"] in statuses]
     if phases:
@@ -1172,6 +1182,9 @@ def _task_list(ctx: CodenookContext, args: list[str]) -> int:
     if not rows:
         print("(no tasks)")
         return 0
+
+    if as_tree:
+        return _print_task_tree(ctx, all_rows, rows)
 
     by_group: dict[str, list[dict]] = {k: [] for k, _ in _LIST_GROUPS}
     by_group["other"] = []
@@ -1230,6 +1243,84 @@ def _task_list(ctx: CodenookContext, args: list[str]) -> int:
         print(f"⚠ {pending_total} HITL queue entr"
               f"{'y' if pending_total == 1 else 'ies'} pending review.")
 
+    return 0
+
+
+def _print_task_tree(ctx: CodenookContext,
+                     all_rows: list[dict],
+                     visible_rows: list[dict]) -> int:
+    """Render tasks as a parent → child tree.
+
+    *all_rows* is the unfiltered universe (so we can resolve parents
+    that the filter dropped, surfaced as ``[filtered]`` placeholders);
+    *visible_rows* is what the operator's filters kept.
+    """
+    by_id: dict[str, dict] = {}
+    for r in all_rows:
+        by_id[r["task_id"]] = r
+        # Also index by dir_name so parent_id linking is forgiving:
+        # the kernel may write either form depending on age.
+        if r["dir_name"] != r["task_id"]:
+            by_id[r["dir_name"]] = r
+
+    visible_ids = {r["task_id"] for r in visible_rows}
+
+    # Build children adjacency. Roots = visible tasks whose parent is
+    # missing/unknown OR whose parent is invisible (so the visible
+    # subtree still has somewhere to anchor).
+    children: dict[str, list[dict]] = {}
+    roots: list[dict] = []
+    for r in visible_rows:
+        pid = r["parent_id"]
+        parent_row = by_id.get(pid) if pid else None
+        if parent_row and parent_row["task_id"] in visible_ids:
+            children.setdefault(parent_row["task_id"], []).append(r)
+        else:
+            roots.append(r)
+
+    # Stable sort: roots and siblings alphabetised by dir_name.
+    roots.sort(key=lambda r: r["dir_name"])
+    for k in children:
+        children[k].sort(key=lambda r: r["dir_name"])
+
+    print(f"Workspace: {ctx.workspace}")
+    print(f"Total tasks (visible): {len(visible_rows)}")
+    print("")
+
+    seen: set[str] = set()
+    pending_total = 0
+
+    def _emit(node: dict, depth: int) -> None:
+        nonlocal pending_total
+        if node["task_id"] in seen:
+            print(f"{'  ' * depth}↻ {node['dir_name']}  (cycle)")
+            return
+        seen.add(node["task_id"])
+        hitl = node["hitl_pending"]
+        pending_total += len(hitl)
+        hitl_s = f"  ⚠ HITL pending: {len(hitl)}" if hitl else ""
+        title = node["title"] or "(no title)"
+        prefix = "  " * depth + ("- " if depth else "")
+        print(f"{prefix}{node['dir_name']}  "
+              f"[{node['status'] or '-'}/{node['phase'] or '-'}]  "
+              f"— {title}{hitl_s}")
+        for child in children.get(node["task_id"], []):
+            _emit(child, depth + 1)
+
+    for root in roots:
+        _emit(root, 0)
+
+    leftover = [r for r in visible_rows if r["task_id"] not in seen]
+    if leftover:
+        print("")
+        print("Unreachable (parent_id loop or stale link):")
+        for r in leftover:
+            print(f"  {r['dir_name']}  parent_id={r['parent_id'] or '-'}")
+
+    if pending_total:
+        print("")
+        print(f"⚠ {pending_total} HITL queue entr"
+              f"{'y' if pending_total == 1 else 'ies'} pending review.")
     return 0
 
 

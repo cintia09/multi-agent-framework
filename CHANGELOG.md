@@ -1,3 +1,58 @@
+## v0.27.11 (2026-04-23)
+
+Phase B of the v0.27.9 follow-up plan: observability + static
+validation. Adds three subcommands that close visibility gaps every
+operator hits eventually.
+
+### Added
+- **`codenook config show --task T-NNN [--phase P]`** — explains the
+  4-layer model resolution chain (C task override > B phase model >
+  A plugin default > D workspace default), showing every layer's
+  contribution and which one won. Mirrors `models.resolve_model`'s
+  walk without re-importing it (so a corrupt models module never
+  takes the debug command down). `--json` for machine output.
+- **`codenook plugin lint <id|path>`** — static validator catching
+  the most common authoring mistakes:
+    - `E_PLUGIN_YAML` / `E_PHASES_YAML` / `E_HITL_YAML` — missing
+      or malformed top-level YAML
+    - `E_ROLE_MISSING` — phase references a role with no
+      `roles/<role>.md`
+    - `E_GATE_UNDECLARED` — phase references a gate not in
+      `hitl-gates.yaml`
+    - `E_PROFILE_UNKNOWN_PHASE` — profile references a phase id
+      missing from the catalogue
+    - `W_TEMPLATE_UNKNOWN_VAR` — manifest template uses a `{var}`
+      not in the canonical render allowlist
+  Resolves the target as either an installed plugin id (looks
+  under `.codenook/plugins/`) or a filesystem path (so you can
+  lint `plugins/my-domain/` straight from a checkout). Exit
+  nonzero on any violation; `--json` for machine output.
+- **`codenook task list --tree`** — render parent → child
+  hierarchy from `state.json :: parent_id`. Roots first; each
+  child indented 2 spaces. Status filters still apply but
+  filtered-out parents stay reachable (their children re-anchor as
+  visible roots), and `parent_id` cycles emit a `↻ <id>  (cycle)`
+  marker instead of recursing forever.
+
+### Changed
+- `_collect_task_records` row shape — adds `parent_id` (read from
+  `state.json`) so `--tree` doesn't have to re-read each state.json.
+- `_lib/cli/app.py` USAGE — documents `plugin lint` and `config
+  show` alongside `plugin info`.
+
+### Tests
+- `tests/python/test_cli_smoke.py`: three new smoke tests
+  (`test_config_show_human_and_json` for the resolution chain
+  walker, `test_plugin_lint_clean_and_broken` covering both the
+  shipped clean plugin and a corrupted copy, and
+  `test_task_list_tree` covering parent/child indentation).
+
+### Verification
+- 224 pytest passing / 2 skipped (was 221 / 2 — the +3 are the
+  new Phase B smoke tests).
+
+---
+
 ## v0.27.10 (2026-04-23)
 
 Operational follow-ups to v0.27.9 (`task list` / `task delete`): a
