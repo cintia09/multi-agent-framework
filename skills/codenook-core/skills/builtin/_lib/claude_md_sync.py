@@ -222,17 +222,26 @@ the immediate next step "only needs" one of them.
    in conductor scratchpad so trivial requests don't keep
    re-checking. View specific entries by their `path` only when
    their summary suggests they matter. Treat skill entries as
-   first-class candidates alongside plugin `available_skills:`.
+   first-class candidates alongside plugin-shipped skills (which
+   live as sub-directories under each plugin's `skills/<name>/`
+   and are enumerated via `<codenook> discover plugins --type
+   skill`). For a unified view of every workspace memory entity
+   across types (knowledge, skills, cases, playbooks, errors),
+   use `<codenook> discover memory --type knowledge` (and the
+   sibling `--type` filters) — this is the canonical inventory
+   surface alongside `<codenook> knowledge search`.
 
    **Note on `_pending/`**: `.codenook/memory/_pending/` is
    the **extractor staging area** — auto-extracted candidate
    knowledge from completed tasks, awaiting human review. It is
    **NOT** in `index.yaml` and **NOT** searched by
    `knowledge search`. To make a manual knowledge entry
-   searchable, write it directly to
-   `.codenook/memory/knowledge/<slug>.md` and run
-   `<codenook> knowledge reindex`. Do not write hand-authored
-   notes to `_pending/`.
+   searchable, create a sub-directory
+   `.codenook/memory/knowledge/<slug>/index.md` (with the
+   required frontmatter: `id`, `type`, `title`, `summary`,
+   `tags`) and run `<codenook> knowledge reindex`. A flat
+   `<slug>.md` file is silently ignored by the discovery
+   scanner. Do not write hand-authored notes to `_pending/`.
 4. `<codenook> status` — active tasks (id, phase, status, model,
    exec mode). Many host runtimes hide dot-directories from
    their default `glob`, so this CLI call is the only reliable
