@@ -22,23 +22,9 @@ requires:
 # ── v6 architecture surface (router + packaging) ────────────────────────
 name: writing
 applies_to: [content, writing]
-codenook_core_version: ">=0.5.0-m5 <1.0.0"
 summary: >
   Long-form authoring pipeline:
   outline -> draft -> review -> revise -> publish.
-keywords:
-  - article
-  - blog
-  - blog post
-  - post
-  - write
-  - writing
-  - draft
-  - essay
-  - newsletter
-  - 文章
-  - 博客
-  - 写作
 examples:
   - "Write a blog post about RAG"
   - "Draft a newsletter about Q1 reading"
@@ -67,7 +53,6 @@ data_excludes:
   - ".codenook/**"
   - ".git/**"
 
-entry_point: phases.yaml
 
 knowledge:
   produces:

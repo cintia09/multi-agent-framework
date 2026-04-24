@@ -32,37 +32,12 @@ requires:
 # ── v6 architecture surface (router + packaging) ────────────────────────
 name: development
 applies_to: [software-engineering, code]
-codenook_core_version: ">=0.5.0-m5 <1.0.0"
 summary: >
   Profile-aware software-development pipeline (v0.2.0). Clarifier picks
   a `task_type` (feature|hotfix|refactor|test-only|docs|review|design),
   and the orchestrator walks the matching phase chain over the 11-phase
   catalogue: clarify → design → plan → implement → build → review →
   submit → test-plan → test → accept → ship.
-keywords:
-  - python
-  - javascript
-  - typescript
-  - go
-  - cli
-  - api
-  - implement
-  - refactor
-  - fix bug
-  - debug
-  - test
-  - pytest
-  - code review
-  - PR
-  - commit
-  - 实现
-  - 修复
-  - 修 bug
-  - 重构
-  - 调试
-  - 测试
-  - 代码评审
-  - 提交
 examples:
   - "Add a --tag filter to the xueba CLI list command"
   - "Refactor the auth middleware to use JWT"
@@ -88,7 +63,6 @@ data_excludes:
   - "node_modules/**"
   - "__pycache__/**"
 
-entry_point: phases.yaml
 
 knowledge:
   produces:

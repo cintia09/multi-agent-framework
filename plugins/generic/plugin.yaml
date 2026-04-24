@@ -24,30 +24,9 @@ requires:
 # ── v6 architecture surface (router + packaging) ────────────────────────
 name: generic
 applies_to: ["*"]
-codenook_core_version: ">=0.5.0-m5 <1.0.0"
 summary: >
   Universal fallback pipeline: clarify -> analyze -> execute -> deliver.
   Used when no specialised plugin matches the task.
-keywords:
-  - summarize
-  - summarise
-  - explain
-  - help
-  - question
-  - research
-  - todo
-  - list
-  - brainstorm
-  - generic
-  - 总结
-  - 解释
-  - 说明
-  - 帮我
-  - 帮忙
-  - 问答
-  - 研究
-  - 头脑风暴
-  - 待办
 examples:
   - "Summarise this PDF"
   - "Help me brainstorm holiday ideas"
@@ -74,7 +53,6 @@ data_excludes:
   - ".codenook/**"
   - ".git/**"
 
-entry_point: phases.yaml
 
 knowledge:
   produces:
