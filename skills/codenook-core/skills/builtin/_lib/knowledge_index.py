@@ -53,6 +53,19 @@ INDEX_YAML_NAME = "INDEX.yaml"
 INDEX_MD_NAME = "INDEX.md"
 SUMMARY_MAX_CHARS = 200
 
+# T-006 §2.4 / fix-pass 1: a knowledge entry has exactly one canonical
+# descriptor file per slug. Legacy ``entry.md`` / ``case.md`` siblings
+# left behind by older migrations are intentionally ignored so the
+# walker cannot surface the same entry twice. The accepted shapes are:
+#   - ``<root>/<slug>/index.md`` (sub-directory entry, T-006 contract)
+#   - ``<root>/<slug>.md`` (legacy flat short form, still in use under
+#     ``memory/knowledge/`` for one-shot extracted notes)
+#   - ``<root>/<slug>/SKILL.md`` (skill descriptor — included so callers
+#     that point _walk_md_files at a ``skills/`` tree still work)
+# Top-level ``INDEX.md`` / ``INDEX.yaml`` are handled separately by
+# :func:`_load_index_yaml` / :func:`_load_index_md`.
+_CANONICAL_DESCRIPTOR_NAMES: frozenset[str] = frozenset({"index.md", "SKILL.md"})
+
 _SKIP_DIRS: frozenset[str] = frozenset({
     "__pycache__",
     "node_modules",
@@ -109,7 +122,24 @@ def _should_skip_dir(name: str) -> bool:
 
 
 def _walk_md_files(root: Path):
-    """Yield every ``*.md`` file under ``root`` skipping noise dirs."""
+    """Yield canonical descriptor ``*.md`` files under ``root``.
+
+    Per T-006 §2.4 every knowledge / skill entity owns exactly one
+    descriptor file. The walker honours that contract so legacy
+    siblings (``entry.md`` next to ``index.md``, ``case.md`` next to
+    ``index.md``) cannot register a second hit.
+
+    Yielded shapes:
+      * ``<root>/<slug>/index.md`` — knowledge sub-directory entry.
+      * ``<root>/<slug>/SKILL.md`` — skill descriptor (preserved for
+        callers that point the walker at a ``skills/`` tree).
+      * ``<root>/<slug>.md`` — legacy flat short-form note (still used
+        under ``memory/knowledge/`` for one-shot extracted entries).
+
+    Top-level ``INDEX.md`` / ``INDEX.yaml`` at ``root`` are also
+    yielded so :func:`discover_knowledge` can carve them out itself
+    (preserves the long-standing override behaviour).
+    """
     if not root.is_dir():
         return
     stack: list[Path] = [root]
@@ -119,6 +149,7 @@ def _walk_md_files(root: Path):
             entries = sorted(cur.iterdir(), key=lambda p: p.name)
         except OSError:
             continue
+        is_root = cur.resolve() == root.resolve()
         for e in entries:
             if e.is_dir():
                 if _should_skip_dir(e.name):
@@ -129,7 +160,15 @@ def _walk_md_files(root: Path):
                 continue
             if e.suffix.lower() != ".md":
                 continue
-            yield e
+            name = e.name
+            if is_root:
+                # Allow the legacy flat short form (``<slug>.md`` directly
+                # under the root) plus the top-level INDEX.md override
+                # marker. discover_knowledge filters INDEX.md out.
+                yield e
+                continue
+            if name in _CANONICAL_DESCRIPTOR_NAMES:
+                yield e
 
 
 _MD_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)]*)\)")

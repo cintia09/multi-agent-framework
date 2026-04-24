@@ -31,24 +31,33 @@ def _make_plugin(root: Path, plugin: str) -> Path:
 
 # ---------------------------------------------------------------- 1. recursion
 def test_recursive_scan_finds_nested_files(tmp_path: Path):
+    """Canonical descriptors only: root-level flat short form +
+    nested ``<slug>/index.md``. Sibling ``case.md`` / ``entry.md``
+    files are intentionally ignored (T-006 §2.4)."""
     pdir = _make_plugin(tmp_path, "p1")
     _write(pdir / "knowledge" / "top.md", "# Top\n\nbody.\n")
-    _write(pdir / "knowledge" / "baselines" / "APHA" / "startup.md",
+    _write(pdir / "knowledge" / "baselines" / "APHA" / "index.md",
            "# APHA Startup\n\nReference cold-start sequence.\n")
-    _write(pdir / "knowledge" / "cases" / "issue-01" / "case.md",
+    _write(pdir / "knowledge" / "cases" / "issue-01" / "index.md",
            "# Case 1\n\nA case.\n")
+    # A legacy sibling that MUST be ignored — proves the duplicate-hit
+    # bug fix-pass 1 closed (reviewer MF-1 / MF-2).
+    _write(pdir / "knowledge" / "cases" / "issue-01" / "case.md",
+           "# Stale sibling\n\nshould not appear\n")
     recs = ki.discover_knowledge(pdir)
-    paths = [Path(r["path"]).name for r in recs]
+    paths = [Path(r["path"]).relative_to(pdir / "knowledge").as_posix()
+             for r in recs]
     assert "top.md" in paths
-    assert "startup.md" in paths
-    assert "case.md" in paths
+    assert "baselines/APHA/index.md" in paths
+    assert "cases/issue-01/index.md" in paths
+    assert "cases/issue-01/case.md" not in paths
     assert len(recs) == 3
 
 
 # ---------------------------------------------------------------- 2. tags from path
 def test_implicit_tags_from_directory_path(tmp_path: Path):
     pdir = _make_plugin(tmp_path, "p1")
-    _write(pdir / "knowledge" / "baselines" / "APHA" / "startup.md",
+    _write(pdir / "knowledge" / "baselines" / "APHA" / "index.md",
            "# APHA Startup\n\nbody.\n")
     recs = ki.discover_knowledge(pdir)
     assert len(recs) == 1
@@ -72,17 +81,17 @@ def test_summary_extraction_from_h1_and_paragraph(tmp_path: Path):
 # ---------------------------------------------------------------- 4. INDEX.yaml
 def test_index_yaml_overrides_implicit(tmp_path: Path):
     pdir = _make_plugin(tmp_path, "p1")
-    _write(pdir / "knowledge" / "baselines" / "APHA" / "startup.baseline.md",
+    _write(pdir / "knowledge" / "baselines" / "APHA" / "index.md",
            "# Generic body heading\n\nbody.\n")
     _write(pdir / "knowledge" / "INDEX.yaml", """\
         entries:
-          - path: baselines/APHA/startup.baseline.md
+          - path: baselines/APHA/index.md
             title: APHA Startup Baseline
             summary: Reference cold-start sequence for APHA board family.
             tags: [baselines, APHA, startup]
         """)
     recs = ki.discover_knowledge(pdir)
-    rec = next(r for r in recs if r["path"].endswith("startup.baseline.md"))
+    rec = next(r for r in recs if r["path"].endswith("index.md"))
     assert rec["title"] == "APHA Startup Baseline"
     assert "cold-start" in rec["summary"]
     assert rec["tags"] == ["baselines", "APHA", "startup"]
@@ -90,7 +99,7 @@ def test_index_yaml_overrides_implicit(tmp_path: Path):
 
 def test_index_yaml_directory_path_picks_primary_md(tmp_path: Path):
     pdir = _make_plugin(tmp_path, "p1")
-    _write(pdir / "knowledge" / "cases" / "issue-01" / "case.md",
+    _write(pdir / "knowledge" / "cases" / "issue-01" / "index.md",
            "# raw\nbody\n")
     _write(pdir / "knowledge" / "INDEX.yaml", """\
         entries:
@@ -100,7 +109,7 @@ def test_index_yaml_directory_path_picks_primary_md(tmp_path: Path):
             tags: [case, foo]
         """)
     recs = ki.discover_knowledge(pdir)
-    rec = next(r for r in recs if r["path"].endswith("case.md"))
+    rec = next(r for r in recs if r["path"].endswith("index.md"))
     assert rec["title"] == "Issue 1 Title"
     assert rec["tags"] == ["case", "foo"]
 
