@@ -1,3 +1,26 @@
+## v0.29.1 — Notes/ removal + extraction-source docs
+
+### Removed
+
+- `tasks/<T-NNN>/notes/` directory creation (`cmd_task.py`). The
+  legacy "extractor input drop" is obsolete since v0.29.0; per-task
+  history snapshots under `tasks/<T-NNN>/history/<ts>/` and per-phase
+  outputs under `tasks/<T-NNN>/outputs/` cover all manual-extraction
+  source needs. Existing `notes/` dirs in old tasks are left as-is.
+
+### Changed
+
+- Bootloader (`init/bootloader.md`): added an **Extraction sources**
+  paragraph that explicitly enumerates what to read when promoting
+  task findings into `memory/knowledge/<slug>/` or
+  `memory/skills/<slug>/` — `tasks/<T-NNN>/outputs/phase-*.md`,
+  `tasks/<T-NNN>/history/<ts>/`, `memory/history/<ts>/` — and what
+  is NOT a source (`audit.jsonl`, `prompts/`, `state.json`).
+
+### Tests
+
+- 375 passed / 2 skipped (unchanged).
+
 ## v0.29.0 (2026-04-26) — Memory simplification + manual knowledge
 
 **Breaking change**: collapses the workspace memory layout and removes
