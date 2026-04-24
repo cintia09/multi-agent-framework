@@ -1,3 +1,65 @@
+## v0.29.0 (2026-04-26) — Memory simplification + manual knowledge
+
+**Breaking change**: collapses the workspace memory layout and removes
+the auto-extraction pipeline. Knowledge entries are now written by hand;
+the kernel discovers them live each call.
+
+### Removed
+
+- `.codenook/memory/_pending/` (extractor staging area).
+- `.codenook/memory/config.yaml` (per-memory knobs — `knowledge_hits.top_n`
+  was the only honoured key; now the kernel default applies).
+- `.codenook/memory/index.yaml` (auto-rebuilt index — never written
+  again; `knowledge_index._load_entries` walks the disk live).
+- Auto-extraction skills: `knowledge-extractor/`, `skill-extractor/`,
+  `extractor-batch/`, `distiller/`, `config-extractor/`, plus
+  `_lib/extraction_router.py`.
+- `codenook extract` CLI subcommand.
+- `orchestrator-tick.after_phase` no longer fans out to extractor-batch.
+- `templates/memory-config.yaml`.
+
+### Added
+
+- `codenook history save --description "<text>" [--content-file P]`
+  — manual session-history snapshot under
+  `.codenook/memory/history/<ISO>-<slug>/`.
+- `codenook history list [--scope memory|tasks|all]` — list snapshots.
+- `codenook history prune [--days N] [--scope ...] --yes`
+  — retention sweep (default 10 days). `--yes` is mandatory.
+- Auto per-phase task snapshots under
+  `.codenook/tasks/<T-NNN>/history/<ISO>-<phase>-<slug>/` written by
+  the tick hook. Best-effort; never blocks.
+- `_lib/history.py` — save / snapshot / list / prune helpers.
+- `_lib/cli/cmd_history.py` — argparse dispatcher.
+
+### Changed
+
+- `codenook knowledge search` walks plugins + memory directories live
+  each call (no on-disk index).
+- `codenook knowledge reindex` is now a no-op with a deprecation
+  message — kept for backward compatibility.
+- `seed_workspace.seed_memory()` only creates `knowledge/`, `skills/`,
+  `history/`. The post-install reindex hook is gone.
+- Bootloader template (CLAUDE.md `<!-- codenook:begin -->...end -->`):
+  references to `index.yaml` / `_pending/` removed; new §History
+  snapshots section added; manual-knowledge path documented as
+  "write to memory/knowledge/<slug>/index.md — discovery is live".
+
+### Migration notes
+
+- After upgrading, existing `.codenook/memory/index.yaml`,
+  `config.yaml`, and `_pending/` files are NOT deleted (the installer
+  is non-destructive). Operators may remove them by hand:
+  ```bash
+  rm -f .codenook/memory/index.yaml .codenook/memory/config.yaml
+  rm -rf .codenook/memory/_pending
+  ```
+- Custom knowledge entries previously promoted from `_pending/` should
+  be moved into `memory/knowledge/<slug>/index.md` (sub-dir form) by
+  hand.
+- `.codenook/config.yaml` (workspace-level model resolution chain) is
+  unaffected.
+
 ## v0.28.0 (2026-04-25) — T-004 unified plugin+memory discovery
 
 **Breaking change**: introduces unified sub-directory drop-in discovery
