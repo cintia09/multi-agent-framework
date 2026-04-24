@@ -135,7 +135,7 @@ def stage_kernel(core_src: Path, workspace: Path) -> Path:
 def init_memory_skeleton(workspace: Path) -> None:
     """Create the ``.codenook/memory`` skeleton and gitignore stubs."""
     mem = workspace / ".codenook" / "memory"
-    for sub in ("knowledge", "skills", "history", "_pending"):
+    for sub in ("knowledge", "skills", "history"):
         (mem / sub).mkdir(parents=True, exist_ok=True)
         gk = mem / sub / ".gitkeep"
         if not gk.is_file():

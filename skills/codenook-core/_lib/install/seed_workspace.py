@@ -38,31 +38,23 @@ def seed_schemas(staged_kernel: Path, workspace: Path) -> None:
 
 
 def seed_memory(staged_kernel: Path, workspace: Path) -> None:
+    """Seed only the three remaining memory subdirs (v0.29.0+).
+
+    The legacy ``_pending/`` staging area, ``config.yaml`` (memory
+    knobs) and auto-rebuilt ``index.yaml`` are gone — manual knowledge
+    is dropped directly into ``knowledge/<slug>/`` or
+    ``skills/<slug>/``, and ``codenook knowledge search`` walks the
+    disk live (no index file). The ``staged_kernel`` parameter is kept
+    for signature stability with prior install hooks.
+    """
+    del staged_kernel  # unused since v0.29.0
     mem = workspace / ".codenook" / "memory"
-    for sub in ("knowledge", "skills", "history", "_pending"):
+    for sub in ("knowledge", "skills", "history"):
         d = mem / sub
         d.mkdir(parents=True, exist_ok=True)
         gk = d / ".gitkeep"
         if not gk.is_file():
             gk.write_text("", encoding="utf-8")
-    cfg = mem / "config.yaml"
-    if not cfg.is_file():
-        src_cfg = staged_kernel / "templates" / "memory-config.yaml"
-        if src_cfg.is_file():
-            shutil.copyfile(src_cfg, cfg)
-    # v0.17.1 — seed an empty index.yaml so the conductor / kernel
-    # surfaces that read it never face a missing file. Idempotent: if a
-    # non-empty index already exists (e.g. populated by export_index_yaml)
-    # we leave it alone.
-    idx = mem / "index.yaml"
-    if not idx.is_file():
-        idx.write_text(
-            "version: 1\n"
-            "generated_at: null\n"
-            "skills: []\n"
-            "knowledge: []\n",
-            encoding="utf-8",
-        )
 
 
 def seed_config(workspace: Path) -> None:
@@ -171,49 +163,11 @@ def assert_state_kernel_version(workspace: Path, version: str) -> bool:
 
 
 def reindex_knowledge(staged_kernel: Path, workspace: Path) -> tuple[int, str]:
-    """Run the v0.21.0 ``codenook knowledge reindex`` post-install hook.
+    """Deprecated since v0.29.0 — knowledge index is no longer materialised.
 
-    Best-effort: writes ``<ws>/.codenook/memory/index.yaml`` with the
-    union of plugin-shipped knowledge / skills and any memory-extracted
-    entries already present. Returns ``(rc, summary)``; rc != 0 is
-    surfaced by the installer but does not abort the install — the
-    seed_memory step has already left behind a valid empty index.
+    ``codenook knowledge search`` walks the disk directly. Kept as a
+    no-op so older callers in ``_lib/install/cli.py`` (or out-of-tree
+    installer scripts) don't crash.
     """
-    helper = (
-        staged_kernel / "skills" / "builtin" / "_lib" / "full_index.py"
-    )
-    if not helper.is_file():
-        return 1, "full_index.py missing in staged kernel"
-    code = (
-        "import sys, json; "
-        "from pathlib import Path; "
-        "import full_index as fi; "
-        "target, payload = fi.reindex(Path(sys.argv[1])); "
-        "n_k = len(payload.get('knowledge', [])); "
-        "n_s = len(payload.get('skills', [])); "
-        "plugins = sorted({(e.get('plugin') or '') for e in "
-        "payload.get('knowledge', []) + payload.get('skills', []) "
-        "if e.get('plugin')}); "
-        "sys.stdout.write(json.dumps({'target': str(target), "
-        "'plugins': plugins, 'knowledge': n_k, 'skills': n_s}))"
-    )
-    try:
-        cp = subprocess.run(
-            [sys.executable, "-c", code, str(workspace)],
-            env=_kernel_env(staged_kernel),
-            capture_output=True, text=True,
-        )
-    except Exception as e:  # pragma: no cover — defensive
-        return 1, f"reindex spawn failed: {e}"
-    if cp.returncode != 0:
-        return cp.returncode, (cp.stderr or cp.stdout).strip()
-    try:
-        import json
-        info = json.loads(cp.stdout.strip() or "{}")
-    except Exception:
-        return 0, cp.stdout.strip()
-    return 0, (
-        f"plugins={len(info.get('plugins', []))}  "
-        f"knowledge={info.get('knowledge', 0)}  "
-        f"skills={info.get('skills', 0)}"
-    )
+    del staged_kernel, workspace
+    return 0, "deprecated (v0.29.0): no on-disk index.yaml; live disk scan only"

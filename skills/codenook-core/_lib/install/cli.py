@@ -182,17 +182,10 @@ def main(argv: list[str] | None = None) -> int:
     seed_workspace.seed_bin(staged, workspace, python_exe=sys.executable)
     print("  ✓ Seeded .codenook/{schemas,memory,config.yaml,bin/codenook}")
 
-    # 4b) v0.21.0 — populate memory/index.yaml with the recursive
-    # plugin-knowledge scan so the conductor / phase agents see every
-    # shipped baseline / case / fingerprint, not just top-level files.
-    rc_idx, msg_idx = seed_workspace.reindex_knowledge(staged, workspace)
-    if rc_idx == 0:
-        print(f"  ✓ Reindexed knowledge ({msg_idx})")
-    else:
-        sys.stderr.write(
-            f"install: knowledge reindex failed (rc={rc_idx}): {msg_idx}\n"
-            f"         memory/index.yaml left as the empty stub.\n"
-        )
+    # v0.29.0 — knowledge index is no longer materialised on disk;
+    # `codenook knowledge search` walks plugin + memory directories
+    # live each call. The post-install reindex step is intentionally
+    # gone (was producing memory/index.yaml).
 
     # 5) Post-install assertion: state.json.kernel_version matches VERSION.
     if not seed_workspace.assert_state_kernel_version(workspace, VERSION):
