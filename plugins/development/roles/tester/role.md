@@ -68,6 +68,14 @@ Plugin-shipped knowledge lives at
 `.codenook/plugins/development/knowledge/`. Workspace-shared knowledge
 (if any) lives at `.codenook/memory/knowledge/`. Read lazily; never assume.
 
+
+**Knowledge utilization.** The phase prompt may pre-inject relevant
+workspace knowledge under the "## 相关 workspace 知识" section. Treat
+those entries as a baseline. If during your work you encounter a topic
+those entries do not cover, run
+`<codenook> knowledge search "<keywords>" --limit 5` yourself before
+reasoning from training data alone. Cite any entry you actually used.
+
 ## Skills
 
 Skills are auto-discovered from the plugin's `skills/` sub-directories. Run

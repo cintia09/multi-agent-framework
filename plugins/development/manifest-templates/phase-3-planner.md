@@ -17,6 +17,13 @@ Prior summary: {prior_summary_path}
 Criteria:    {criteria_path}
 ```
 
+## 相关 workspace 知识 (kernel auto-injected)
+
+{KNOWLEDGE_HITS}
+
+> 上述为基线参考(top-5,按本任务关键词排序)。如需要更深/不同主题的资料,
+> 你可以自己跑 `<codenook> knowledge search "<keywords>"` 进行二次检索。
+
 ## Your job (one line)
 
 Decide whether to decompose; produce the plan.
