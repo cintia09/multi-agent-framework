@@ -661,7 +661,6 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
 
     (tdir / "outputs").mkdir(parents=True, exist_ok=True)
     (tdir / "prompts").mkdir(parents=True, exist_ok=True)
-    (tdir / "notes").mkdir(parents=True, exist_ok=True)
 
     state: dict = {
         "schema_version": 2,
