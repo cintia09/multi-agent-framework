@@ -119,6 +119,11 @@
     "task_input": {
       "type": ["string", "null"],
       "description": "v0.20 — initial task seed text supplied via `task new --input` / `--input-file` / `--interactive`. Surfaced verbatim in the tick dispatch envelope under the same key so phase agents and the inline conductor can use it."
+    },
+    "entry_answers": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "v0.29.3 — plugin-defined entry-question answers. Keys correspond to fields declared in `plugins/<id>/entry-questions.yaml :: <phase>.required`. Populated via `codenook task set --field <key> --value <answer>` when the field is not in the kernel's reserved writable allow-list. Read by `check_entry_questions()` (with top-level fallback for back-compat)."
     }
   }
 }

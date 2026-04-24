@@ -135,6 +135,13 @@ Writable fields:
   summary         free text
   title           free text
   task_input      free text (use --value-file for multi-line / long input)
+
+Plugin entry-question fields (v0.29.3):
+  Any field declared under `plugins/<id>/entry-questions.yaml` (in a
+  phase's `required:` or `questions:` map) is auto-routed to
+  `state["entry_answers"][<field>]`. Use `task set --field <plugin_field>
+  --value <answer>` to satisfy the entry-question gate before the next
+  tick.
 """
 
 HELP_NEW = """\
@@ -260,6 +267,42 @@ ALLOWED = {
 }
 INT_FIELDS = {"max_iterations"}
 WRITABLE = {"dual_mode", "target_dir", "priority", "max_iterations", "summary", "title", "task_input"}
+
+
+def _plugin_entry_question_keys(workspace: Path, plugin: str) -> set[str]:
+    """Collect every field name that any phase in the plugin's
+    entry-questions.yaml lists under `required` or `questions`.
+
+    Returned set drives v0.29.3 auto-routing: `task set --field K`
+    where K is in this set is written to `state["entry_answers"][K]`
+    instead of being rejected as non-writable.
+    """
+    keys: set[str] = set()
+    if not plugin:
+        return keys
+    eq_path = workspace / ".codenook" / "plugins" / plugin / "entry-questions.yaml"
+    if not eq_path.is_file():
+        return keys
+    try:
+        import yaml  # type: ignore
+        with eq_path.open("r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+    except Exception:
+        return keys
+    if not isinstance(data, dict):
+        return keys
+    for spec in data.values():
+        if not isinstance(spec, dict):
+            continue
+        for k in spec.get("required") or []:
+            if isinstance(k, str):
+                keys.add(k)
+        questions = spec.get("questions") or {}
+        if isinstance(questions, dict):
+            for k in questions.keys():
+                if isinstance(k, str):
+                    keys.add(k)
+    return keys
 
 
 def _persist_state(sf: Path, state: dict) -> None:
@@ -787,6 +830,25 @@ def _task_set(ctx: CodenookContext, args: list[str]) -> int:
         sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
 
     if field not in WRITABLE:
+        # v0.29.3: auto-route plugin-defined entry-question fields to
+        # state["entry_answers"][field] instead of rejecting them.
+        state = json.loads(sf.read_text(encoding="utf-8"))
+        plugin_keys = _plugin_entry_question_keys(
+            ctx.workspace, state.get("plugin", ""))
+        if field in plugin_keys:
+            answers = state.get("entry_answers")
+            if not isinstance(answers, dict):
+                answers = {}
+            answers[field] = value
+            state["entry_answers"] = answers
+            _persist_state(sf, state)
+            print(json.dumps({
+                "task": state.get("task_id"),
+                "field": field,
+                "value": value,
+                "stored_under": f"entry_answers.{field}",
+            }))
+            return 0
         sys.stderr.write(
             f"codenook task set: field '{field}' is not writable "
             f"(allowed: {sorted(WRITABLE)})\n")

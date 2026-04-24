@@ -727,10 +727,17 @@ def check_entry_questions(workspace: Path, plugin: str, phase_id: str,
     eq = read_yaml(workspace / ".codenook" / "plugins" / plugin / "entry-questions.yaml") or {}
     spec = eq.get(phase_id) or {}
     required = spec.get("required") or []
+    answers = state.get("entry_answers") or {}
     missing = []
     for key in required:
-        if key not in state or state.get(key) in (None, "", [], {}):
-            missing.append(key)
+        # v0.29.3: prefer plugin-namespaced answers under entry_answers,
+        # fall back to top-level state for back-compat with kernel-reserved
+        # fields (e.g. dual_mode) that some plugins declare as required.
+        if key in answers and answers.get(key) not in (None, "", [], {}):
+            continue
+        if key in state and state.get(key) not in (None, "", [], {}):
+            continue
+        missing.append(key)
     return missing
 
 

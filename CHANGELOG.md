@@ -1,3 +1,43 @@
+## v0.29.3 — Plugin entry-questions persistability (P0 fix)
+
+### Fixed
+
+Plugin entry-questions were broken end-to-end before this release:
+plugin authors could declare `entry-questions.yaml :: <phase>.required`
+fields, but users had no way to actually answer them — `codenook
+task set --field <plugin_field> --value <answer>` was rejected as
+"not writable", and even if you bypassed that, the next tick would
+crash with a `task-state.schema.json` violation because the top-level
+schema was `additionalProperties: false`. The recovery message the
+kernel emitted (`rerun: codenook task set …`) was therefore a dead
+end.
+
+- **EQ-1 (schema)**: `task-state.schema.json` gains a top-level
+  `entry_answers` object property (`additionalProperties: true`).
+  Plugin-defined entry-question answers live here so the kernel's
+  strict top-level `additionalProperties: false` contract still
+  catches typos in well-known fields.
+- **EQ-2 (kernel)**: `check_entry_questions()` now reads required
+  fields from `state["entry_answers"]` first, then falls back to the
+  top-level state dict (back-compat for any pre-v0.29.3 caller that
+  wrote there directly).
+- **EQ-3 (CLI)**: `codenook task set --field <key>` auto-routes
+  unknown fields under `state["entry_answers"][<key>]` whenever
+  `<key>` is declared by the active plugin's `entry-questions.yaml`
+  (in any phase's `required:` or `questions:` map). Truly unknown
+  fields are still rejected with the existing "not writable" error.
+  The successful response JSON now includes `stored_under` so callers
+  can see where the value landed.
+
+### Tests
+
+- New `test_entry_questions.py` (8 cases): covers schema acceptance
+  of arbitrary `entry_answers` keys, schema rejection of unknown
+  top-level fields, `check_entry_questions` reading from
+  `entry_answers`, top-level back-compat, plugin-field auto-routing
+  via `task set` against an installed kernel + synthetic plugin,
+  and continued rejection of truly unknown fields.
+
 ## v0.29.2 — Knowledge discovery robustness
 
 ### Fixed
