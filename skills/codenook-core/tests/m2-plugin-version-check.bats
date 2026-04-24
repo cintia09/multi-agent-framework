@@ -66,12 +66,33 @@ mk_ws_with_installed() {
   [ "$status" -eq 0 ]
 }
 
-@test "--upgrade with new == installed → exit 1" {
+@test "--upgrade with new == installed and matching fingerprint → exit 1" {
   d="$(mk_src "foo" "1.1.5")"
   ws="$(mk_ws_with_installed "foo" "1.1.5")"
+  # T-006: G04 only vetoes same-version when staged .fingerprint matches
+  # source.  Compute and stamp the source fingerprint into the staged
+  # tree to simulate the idempotent fast-path.
+  fp="$(python3 - <<PY
+import sys
+sys.path.insert(0, "${CORE_ROOT}/_lib/install")
+from stage_kernel import _compute_tree_fingerprint
+from pathlib import Path
+print(_compute_tree_fingerprint(Path("${d}")))
+PY
+)"
+  printf '%s\n' "$fp" >"$ws/.codenook/plugins/foo/.fingerprint"
   run_with_stderr "\"$GATE_SH\" --src \"$d\" --workspace \"$ws\" --upgrade"
   [ "$status" -eq 1 ]
   assert_contains "$STDERR" "downgrade"
+}
+
+@test "--upgrade with new == installed and missing fingerprint → exit 0 (restage)" {
+  d="$(mk_src "foo" "1.1.5")"
+  ws="$(mk_ws_with_installed "foo" "1.1.5")"
+  # T-006: missing .fingerprint is treated as stale → allow restage so
+  # dev-loop edits to plugin source land without a version bump.
+  run_with_stderr "\"$GATE_SH\" --src \"$d\" --workspace \"$ws\" --upgrade"
+  [ "$status" -eq 0 ]
 }
 
 @test "--upgrade with new < installed → exit 1 (downgrade)" {
