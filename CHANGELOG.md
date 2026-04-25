@@ -1,3 +1,30 @@
+## v0.29.13 — Per-target tmp sandbox for external-target work
+
+### Changed
+
+- **Bootloader Hard rule (additive to v0.29.12)**: when the
+  conductor operates on an **external target** (any project
+  directory that is NOT the current VS Code workspace root —
+  e.g. running a migration / fix against `~/Documents/nook`
+  while the active workspace is `~/Documents/nooktest`), it
+  MUST route per-target throwaway artefacts through a
+  per-target sandbox under the current CodeNook workspace.
+  Resolution rule: let `<target-basename>` =
+  `basename(realpath(target))`; the per-target sandbox is
+  `<workspace>/<target-basename>/` (auto-create with `mkdir -p`),
+  and all temp files for that target go to
+  `<workspace>/<target-basename>/tmp/`. Never write throwaway
+  artefacts into the target's own tree (no `target/tmp/`, no
+  scratch files in the target repo root). When the target IS
+  the current workspace root, the plain `<workspace>/tmp/`
+  rule from v0.29.12 still applies — no redundant per-target
+  sandbox. On basename collision, append a short
+  disambiguator (`<target-basename>-2` or `-<short-hash>`)
+  and surface the choice via `ask_user`. Caught while doing
+  this session's nook deep-migration: temporary scripts +
+  diagnostic dumps were piling into `nook/`'s own paths,
+  defeating audit-locality of the active workspace.
+
 ## v0.29.12 — Bootloader hard rule: tmp files under <workspace>/tmp/
 
 ### Changed

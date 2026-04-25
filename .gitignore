@@ -50,3 +50,4 @@ __pycache__/
 .scratch/
 .e2e-scratch/
 docs/*.pptx
+tmp/

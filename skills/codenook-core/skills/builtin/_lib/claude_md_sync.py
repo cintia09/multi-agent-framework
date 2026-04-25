@@ -157,6 +157,28 @@ user's request is substantial; the user always confirms before
   dumps, and pre-destructive-op backups (e.g. `tmp/migration-backup/`).
   Long-lived deliverables (committed source, real docs) still go to
   their proper repo paths — this rule only governs throwaway artefacts.
+- **MUST** route per-target throwaway artefacts through a
+  per-target sandbox under the current CodeNook workspace when
+  operating on an **external target** (any project directory that
+  is NOT the current VS Code workspace root — e.g. running a
+  migration / inspection / fix against `~/Documents/nook` while
+  the active workspace is `~/Documents/nooktest`). Resolution
+  rule: let `<target-basename>` = `basename(realpath(target))`;
+  the per-target sandbox is `<workspace>/<target-basename>/`
+  (create with `mkdir -p` on first use), and all temp files for
+  that target go to `<workspace>/<target-basename>/tmp/`. Never
+  write throwaway artefacts into the target's own tree (no
+  `target/tmp/`, no scratch files in the target repo root).
+  Long-lived deliverables that legitimately belong inside the
+  target (e.g. an actual code fix you are committing) still go
+  to their proper path inside the target — this rule only
+  governs throwaway artefacts. When the target IS the current
+  workspace root, the plain `<workspace>/tmp/` rule above
+  applies — do not create a redundant per-target sandbox. On
+  basename collision (two targets with the same final path
+  segment), append a short disambiguator (`<target-basename>-2`,
+  `<target-basename>-<short-hash>`) and surface the choice in
+  one `ask_user` rather than silently overwriting.
 - If a rule looks like it must be broken, surface the problem to
   the user instead of working around it.
 
