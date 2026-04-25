@@ -312,11 +312,26 @@ def cmd_decide(ws: Path, eid: str, decision: str, reviewer: str,
 
         # Mirror to append-only history (under the same lock so the
         # audit log can never disagree with the on-disk decision).
+        # Pass-2 P2 #6: also take an exclusive fcntl.flock on the
+        # JSONL so concurrent decide/extract writes never interleave
+        # mid-line (lines can exceed PIPE_BUF).
         hist = ws / ".codenook" / "history" / "hitl.jsonl"
         hist.parent.mkdir(parents=True, exist_ok=True)
         line = json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n"
+        try:
+            import fcntl as _fcntl  # POSIX only
+        except ImportError:
+            _fcntl = None  # type: ignore[assignment]
         with hist.open("a", encoding="utf-8") as f:
-            f.write(line)
+            if _fcntl is not None:
+                _fcntl.flock(f.fileno(), _fcntl.LOCK_EX)
+                try:
+                    f.write(line)
+                    f.flush()
+                finally:
+                    _fcntl.flock(f.fileno(), _fcntl.LOCK_UN)
+            else:
+                f.write(line)
 
         # E2E-P-007 — per-task audit.jsonl tee.
         task_id = entry.get("task_id")

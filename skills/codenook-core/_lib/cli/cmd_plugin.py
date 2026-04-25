@@ -528,6 +528,46 @@ def _strip_flag(args: list[str], flag: str, takes_value: bool) -> list[str]:
     return out
 
 
+# Flags accepted by `plugin diff` / `plugin update` that consume the next
+# argument as their value. Used by ``_extract_positionals`` so that
+# `--src /path/to/source plugin-id` does not silently treat `/path/...`
+# as a positional plugin id (pass-2 P2/P3).
+_VALUE_FLAGS_DIFF_UPDATE: frozenset[str] = frozenset(
+    {"--src", "--repo"})
+
+
+def _extract_positionals(
+    args: list[str], value_flags: frozenset[str],
+) -> list[str]:
+    """Return positionals, skipping known flags and their values."""
+    out: list[str] = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in value_flags:
+            i += 2  # skip flag + its value, even if the value looks positional
+            continue
+        if a.startswith("-"):
+            i += 1
+            continue
+        out.append(a)
+        i += 1
+    return out
+
+
+def _is_safe_plugin_id(s: str) -> bool:
+    """Strict plugin-id slug check: ASCII, alnum + ``-`` / ``_`` / ``.``,
+    no path separators, no leading dot, ≤ 64 chars."""
+    if not s or len(s) > 64:
+        return False
+    if s.startswith(".") or s in (".", ".."):
+        return False
+    for ch in s:
+        if not (ch.isalnum() or ch in "-_."):
+            return False
+    return True
+
+
 def _resolve_repo_root(start: Path) -> Path | None:
     cur = start.resolve()
     for _ in range(20):
@@ -630,11 +670,15 @@ def _plugin_diff(ctx: CodenookContext, args: list[str]) -> int:
     args = _strip_flag(args, "--json", takes_value=False)
 
     # First positional is the plugin id; flags consumed by _resolve_src.
-    positional = [a for a in args if not a.startswith("-")]
+    positional = _extract_positionals(args, _VALUE_FLAGS_DIFF_UPDATE)
     if not positional:
         sys.stderr.write("codenook plugin diff: <id> required\n")
         return 2
     plugin_id = positional[0]
+    if not _is_safe_plugin_id(plugin_id):
+        sys.stderr.write(
+            f"codenook plugin diff: invalid plugin id: {plugin_id!r}\n")
+        return 2
 
     installed = ctx.workspace / ".codenook" / "plugins" / plugin_id
     if not installed.is_dir():
@@ -725,11 +769,15 @@ def _plugin_update(ctx: CodenookContext, args: list[str]) -> int:
         print(HELP_UPDATE)
         return 0
 
-    positional = [a for a in args if not a.startswith("-")]
+    positional = _extract_positionals(args, _VALUE_FLAGS_DIFF_UPDATE)
     if not positional:
         sys.stderr.write("codenook plugin update: <id> required\n")
         return 2
     plugin_id = positional[0]
+    if not _is_safe_plugin_id(plugin_id):
+        sys.stderr.write(
+            f"codenook plugin update: invalid plugin id: {plugin_id!r}\n")
+        return 2
 
     src, err = _resolve_src(ctx, plugin_id, args)
     if src is None:

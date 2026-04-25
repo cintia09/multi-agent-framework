@@ -270,23 +270,57 @@ _EMPTY = (
 )
 
 
+_HITS_LINE_LIMIT = 400  # truncate any one summary/tag/reason at this length
+_HITS_LINE_BREAK_RE = None  # lazy import below
+
+
+def _sanitise_for_prompt(value: str, *, limit: int = _HITS_LINE_LIMIT) -> str:
+    """Defang an untrusted string before splicing into a sub-agent prompt.
+
+    Knowledge entries are user-authored YAML; their ``summary``, ``title``
+    and ``tags`` flow into ``{{KNOWLEDGE_HITS}}`` verbatim, which means a
+    hostile (or careless) entry could:
+      * smuggle a fake instruction block at the next-prompt-section level
+        by embedding "\n## " or "\n---" boundaries (prompt injection /
+        section spoofing);
+      * bury the real prompt under thousands of repeated lines (token DoS).
+
+    Strip CRs, collapse newlines into ``\\n`` literals so the output stays
+    a single visible line per field, drop NUL bytes, escape literal
+    triple-backtick fences, and cap the length.
+    """
+    s = (value or "").replace("\x00", "")
+    s = s.replace("\r\n", "\n").replace("\r", "\n")
+    s = s.replace("\n", "\\n")
+    s = s.replace("```", "\u200b`\u200b`\u200b`\u200b")
+    if len(s) > limit:
+        s = s[:limit] + "\u2026[truncated]"
+    return s
+
+
 def render_hits_block(hits: list[dict[str, Any]]) -> str:
-    """Format hits as a markdown bullet list for prompt substitution."""
+    """Format hits as a markdown bullet list for prompt substitution.
+
+    Per-field strings are run through ``_sanitise_for_prompt`` so that a
+    knowledge entry cannot inject prompt-level structure (newlines, fake
+    section headers, oversize blobs) into a sub-agent dispatch.
+    """
     if not hits:
         return _EMPTY
     lines: list[str] = [_HEADER.format(n=len(hits))]
     for h in hits:
-        plugin = h.get("plugin") or "(memory)"
+        plugin = _sanitise_for_prompt(h.get("plugin") or "(memory)", limit=64)
         score = h.get("score", 0)
-        path = h.get("path", "")
-        summary = (h.get("summary") or "").strip()
-        tags = h.get("tags") or []
-        reason = (h.get("reason") or "").strip()
+        path = _sanitise_for_prompt(h.get("path") or "", limit=200)
+        summary = _sanitise_for_prompt((h.get("summary") or "").strip())
+        tags_raw = h.get("tags") or []
+        tags = [_sanitise_for_prompt(str(t), limit=64) for t in tags_raw[:32]]
+        reason = _sanitise_for_prompt((h.get("reason") or "").strip())
         lines.append(f"- `{path}` (plugin: {plugin}, score: {score})\n")
         if summary:
             lines.append(f"  summary: {summary}\n")
         if tags:
-            lines.append(f"  tags: {', '.join(str(t) for t in tags)}\n")
+            lines.append(f"  tags: {', '.join(tags)}\n")
         if reason:
             lines.append(f"  why selected: {reason}\n")
     return "".join(lines)

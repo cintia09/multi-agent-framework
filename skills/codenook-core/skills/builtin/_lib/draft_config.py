@@ -47,6 +47,18 @@ _VALID_ACCEPT = ("required", "optional", "skip")
 _M4_STATE_VERSION = 2
 _M4_DEFAULT_MAX_ITERATIONS = 8
 _TASK_ID_RE = re.compile(r"^T-[A-Za-z0-9_\u4e00-\u9fff-]+$")
+_PLUGIN_SLUG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+
+def _is_safe_plugin_slug(s: str) -> bool:
+    """Pass-2 P3 #7: plugin id flows into ``_sh_run`` arg arrays via
+    ``post_validate`` hooks; reject anything that contains path
+    separators / NUL / starts with a dot before it ever reaches state.json
+    so a malformed draft cannot smuggle a relative path.
+    """
+    if not isinstance(s, str) or not s:
+        return False
+    return bool(_PLUGIN_SLUG_RE.match(s)) and ".." not in s
 
 
 def _validate(cfg: dict) -> None:
@@ -219,6 +231,10 @@ def freeze_to_state_json(
         raise TypeError("draft must be a dict")
     if not plugin:
         raise ValueError("plugin must be supplied")
+    if not _is_safe_plugin_slug(plugin):
+        raise ValueError(
+            f"plugin must be a safe slug (alnum + ``-_.``, ≤64, no path "
+            f"separators): {plugin!r}")
     if not task_id:
         raise ValueError("task_id must be supplied")
 

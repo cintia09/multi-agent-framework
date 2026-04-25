@@ -52,11 +52,47 @@ def _load_schema(schema_path: str) -> dict:
     return schema
 
 
+def atomic_write_text(path: str, text: str) -> None:
+    """Atomic counterpart of ``atomic_write_json`` for arbitrary text.
+
+    Used by callers that hand-roll markdown / YAML rewrites
+    (memory_doctor, knowledge promotion, …) so an interrupted write
+    cannot leave a half-truncated file behind. Writes to a sibling
+    tempfile, fsyncs, then ``os.replace``s atomically on POSIX.
+    """
+    d = os.path.dirname(path) or "."
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=".text-", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+class SchemaViolation(RuntimeError):
+    """Raised by ``atomic_write_json_validated`` on schema mismatch.
+
+    Replaces the v0.29.5-and-earlier ``sys.exit(1)`` exit so the
+    library never tears down a caller that holds task_lock; the caller
+    can catch this, release locks, then propagate or recover.
+    """
+
+
 def atomic_write_json_validated(path: str, data: Any, schema_path: str) -> None:
     """Validate `data` against the JSON-Schema at `schema_path` BEFORE writing.
 
-    On schema violation: print "schema violation: <message>" to stderr
-    and exit 1. On success: write atomically (no tempfile leaks).
+    On schema violation: raises :class:`SchemaViolation` so the calling
+    process can release locks and recover, instead of the previous
+    behaviour of calling ``sys.exit(1)`` from library code (which killed
+    the caller mid-tick under task_lock with no cleanup chance).
+    On success: writes atomically (no tempfile leaks).
     Schemas are cached in-process by path.
     """
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -66,6 +102,12 @@ def atomic_write_json_validated(path: str, data: Any, schema_path: str) -> None:
     try:
         validate(data, schema)
     except ValidationError as e:
+        # Print the user-facing message exactly as v0.29.5 did so the
+        # operator-visible UX is unchanged, then RAISE instead of
+        # sys.exit(1). With an exception, any task_lock / fcntl /
+        # context-manager up the call stack runs __exit__ and releases
+        # cleanly. The CLI's top-level handler still maps an unhandled
+        # exception to exit code 1.
         print(f"schema violation: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise SchemaViolation(f"schema violation: {e}") from e
     atomic_write_json(path, data)

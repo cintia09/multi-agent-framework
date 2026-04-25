@@ -1,3 +1,65 @@
+## v0.29.7 — Pass-2 P2/P3 hardening
+
+### Fixed
+
+Five remaining pass-2 findings (two P2 contracts, two P2 concurrency,
+two P3 robustness — closes the deep-review queue for this kernel).
+
+- **P2 #3 (`plugin diff` / `plugin update` arg parsing)**:
+  ``[a for a in args if not a.startswith("-")]`` did not skip flag
+  values, so ``codenook plugin diff --src /tmp/evil my-id`` placed
+  ``/tmp/evil`` into ``positional`` and used it as the plugin id.
+  Replaced with ``_extract_positionals(args, _VALUE_FLAGS_DIFF_UPDATE)``
+  which knows ``--src`` / ``--repo`` consume the next argument, plus a
+  strict ``_is_safe_plugin_id()`` slug check before the id reaches
+  ``installed = ws / ".codenook/plugins/<id>"`` or ``install.py``.
+- **P2 #4 (`{{KNOWLEDGE_HITS}}` prompt injection)**:
+  ``render_hits_block`` spliced raw ``summary`` / ``title`` / ``tags``
+  / ``reason`` into the sub-agent prompt, so a hostile (or careless)
+  knowledge entry could embed ``\\n## …`` to forge a fake prompt
+  section, repeat triple-backticks to break the rendered fence, or
+  bury the prompt under thousands of bytes (token DoS). Added
+  ``_sanitise_for_prompt()`` — strips NUL/CR, collapses ``\\n`` to a
+  literal escape, defangs ``\`\`\``` with zero-width breaks, length-
+  caps each field at 400 chars, caps tag lists at 32.
+- **P2 #5 (`memory_doctor._apply_repairs` non-atomic write)**:
+  ``path.write_text`` truncated then wrote with no flock; an
+  interrupted run (signal / OOM) or a concurrent extractor could
+  leave a half-written or clobbered knowledge entry. Switched to
+  ``atomic_write_text`` (new helper in ``atomic.py``: tempfile +
+  fsync + os.replace).
+- **P2 #6 (audit log JSONL interleaving)**:
+  ``memory_layer.append_audit`` and ``hitl-adapter._hitl``'s history
+  append both relied on ``O_APPEND``. POSIX only guarantees atomicity
+  for writes ≤ ``PIPE_BUF`` (4 KiB on Linux, smaller elsewhere), and
+  HITL/extractor decision lines routinely exceed that. Concurrent
+  decide / extract calls produced corrupted lines that broke
+  ``codenook audit dump`` parsers. Both writers now take an
+  exclusive ``fcntl.flock`` on the JSONL for the duration of the
+  write (graceful no-op fallback on Windows).
+- **P3 #7 (`freeze_to_state_json` plugin slug validation)**:
+  the ``plugin`` argument flowed straight into ``state["plugin"]``,
+  which is later consumed by ``_sh_run`` for ``post_validate``
+  hooks. A draft with ``plugin: "../../etc/passwd"`` would have
+  persisted to state.json and only failed downstream. Added
+  ``_is_safe_plugin_slug()`` and an early ``ValueError`` reject.
+- **P3 #8 (`atomic_write_json_validated` ``sys.exit(1)`` removal)**:
+  the helper called ``sys.exit(1)`` from library code, killing the
+  caller mid-tick under ``task_lock`` with no chance for the
+  ``__exit__`` cleanup that releases the lock. Now raises
+  ``SchemaViolation`` (a new ``RuntimeError`` subclass) so context
+  managers run cleanly; the user-visible ``schema violation: …``
+  stderr message is unchanged. Also exports ``atomic_write_text`` for
+  generic atomic text rewrites (used by P2 #5 fix above).
+
+### Tests
+
+``cd skills/codenook-core && python3 -m pytest tests/python -x -q`` —
+388 passed, 2 always-skipped (forkpty deprecation), no warnings beyond
+the long-standing pty multi-thread one.
+
+---
+
 ## v0.29.6 — Pass-2 deep-review path-traversal patches
 
 ### Fixed

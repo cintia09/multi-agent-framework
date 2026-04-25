@@ -1377,12 +1377,32 @@ def has_hash(workspace_root: Path | str, kind: str, dedup_key: str) -> bool:
 
 
 def append_audit(workspace_root: Path | str, entry: dict[str, Any]) -> None:
-    """Append a single JSON line to ``history/extraction-log.jsonl``."""
+    """Append a single JSON line to ``history/extraction-log.jsonl``.
+
+    Concurrency: lines may exceed ``PIPE_BUF`` (4 KiB on Linux,
+    smaller on some BSDs), so a plain ``O_APPEND`` write is **not**
+    atomic across concurrent writers (extractor + HITL decide can race).
+    Pass-2 P2 #6 fix: take an exclusive ``fcntl.flock`` on the log file
+    for the duration of the write so the JSONL stays parseable.
+    Falls back to plain append on platforms without ``fcntl`` (Windows).
+    """
     log_path = _audit_log(workspace_root)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     line = json.dumps(entry, ensure_ascii=False) + "\n"
+    try:
+        import fcntl  # POSIX only
+    except ImportError:
+        fcntl = None  # type: ignore[assignment]
     with open(log_path, "a", encoding="utf-8") as f:
-        f.write(line)
+        if fcntl is not None:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            try:
+                f.write(line)
+                f.flush()
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        else:
+            f.write(line)
 
 
 # ----------------------------------------------------------------- index

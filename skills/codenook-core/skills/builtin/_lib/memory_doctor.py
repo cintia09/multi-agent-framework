@@ -22,6 +22,7 @@ from __future__ import annotations
 import datetime as _dt
 import re
 import shutil
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -393,7 +394,9 @@ def _apply_repairs(ws: Path, diag: dict, stamp: str) -> list[str]:
     # Backup, then rewrite the file atomically.
     _backup_file(ws, path, stamp)
     new_text = _serialise_frontmatter(fm) + body
-    path.write_text(new_text, encoding="utf-8")
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from atomic import atomic_write_text  # noqa: E402  (lazy: avoid cycle at load time)
+    atomic_write_text(str(path), new_text)
     return actions
 
 
