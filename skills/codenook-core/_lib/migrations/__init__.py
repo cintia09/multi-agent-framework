@@ -42,6 +42,14 @@ def upgrade(state: dict) -> Tuple[dict, List[int]]:
     applied: List[int] = []
     ver = out.get("schema_version", 1)
     cur = int(ver) if ver is not None else 1
+    # R21 P1 fix: refuse to silently pass through state.json from a
+    # future kernel — downgrades would otherwise corrupt data without
+    # any warning. Caller can downgrade explicitly via cmd_upgrade.
+    if cur > CURRENT_SCHEMA_VERSION:
+        raise RuntimeError(
+            f"state.json schema_version {cur} is newer than this kernel "
+            f"supports (max {CURRENT_SCHEMA_VERSION}); refusing to load"
+        )
     while cur < CURRENT_SCHEMA_VERSION:
         fn = MIGRATIONS.get(cur)
         if fn is None:
