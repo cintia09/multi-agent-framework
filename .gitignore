@@ -51,3 +51,4 @@ __pycache__/
 .e2e-scratch/
 docs/*.pptx
 tmp/
+target/

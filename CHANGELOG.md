@@ -1,3 +1,21 @@
+## v0.29.14 — Wrap per-target sandboxes under workspace `target/`
+
+### Changed
+
+- **Bootloader Hard rule (refines v0.29.13)**: per-target
+  sandboxes for external-target work now live under a
+  unified `target/` wrapper inside the active workspace —
+  i.e. `<workspace>/target/<target-basename>/tmp/` rather
+  than `<workspace>/<target-basename>/tmp/`. The wrapper
+  groups every external-target sandbox in one predictable
+  place so they don't litter the workspace root alongside
+  real source / docs. Bootloader also now requires
+  `target/` (not just `tmp/`) to be added to `.gitignore`
+  when the workspace is a git repo. v0.29.13 sandboxes
+  already on disk should be moved to the new path
+  manually — there is no automatic migration since these
+  are by definition throwaway artefacts.
+
 ## v0.29.13 — Per-target tmp sandbox for external-target work
 
 ### Changed
