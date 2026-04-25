@@ -1,4 +1,72 @@
-## v0.29.9 — R1-R6 audit fixes (concurrency P0 + 4 quality fixes)
+## v0.29.10 — R31-R40 audit fixes (10 kernel hardening fixes)
+
+Bundles 10 fixes surfaced by rounds 31-40 of the same end-to-end
+audit-fix-test loop (now 80 dev + prnook tasks, all status=done). Focus
+this batch: install/upgrade safety, mutation guards on terminal tasks,
+forward-compat for state.json schema evolution, and CLI input
+robustness.
+
+### Fixed
+
+- **install --upgrade required when state.json present**: the
+  install/upgrade CLI now exits with code 3 instead of silently
+  re-bootstrapping when an existing `.codenook/state.json` is found
+  without `--upgrade`. Prevents accidental clobber of an existing
+  workspace by re-running the installer.
+- **history prune destructive-action guard**: prune commands that would
+  delete ≥90% of history entries now require `--really-yes` in
+  addition to `--yes`, matching the safety posture of `git push
+  --force` etc. New `count_for_prune()` / `_eligible_for_prune()`
+  helpers compute the affected count without mutating state.
+- **Plugin install rollback on state.json failure**: if the post-commit
+  state.json update fails (disk full, permission flip, schema bug),
+  the orchestrator now reverts the plugin commit before exiting so
+  the workspace is not left half-installed.
+- **tick unknown-status guard**: `_exit_for()` now warns + returns
+  exit-code 2 on phase status values not enumerated by this kernel
+  (instead of treating them as terminal). Future kernel versions can
+  add new statuses without bricking older clients.
+- **`task new --input-file -` reads from stdin**: brings parity with
+  standard CLI conventions and unblocks pipeline-fed task creation
+  (e.g. `cat brief.md | <codenook> task new --input-file -`).
+- **NUL byte rejected in --input / --input-file**: prevents binary
+  smuggling into prompt files; matches the existing rejection of
+  control characters in `--title` / `--summary`.
+- **`task new --parent <T-NNN>` validates parent exists upfront**:
+  fails fast with a clear error rather than creating the child and
+  then erroring on the chain link step.
+- **`task set-model` / `set-exec` refuse terminal tasks**: tasks in
+  status `done`/`cancelled`/`error` can no longer have their model or
+  execution mode mutated. Prevents accidental rewrites of completed
+  task records.
+- **plugin auto-discovery surfaces YAML parse errors**:
+  malformed `plugin.yaml` files are now reported on stderr instead of
+  silently skipped, so a bad plugin can't disappear from `plugin
+  list` without warning.
+- **chain link suppresses success-shaped JSON on attach failure**:
+  CLI no longer emits `{"ok": true, ...}` when the underlying script
+  exited non-zero. Critical for `tick`'s parsing of chain link output.
+- **`task new --title` rejects whitespace-only titles**: avoids empty
+  filesystem slugs.
+- **case-insensitive task-id resolution**: `T-001` and `t-001` (and
+  any case mix) now resolve to the same task on case-sensitive
+  filesystems too.
+- **state.json forward-compat strip on persist**: `_persist_state`
+  now strips top-level keys not in `task-state.schema.json#properties`
+  before writing, emitting a stderr warning per stripped key. Fixes
+  the case where a state.json written by a NEWER kernel (with extra
+  fields) could be read fine but failed validation on the next
+  mutation, bricking the task. This is a pure safety strip — newer
+  kernels still write the full set, and the warning makes the
+  forward-compat downgrade visible to operators.
+
+### Internal
+
+- **install.py VERSION drift**: was still at 0.29.8 even after
+  v0.29.9. Triple-source-of-truth (`/VERSION`, `skills/codenook-core/
+  VERSION`, `install.py:22`) is now back in sync at 0.29.10.
+
+
 
 Bundles five fixes surfaced by rounds 1-6 of a 25+ round audit-fix-test
 loop driven from a real workspace (15+ end-to-end runs of the
