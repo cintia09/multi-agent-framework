@@ -92,9 +92,25 @@ def _iter_workspace_files(ws: Path) -> list[tuple[str, Path]]:
     out: list[tuple[str, Path]] = []
     kdir = mem / "knowledge"
     if kdir.is_dir():
-        for p in sorted(kdir.iterdir()):
-            if p.is_file() and p.suffix.lower() == ".md" and not p.name.startswith("."):
-                out.append(("knowledge", p))
+        # v0.29.0+ canonical layout is ``knowledge/<slug>/index.md``
+        # (sub-directory entries). Pre-v0.29 workspaces and the
+        # task-scoped extraction layer also produce flat
+        # ``knowledge/<topic>.md`` files. We accept both so doctor's
+        # frontmatter checks cover every entry the discovery scanner
+        # (``memory_index.py`` / ``knowledge_index.py``) can see.
+        seen: set[Path] = set()
+        for sub in sorted(kdir.iterdir()):
+            if sub.name.startswith("."):
+                continue
+            if sub.is_dir():
+                idx = sub / "index.md"
+                if idx.is_file() and idx not in seen:
+                    out.append(("knowledge", idx))
+                    seen.add(idx)
+            elif sub.is_file() and sub.suffix.lower() == ".md":
+                if sub not in seen:
+                    out.append(("knowledge", sub))
+                    seen.add(sub)
     sdir = mem / "skills"
     if sdir.is_dir():
         # Expected layout: skills/<name>/SKILL.md. Also flag any

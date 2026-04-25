@@ -1,3 +1,19 @@
+## v0.29.11 — memory doctor sub-directory awareness
+
+### Fixed
+
+- **`memory doctor` blind to v0.29.0+ `<slug>/index.md` layout**:
+  `_workspace_memory_files` only iterated the top level of
+  `.codenook/memory/knowledge/`, accepting flat `<topic>.md` files
+  but missing every sub-directory `<slug>/index.md` entry — the
+  layout that `claude_md_sync.py` documents and that
+  `memory_index.py` / `knowledge_index.py` (used by `discover
+  memory` and `knowledge search`) actually require. Symptom: a
+  workspace with all entries in canonical sub-directory form would
+  print "No memory files found" and exit clean even when
+  frontmatter was malformed. Doctor now accepts both layouts so its
+  checks cover every entry the discovery scanner can see.
+
 ## v0.29.10 — R31-R40 audit fixes (10 kernel hardening fixes)
 
 Bundles 10 fixes surfaced by rounds 31-40 of the same end-to-end
