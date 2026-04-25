@@ -10,11 +10,14 @@ from .config import CodenookContext, resolve_task_id
 
 def run(ctx: CodenookContext, args: Sequence[str]) -> int:
     task = ""
+    json_mode = False
     it = iter(args)
     try:
         for a in it:
             if a == "--task":
                 task = next(it)
+            elif a == "--json":
+                json_mode = True
             else:
                 sys.stderr.write(f"codenook status: unknown arg: {a}\n")
                 return 2
@@ -36,11 +39,9 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
         if not f.is_file():
             sys.stderr.write(f"codenook status: no such task: {task}\n")
             return 1
-        sys.stdout.write(f.read_text(encoding="utf-8"))
-        # Append the resolved model so single-task status matches the
-        # multi-task table column. Lazy import + try/except so a
-        # corrupt model module degrades gracefully instead of failing
-        # the whole command.
+        # R16 P1 fix: previously emitted state.json followed by a
+        # `\nmodel=<x>\n` trailer, breaking any JSON parser. Resolve
+        # the model first and merge it into the JSON object instead.
         try:
             from .. import models  # type: ignore
             s = json.loads(f.read_text(encoding="utf-8"))
@@ -48,8 +49,61 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
                 ctx.workspace, s.get("plugin") or "",
                 s.get("phase") or "", s) or "<default>")
         except Exception:
+            try:
+                s = json.loads(f.read_text(encoding="utf-8"))
+            except Exception:
+                # Corrupt state.json — preserve legacy behaviour:
+                # dump raw bytes and append model=<unknown>.
+                sys.stdout.write(f.read_text(encoding="utf-8"))
+                sys.stdout.write("\nmodel=<unknown>\n")
+                return 0
             md = "<unknown>"
-        sys.stdout.write(f"\nmodel={md}\n")
+        s["_resolved_model"] = md
+        sys.stdout.write(json.dumps(s, ensure_ascii=False, indent=2) + "\n")
+        return 0
+
+    if json_mode:
+        # R16 P1 fix: machine-readable status output. Mirrors the human
+        # table but as a single JSON object {workspace, state, tasks}.
+        try:
+            from .. import models  # type: ignore
+            _resolve = models.resolve_model  # type: ignore[attr-defined]
+        except Exception:
+            _resolve = None
+        from . import cmd_task
+        records = cmd_task._collect_task_records(ctx)
+        out_tasks = []
+        for r in records:
+            md = "<unknown>"
+            if _resolve is not None:
+                try:
+                    state = json.loads(
+                        (ctx.workspace / ".codenook" / "tasks"
+                         / r["dir_name"] / "state.json").read_text(
+                            encoding="utf-8"))
+                    md = (_resolve(ctx.workspace, state.get("plugin") or "",
+                                   state.get("phase") or "", state)
+                          or "<default>")
+                except Exception:
+                    md = "<unknown>"
+            out_tasks.append({
+                "dir_name": r["dir_name"],
+                "phase": r["phase"],
+                "status": r["status"],
+                "execution_mode": r["execution_mode"] or "sub-agent",
+                "profile": r["profile"],
+                "model": md,
+            })
+        try:
+            ws_state = json.loads(
+                ctx.state_file.read_text(encoding="utf-8"))
+        except Exception:
+            ws_state = {}
+        sys.stdout.write(json.dumps({
+            "workspace": str(ctx.workspace),
+            "state": ws_state,
+            "tasks": out_tasks,
+        }, ensure_ascii=False, indent=2) + "\n")
         return 0
 
     print(f"Workspace: {ctx.workspace}")
