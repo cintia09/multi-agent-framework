@@ -170,6 +170,15 @@ user's request is substantial; the user always confirms before
 - **MUST** end every reply by asking the user what their next step
   is (use the host's interactive prompt facility when available).
   This applies whether or not a task is active.
+- **MUST** write all temporary files and ad-hoc scripts under
+  `<workspace>/tmp/` (the workspace root, NOT system tmp / `/tmp` /
+  `$TMPDIR` / repo root / user home). Create `tmp/` if missing
+  (`mkdir -p tmp`); add `tmp/` to `.gitignore` when the workspace is
+  a git repo and the entry is missing. Covers one-off helpers,
+  migration scripts, scratch JSON / changelog snippets, debug
+  dumps, and pre-destructive-op backups (e.g. `tmp/migration-backup/`).
+  Long-lived deliverables (committed source, real docs) still go to
+  their proper repo paths — this rule only governs throwaway artefacts.
 - If a rule looks like it must be broken, surface the problem to
   the user instead of working around it.
 

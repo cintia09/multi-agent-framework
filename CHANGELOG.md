@@ -1,3 +1,18 @@
+## v0.29.12 — Bootloader hard rule: tmp files under <workspace>/tmp/
+
+### Changed
+
+- **Bootloader Hard rule (additive)**: every conductor MUST write
+  temporary files and ad-hoc scripts under `<workspace>/tmp/` (the
+  workspace root, NOT system tmp / `/tmp` / `$TMPDIR` / repo root /
+  user home). Create `tmp/` if missing; add `tmp/` to `.gitignore`
+  when the workspace is a git repo. Covers one-off helpers, migration
+  scripts, scratch JSON, debug dumps, and pre-destructive-op backups.
+  Long-lived deliverables still go to their proper repo paths. Caught
+  during real workspace migration where backups + extracted release
+  notes were silently scattered across `/tmp/`, defeating the
+  workspace's audit / cleanup story.
+
 ## v0.29.11 — memory doctor sub-directory awareness
 
 ### Fixed
