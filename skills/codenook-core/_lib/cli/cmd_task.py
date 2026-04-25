@@ -466,7 +466,15 @@ def _load_plugin_phase_chain(
 
 
 def _read_input_file(path: str) -> tuple[str | None, str | None]:
-    """Return (text, error_message). At most one is non-None."""
+    """Return (text, error_message). At most one is non-None.
+
+    A literal ``-`` reads the entire body from stdin (v0.29.10).
+    """
+    if path == "-":
+        try:
+            return sys.stdin.read(), None
+        except Exception as exc:
+            return None, f"--input-file stdin read error: {exc}"
     p = Path(path).expanduser()
     if not p.is_file():
         return None, f"--input-file not found: {path}"

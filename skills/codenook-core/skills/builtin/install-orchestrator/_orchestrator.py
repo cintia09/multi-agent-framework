@@ -461,10 +461,27 @@ def main() -> int:
             # commit() consumed `staged` via os.replace; mark consumed so the
             # finally block doesn't try to rmtree the now-installed plugin dir.
             staged = None
-            update_state_json(workspace, plugin_id, version or "",
-                              kernel_version=core_version,
-                              kernel_dir=kernel_dir,
-                              files_sha256=files_sha256)
+            try:
+                update_state_json(workspace, plugin_id, version or "",
+                                  kernel_version=core_version,
+                                  kernel_dir=kernel_dir,
+                                  files_sha256=files_sha256)
+            except Exception as state_exc:
+                # v0.29.10 — rollback. The plugin files are already on
+                # disk under .codenook/plugins/<id> but state.json never
+                # learned about them. Remove the orphaned tree so the
+                # workspace is consistent (no entry, no files) and a
+                # retry can re-install cleanly.
+                try:
+                    plugin_dst = workspace / ".codenook" / "plugins" / plugin_id
+                    if plugin_dst.exists():
+                        shutil.rmtree(plugin_dst, ignore_errors=True)
+                except Exception:
+                    pass
+                raise RuntimeError(
+                    f"state.json update failed after commit: {state_exc} "
+                    f"(rolled back files for {plugin_id})"
+                ) from state_exc
         except Exception as e:
             commit_result = {"ok": False, "gate": "commit",
                              "reasons": [f"commit failed: {e}"]}

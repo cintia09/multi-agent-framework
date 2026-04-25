@@ -1503,7 +1503,16 @@ def _exit_for(summary: dict) -> int:
         return 0
     if s in ("cancelled", "error"):
         return 1
-    return 0
+    # v0.29.10 — forward-compat. Future kernel versions may emit a
+    # status this conductor doesn't recognise. Returning 0 (success)
+    # would silently mask the new state from a stale conductor; emit
+    # a warning to stderr and return 2 so callers stop the tick loop
+    # and surface the JSON verbatim (per the bootloader contract).
+    sys.stderr.write(
+        f"orchestrator-tick: unknown status {s!r}; halting tick loop "
+        f"(forward-compat guard)\n"
+    )
+    return 2
 
 
 if __name__ == "__main__":
