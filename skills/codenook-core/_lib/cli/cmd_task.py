@@ -979,6 +979,15 @@ def _task_set_model(ctx: CodenookContext, args: list[str]) -> int:
         return rc
 
     state = json.loads(sf.read_text(encoding="utf-8"))
+    # v0.29.10 — refuse to mutate a terminal task. The model has no
+    # effect once status is done/cancelled/error — silently writing it
+    # would only corrupt the audit trail.
+    if state.get("status") in ("done", "cancelled", "error"):
+        sys.stderr.write(
+            f"codenook task set-model: task {task} is terminal "
+            f"(status={state.get('status')}); model is locked.\n"
+        )
+        return 2
     if clear:
         state.pop("model_override", None)
         result_value: object = None
@@ -1027,6 +1036,14 @@ def _task_set_exec(ctx: CodenookContext, args: list[str]) -> int:
         return rc
 
     state = json.loads(sf.read_text(encoding="utf-8"))
+    # v0.29.10 — refuse to mutate a terminal task. exec_mode has no
+    # effect once status is done/cancelled/error.
+    if state.get("status") in ("done", "cancelled", "error"):
+        sys.stderr.write(
+            f"codenook task set-exec: task {task} is terminal "
+            f"(status={state.get('status')}); execution mode is locked.\n"
+        )
+        return 2
     state["execution_mode"] = mode
     _persist_state(sf, state)
     print(json.dumps({
