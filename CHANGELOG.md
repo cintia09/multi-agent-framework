@@ -1,3 +1,20 @@
+## v0.29.8 — Plugin id path-traversal hardening
+
+### Security
+
+- **Plugin id validation before path concat**: ``state["plugin"]`` is
+  interpolated into many filesystem paths in ``orchestrator-tick/_tick.py``
+  (``phases.yaml``, ``transitions.yaml``, role file, ``post_validate``
+  script, etc.) and in ``cmd_tick._augment_envelope``. A hostile
+  ``state.json`` could previously smuggle ``..`` or ``/`` segments to
+  escape ``.codenook/plugins/``. Added ``_check_plugin_id()`` (kebab-case
+  ASCII regex ``^[a-z][a-z0-9_-]{0,63}$``) invoked at ``main()`` entry
+  alongside the existing ``_check_task_id()``, plus identifier-shape
+  validation for ``plugin`` / ``phase`` / ``role`` and ``..`` / absolute
+  rejection for ``expected_output`` in ``_augment_envelope``.
+  Behaviour is unchanged for legitimate plugins (development, generic,
+  writing, prnook all match the regex).
+
 ## v0.29.7 — Pass-2 P2/P3 hardening
 
 ### Fixed
