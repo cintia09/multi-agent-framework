@@ -568,6 +568,16 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
         task_input = text or ""
         task_input_set = True
 
+    # v0.29.10 — null-byte rejection. JSON would round-trip \u0000 but
+    # downstream consumers (shells, prompt renderers) often crash on
+    # embedded NULs. Treat as a usage error.
+    if task_input_set and "\x00" in task_input:
+        sys.stderr.write(
+            "codenook task new: --input / --input-file contains NUL byte "
+            "(\\x00); refusing to seed task with binary data\n"
+        )
+        return 2
+
     if not title:
         sys.stderr.write("codenook task new: --title is required\n")
         return 2
