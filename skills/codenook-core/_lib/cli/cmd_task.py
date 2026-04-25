@@ -314,10 +314,32 @@ def _persist_state(sf: Path, state: dict) -> None:
     mid-write would truncate state.json and brick every subsequent
     tick/status for that task. This helper ensures every writer goes
     through atomic_write_json_validated.
+
+    v0.29.10 \u2014 forward-compat strip. ``task-state.schema.json`` declares
+    ``additionalProperties: false`` at the top level, so a state.json
+    written by a NEWER kernel (with extra fields) cannot be persisted
+    again by THIS kernel: the next mutation would raise SchemaViolation
+    and brick the task. We strip top-level keys not listed in the
+    schema's ``properties`` block, emitting a one-line warning per
+    stripped key so the regression is visible in operator logs.
     """
     from atomic import atomic_write_json_validated  # type: ignore
     schema_path = str(Path(__file__).resolve().parents[2]
                       / "schemas" / "task-state.schema.json")
+    try:
+        with open(schema_path, "r", encoding="utf-8") as fh:
+            _schema = json.load(fh)
+        _allowed = set((_schema.get("properties") or {}).keys())
+    except Exception:
+        _allowed = set()
+    if _allowed:
+        _extras = [k for k in list(state.keys()) if k not in _allowed]
+        if _extras:
+            sys.stderr.write(
+                f"task state: stripping unknown top-level keys before "
+                f"persist (kernel forward-compat): {sorted(_extras)}\n"
+            )
+            state = {k: v for k, v in state.items() if k in _allowed}
     atomic_write_json_validated(str(sf), state, schema_path)
 
 
