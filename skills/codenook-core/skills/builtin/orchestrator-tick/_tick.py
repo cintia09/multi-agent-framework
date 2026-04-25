@@ -39,6 +39,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_lib"))
 from atomic import atomic_write_json, atomic_write_json_validated  # noqa: E402
 from role_index import is_role_allowed  # noqa: E402  (M8.10)
+import task_lock  # noqa: E402  (v0.29.5: serialise concurrent ticks)
 
 # Schemas live at codenook-core/schemas/.
 SCHEMAS_DIR = Path(__file__).resolve().parents[3] / "schemas"
@@ -1413,23 +1414,28 @@ def main() -> None:
             emit_summary(summary)
         sys.exit(_exit_for(summary))
 
-    prior_state = read_json(state_file)
-    new_state, summary = tick(workspace, state_file)
-    # Skip persist for pure observers (no progress made):
-    waiting_noop = (summary.get("status") == "waiting"
-                    and summary.get("next_action", "").startswith("awaiting"))
-    inert_noop = (summary.get("next_action") == "noop"
-                  and prior_state.get("status") in
-                  ("done", "cancelled", "error", "blocked", "waiting")
-                  and prior_state.get("status") == new_state.get("status"))
-    # v0.18.1 — never persist on error: tick() guarantees new_state ==
-    # prior_state in that case (transactional rollback), so the write
-    # would be a byte-for-byte no-op anyway. Skipping it is both faster
-    # and a clearer signal that error paths leave on-disk state intact.
-    error_noop = summary.get("status") == "error"
-    if not (waiting_noop or inert_noop or error_noop):
-        new_state["updated_at"] = now_iso()
-        persist_state(state_file, new_state)
+    # v0.29.5: serialise the read/compute/persist cycle under the
+    # per-task lock so two concurrent `codenook tick` invocations
+    # cannot lose history-append mutations or duplicate dispatch.
+    task_dir = state_file.parent
+    with task_lock.acquire(task_dir):
+        prior_state = read_json(state_file)
+        new_state, summary = tick(workspace, state_file)
+        # Skip persist for pure observers (no progress made):
+        waiting_noop = (summary.get("status") == "waiting"
+                        and summary.get("next_action", "").startswith("awaiting"))
+        inert_noop = (summary.get("next_action") == "noop"
+                      and prior_state.get("status") in
+                      ("done", "cancelled", "error", "blocked", "waiting")
+                      and prior_state.get("status") == new_state.get("status"))
+        # v0.18.1 — never persist on error: tick() guarantees new_state ==
+        # prior_state in that case (transactional rollback), so the write
+        # would be a byte-for-byte no-op anyway. Skipping it is both faster
+        # and a clearer signal that error paths leave on-disk state intact.
+        error_noop = summary.get("status") == "error"
+        if not (waiting_noop or inert_noop or error_noop):
+            new_state["updated_at"] = now_iso()
+            persist_state(state_file, new_state)
     # M9.2 — after_phase hook (best-effort; never blocks tick exit).
     after_phase(workspace, task,
                 new_state.get("phase") or prior_state.get("phase"),

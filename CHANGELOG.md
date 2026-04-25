@@ -1,3 +1,58 @@
+## v0.29.5 — Pass-1 deep-review fixes (P1 hardening)
+
+### Fixed
+
+Five P1-class bugs surfaced by the v0.29.4 deep code review:
+
+- **PT-1 (path traversal in task mutators)**: 7 callsites
+  (`task set / set-model / set-exec / set-profile / set-phase`,
+  `cmd_tick`, `cmd_decide`) computed
+  `state.json` paths from the user-supplied `--task` value via the
+  optimistic `is_file()` happy path before falling back to
+  `is_safe_task_component()` validation in `_resolve_or_error`.
+  A symlink-baited `--task "../../foo"` could therefore read and
+  atomically rewrite arbitrary JSON files. All 7 callsites now
+  validate up-front; the 5 mutators share a new `_safe_state_path`
+  helper to keep the validation co-located with the path
+  derivation.
+- **TL-1 (`task_lock.release` race)**: release order was
+  `flock(UN) → close(fd) → unlink(lock_path)`, leaving a window
+  where a contender opening the path between `flock(UN)` and
+  `unlink` could enter `_HELD` *and* a third process arriving
+  after the `unlink` could create a fresh inode and *also* enter
+  `_HELD`, so two ostensibly-mutually-exclusive `with acquire():`
+  blocks ran in parallel. Reordered to `unlink → flock(UN) →
+  close` so any subsequent opener sees a fresh inode from the
+  start.
+- **TL-2 (no per-task lock around `tick`)**: concurrent
+  `codenook tick --task T-NNN` invocations raced on `state.json`
+  — last-writer-wins for `history` appends, dispatch markers
+  could refer to a different `in_flight_agent` than recorded.
+  `_tick.main` now wraps the read/compute/persist cycle in
+  `task_lock.acquire(task_dir)` (the primitive existed but was
+  unused).
+- **HL-1 (HITL `decide` TOCTOU)**: `cmd_decide` in the HITL
+  adapter read `entry.decision`, checked `is None`, mutated, and
+  wrote without holding any lock. Two concurrent reviewers (CLI
+  + HTTP serve UI) could both observe `decision=None`, both write
+  their decision, and both append to `hitl.jsonl`. Now serialises
+  the entire read-modify-write cycle (and the audit-log appends)
+  under an exclusive `fcntl.flock` on the entry file, with a
+  re-check after lock acquisition for the always-true safe race
+  case.
+- **CD-1 (`cmd_decide` corrupt-state crash)**: `json.loads` on
+  a partially-written or zero-byte `state.json` produced a bare
+  traceback instead of the operator-friendly message used by
+  `cmd_tick`. Now wraps in `try/except (OSError,
+  JSONDecodeError)` matching the tick path.
+
+### Tests
+
+- 388 passed, 2 skipped (no regressions; existing `m8-task-lock`
+  bats coverage exercises the release-race fix).
+
+---
+
 ## v0.29.4 — Smoke-test UX polish
 
 ### Fixed

@@ -10,6 +10,7 @@ either the original or the new file — never partial.
 from __future__ import annotations
 
 import datetime
+import fcntl
 import json
 import os
 import re
@@ -279,28 +280,61 @@ def cmd_decide(ws: Path, eid: str, decision: str, reviewer: str,
               f"({entry.get('decision')}); refuse to overwrite", file=sys.stderr)
         return 1
 
-    entry["decision"] = decision
-    entry["decided_at"] = now_iso()
-    entry["reviewer"] = reviewer
-    entry["comment"] = comment if comment else None
+    # v0.29.5: serialise the read-modify-write cycle under an
+    # exclusive flock on the entry file so two concurrent `decide`
+    # calls (e.g. CLI + HTTP serve UI) cannot both observe
+    # decision=None and both win. The flock is released
+    # automatically when the with-block exits or the process dies.
+    ep = entry_path(ws, eid)
+    lock_fd = os.open(str(ep), os.O_RDONLY)
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        # Re-read under the lock; another decider may have committed
+        # between our load_entry above and our acquisition of the lock.
+        entry = load_entry(ws, eid)
+        if entry is None:
+            print(f"terminal.sh: hitl entry vanished mid-decide: {eid}",
+                  file=sys.stderr)
+            return 2
+        if entry.get("decision") not in (None, ""):
+            print(f"terminal.sh: entry already decided "
+                  f"({entry.get('decision')}); refuse to overwrite "
+                  "(race detected)", file=sys.stderr)
+            return 1
 
-    atomic_write_json_validated(str(entry_path(ws, eid)), entry, HITL_ENTRY_SCHEMA)
+        entry["decision"] = decision
+        entry["decided_at"] = now_iso()
+        entry["reviewer"] = reviewer
+        entry["comment"] = comment if comment else None
 
-    # Mirror to append-only history.
-    hist = ws / ".codenook" / "history" / "hitl.jsonl"
-    hist.parent.mkdir(parents=True, exist_ok=True)
-    line = json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n"
-    with hist.open("a", encoding="utf-8") as f:
-        f.write(line)
+        atomic_write_json_validated(
+            str(ep), entry, HITL_ENTRY_SCHEMA)
 
-    # E2E-P-007 — per-task audit.jsonl tee.
-    task_id = entry.get("task_id")
-    if task_id:
+        # Mirror to append-only history (under the same lock so the
+        # audit log can never disagree with the on-disk decision).
+        hist = ws / ".codenook" / "history" / "hitl.jsonl"
+        hist.parent.mkdir(parents=True, exist_ok=True)
+        line = json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n"
+        with hist.open("a", encoding="utf-8") as f:
+            f.write(line)
+
+        # E2E-P-007 — per-task audit.jsonl tee.
+        task_id = entry.get("task_id")
+        if task_id:
+            try:
+                tdir = ws / ".codenook" / "tasks" / str(task_id)
+                tdir.mkdir(parents=True, exist_ok=True)
+                with (tdir / "audit.jsonl").open("a", encoding="utf-8") as f:
+                    f.write(line)
+            except OSError:
+                pass
+    finally:
         try:
-            tdir = ws / ".codenook" / "tasks" / str(task_id)
-            tdir.mkdir(parents=True, exist_ok=True)
-            with (tdir / "audit.jsonl").open("a", encoding="utf-8") as f:
-                f.write(line)
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        except OSError:
+            pass
+        try:
+            os.close(lock_fd)
         except OSError:
             pass
 

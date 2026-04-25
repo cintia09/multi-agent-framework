@@ -13,7 +13,7 @@ from typing import Sequence
 import yaml  # type: ignore[import-untyped]
 
 from . import _subproc
-from .config import CodenookContext, resolve_task_id
+from .config import CodenookContext, is_safe_task_component, resolve_task_id
 
 
 VALID_DECISIONS = ("approve", "reject", "needs_changes")
@@ -50,6 +50,12 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
             f"(allowed: {', '.join(VALID_DECISIONS)})\n")
         return 2
 
+    if not is_safe_task_component(task):
+        sys.stderr.write(
+            f"codenook decide: invalid --task {task!r} "
+            "(must be a single safe path component)\n")
+        return 2
+
     resolved, candidates = resolve_task_id(ctx.workspace, task)
     if resolved is None:
         if candidates:
@@ -64,7 +70,13 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
     if not state_p.is_file():
         sys.stderr.write(f"codenook decide: no such task: {task}\n")
         return 1
-    plugin = json.loads(state_p.read_text(encoding="utf-8")).get("plugin") or ""
+    try:
+        plugin = json.loads(state_p.read_text(encoding="utf-8")).get(
+            "plugin") or ""
+    except (OSError, json.JSONDecodeError) as exc:
+        sys.stderr.write(
+            f"codenook decide: corrupt state.json for task {task}: {exc}\n")
+        return 1
 
     gate = phase
     phases_yaml = ctx.workspace / ".codenook" / "plugins" / plugin / "phases.yaml"

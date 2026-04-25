@@ -285,6 +285,21 @@ def acquire(
         yield payload
     finally:
         try:
+            # Order matters: unlink BEFORE releasing the flock so any
+            # contender that opens the path between our unlink and
+            # flock-release sees a fresh inode (not the one we still
+            # hold flock on). The previous order (flock-UN → close →
+            # unlink) had a window where two processes could both
+            # enter _HELD: contender B opens the same inode after our
+            # flock-UN, wins flock, passes the inode-equality guard,
+            # enters HELD; we then unlink that inode; contender C
+            # opens a fresh inode (no contention with B), wins flock,
+            # also enters HELD. Unlinking while still holding the
+            # flock guarantees C sees a separate inode from the start.
+            try:
+                os.unlink(lock_path)
+            except (FileNotFoundError, PermissionError, OSError):
+                pass
             try:
                 fcntl.flock(fd, fcntl.LOCK_UN)
             except OSError:
@@ -292,10 +307,6 @@ def acquire(
             try:
                 os.close(fd)
             except OSError:
-                pass
-            try:
-                os.unlink(lock_path)
-            except (FileNotFoundError, PermissionError, OSError):
                 pass
         finally:
             _HELD.pop(abs_dir, None)

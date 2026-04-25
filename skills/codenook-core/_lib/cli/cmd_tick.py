@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Sequence
 
 from . import _subproc
-from .config import CodenookContext, resolve_task_id
+from .config import CodenookContext, is_safe_task_component, resolve_task_id
 from .. import models
 from .. import exec_mode as _exec_mode
 
@@ -35,6 +35,12 @@ def run(ctx: CodenookContext, args: Sequence[str]) -> int:
 
     if not task:
         sys.stderr.write("codenook tick: --task required\n")
+        return 2
+
+    if not is_safe_task_component(task):
+        sys.stderr.write(
+            f"codenook tick: invalid --task {task!r} "
+            "(must be a single safe path component)\n")
         return 2
 
     resolved, candidates = resolve_task_id(ctx.workspace, task)

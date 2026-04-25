@@ -343,6 +343,39 @@ def _resolve_or_error(
     return resolved, 0
 
 
+def _safe_state_path(
+    ctx: CodenookContext, task: str, subcmd: str,
+) -> tuple[Path | None, str | None, int]:
+    """Validate *task* as a single-component slug and return its state.json.
+
+    Combines the ``is_safe_task_component`` path-traversal guard with
+    the ``resolve_task_id`` slug-completion fallback used by every task
+    mutator. Returns ``(state_path, resolved_task, 0)`` on success or
+    ``(None, None, exit_code)`` on failure (caller returns exit_code).
+    """
+    if not is_safe_task_component(task):
+        sys.stderr.write(
+            f"codenook task {subcmd}: invalid --task {task!r} "
+            "(must be a single safe path component)\n")
+        return None, None, 2
+    sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
+    if not sf.is_file():
+        resolved, rc = _resolve_or_error(ctx, task, subcmd)
+        if resolved is None:
+            return None, None, rc
+        # resolve_task_id only returns existing dir names, so resolved
+        # is already known-safe; re-validate as belt-and-braces.
+        if not is_safe_task_component(resolved):
+            sys.stderr.write(
+                f"codenook task {subcmd}: resolved task id {resolved!r} "
+                "failed safety check\n")
+            return None, None, 2
+        task = resolved
+        sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
+    return sf, task, 0
+
+
+
 def run(ctx: CodenookContext, args: Sequence[str]) -> int:
     if not args:
         sys.stderr.write(HELP_TASK)
@@ -821,13 +854,9 @@ def _task_set(ctx: CodenookContext, args: list[str]) -> int:
             "(--value | --value-file) are required\n")
         return 2
 
-    sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
-    if not sf.is_file():
-        resolved, rc = _resolve_or_error(ctx, task, "set")
-        if resolved is None:
-            return rc
-        task = resolved
-        sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
+    sf, task, rc = _safe_state_path(ctx, task, "set")
+    if sf is None:
+        return rc
 
     if field not in WRITABLE:
         # v0.29.3: auto-route plugin-defined entry-question fields to
@@ -915,13 +944,9 @@ def _task_set_model(ctx: CodenookContext, args: list[str]) -> int:
             "codenook task set-model: one of --model <name> or --clear is required\n")
         return 2
 
-    sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
-    if not sf.is_file():
-        resolved, rc = _resolve_or_error(ctx, task, "set-model")
-        if resolved is None:
-            return rc
-        task = resolved
-        sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
+    sf, task, rc = _safe_state_path(ctx, task, "set-model")
+    if sf is None:
+        return rc
 
     state = json.loads(sf.read_text(encoding="utf-8"))
     if clear:
@@ -967,13 +992,9 @@ def _task_set_exec(ctx: CodenookContext, args: list[str]) -> int:
             "codenook task set-exec: --mode must be 'sub-agent' or 'inline'\n")
         return 2
 
-    sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
-    if not sf.is_file():
-        resolved, rc = _resolve_or_error(ctx, task, "set-exec")
-        if resolved is None:
-            return rc
-        task = resolved
-        sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
+    sf, task, rc = _safe_state_path(ctx, task, "set-exec")
+    if sf is None:
+        return rc
 
     state = json.loads(sf.read_text(encoding="utf-8"))
     state["execution_mode"] = mode
@@ -1011,13 +1032,9 @@ def _task_set_profile(ctx: CodenookContext, args: list[str]) -> int:
             "codenook task set-profile: --task and --profile are both required\n")
         return 2
 
-    sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
-    if not sf.is_file():
-        resolved, rc = _resolve_or_error(ctx, task, "set-profile")
-        if resolved is None:
-            return rc
-        task = resolved
-        sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
+    sf, task, rc = _safe_state_path(ctx, task, "set-profile")
+    if sf is None:
+        return rc
 
     state = json.loads(sf.read_text(encoding="utf-8"))
     plugin = state.get("plugin", "")
@@ -1088,13 +1105,9 @@ def _task_set_phase(ctx: CodenookContext, args: list[str]) -> int:
             "codenook task set-phase: --task and --phase are both required\n")
         return 2
 
-    sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
-    if not sf.is_file():
-        resolved, rc = _resolve_or_error(ctx, task, "set-phase")
-        if resolved is None:
-            return rc
-        task = resolved
-        sf = ctx.workspace / ".codenook" / "tasks" / task / "state.json"
+    sf, task, rc = _safe_state_path(ctx, task, "set-phase")
+    if sf is None:
+        return rc
 
     state = json.loads(sf.read_text(encoding="utf-8"))
     plugin = state.get("plugin", "")
