@@ -153,6 +153,37 @@ def snapshot_task_phase(workspace: Path, task_id: str, phase: str,
             body_lines.append(json.dumps(last, ensure_ascii=False, indent=2))
             body_lines.append("```")
             body_lines.append("")
+    # R5 fix: also embed the corresponding phase output file so the
+    # snapshot is a usable forensic artifact rather than metadata-only.
+    # Match by filename pattern phase-<N>-<role>.md under outputs/.
+    outputs_dir = task_root / "outputs"
+    if outputs_dir.is_dir() and phase:
+        # Find any output file whose name contains the phase id.
+        # phases.yaml convention is phase-<N>-<role>.md and the role
+        # name doesn't always match the phase id (e.g. test-plan -> test-planner).
+        # So we accept either contains-phase or contains-<role-from-history>.
+        candidates = sorted(outputs_dir.glob(f"phase-*.md"))
+        # Prefer files whose basename includes the phase token.
+        phase_token = phase.replace("_", "-")
+        matched = [p for p in candidates
+                   if phase_token in p.stem or p.stem.endswith(f"-{phase}")]
+        # Fallback: pick the most recently modified output file.
+        if not matched and candidates:
+            matched = [max(candidates, key=lambda x: x.stat().st_mtime)]
+        for op in matched[:1]:  # only embed one to keep snapshots small
+            try:
+                body_lines.append(f"## Phase output: `{op.name}`")
+                body_lines.append("")
+                body_lines.append("```markdown")
+                # Truncate large outputs to keep snapshot bounded.
+                t = op.read_text(encoding="utf-8")
+                if len(t) > 8000:
+                    t = t[:8000] + "\n\n…[truncated, original " + str(len(t)) + " chars]"
+                body_lines.append(t)
+                body_lines.append("```")
+                body_lines.append("")
+            except Exception:
+                pass
     _atomic_write_text(snap_dir / "content.md", "\n".join(body_lines))
     return snap_dir
 
