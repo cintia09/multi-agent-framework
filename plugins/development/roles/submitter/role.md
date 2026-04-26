@@ -31,17 +31,53 @@ is referenced from there.
 
 1. Read the implementer + reviewer outputs to summarise the change for
    the PR/CL description (≤10 bullet points).
-2. Detect the submission target:
+2. Detect the submission target inside `<target_dir>` (and the workspace
+   root, in that order):
    * `.gerrit` config or `Change-Id:` trailer → Gerrit (`git push HEAD:refs/for/<branch>`).
    * GitHub remote → `gh pr create`.
-   * Neither → skip (verdict=ok with `submission: none`).
-3. Push / open the PR/CL. Capture the URL.
+   * **Neither found** → DO NOT silently skip. Emit
+     `verdict: blocked` with frontmatter
+     `submission: none` and `submission_decision_needed: true`.
+     The orchestrator's `submit_signoff` HITL gate then prompts the
+     user via the conductor: "no remote was detected — do you want to
+     (a) submit manually and paste the URL, (b) skip submission for
+     this task, or (c) abort?". The user's answer becomes the gate
+     decision (`approve` with comment = chosen option, or
+     `needs_changes`). On `approve` with a pasted URL, the user
+     should set the URL via
+     `<codenook> task set --task <id> --field pr_url --value <url>`
+     before re-tick.
+3. When a remote was detected: push / open the PR/CL. Capture the URL.
 4. Record the URL in the output frontmatter under `pr_url`.
 5. The orchestrator's `submit_signoff` HITL gate is what actually
    approves the submission for downstream phases — the human reviewer
-   confirms the URL before tick advances to `test-plan`.
-6. External review wait is OUT OF ORCHESTRATOR scope. Once external
-   LGTM lands the user re-runs `tick`.
+   confirms the URL (or chooses skip / abort, see step 2) before tick
+   advances to `test-plan`.
+6. **Remote review monitoring (memory-first → ask-user).** When a
+   `pr_url` exists, optionally poll the remote for current state via
+   the plugin's `remote-watch` skill — environment-agnostic, three
+   tiers:
+   1. **Cheap probe** —
+      `bash .codenook/plugins/development/skills/remote-watch/watch.sh \
+            --target-dir <target_dir> --ref <pr-or-change-id> --json`.
+      The skill ships defaults for GitHub PR (`gh pr view`) and
+      Gerrit (`ssh <host> gerrit query`). Tier-1 hit → record status.
+   2. **Memory lookup** — on tier-3 exit (`needs_user_config:true`),
+      run
+      `<codenook> knowledge search "<memory_search_hint from skill>"`.
+      A workspace knowledge entry under
+      `.codenook/memory/knowledge/remote-watch-config-*/` contains a
+      shell snippet defining `PROBE_CMD` + `STATUS_REGEX_*`. Extract
+      it to a temp file (e.g. `<workspace>/tmp/remote-probe-<id>.sh`)
+      and re-invoke `watch.sh --config <path>`.
+   3. **Ask the user** — when memory is silent: ask via the
+      `submit_signoff` HITL gate to either paste the current status
+      manually, skip monitoring, or supply a probe command. Offer to
+      promote the supplied command to a memory entry so future tasks
+      in this workspace can poll automatically.
+   Polling beyond a single check is still out of orchestrator scope:
+   no daemons, no schedule, no continuous tail. The skill returns
+   one snapshot per call.
 
 ## Output contract
 
@@ -50,13 +86,20 @@ Begin with YAML frontmatter:
 
 ```
 ---
-verdict: ok            # submission attempted (or intentionally skipped)
+verdict: ok            # submission attempted with a real remote
                        # needs_revision = the diff is not in a state worth
                        #                  submitting; bounce to review.
-                       # blocked = remote / auth failure
+                       # blocked = remote / auth failure, OR no remote
+                       #           detected and user must decide
+                       #           (see step 2 — set
+                       #           submission_decision_needed: true)
 summary: <≤200 chars>
 submission: gerrit|github|none
 pr_url: "<url or empty>"
+submission_decision_needed: false   # true when verdict=blocked
+                                    # because no remote was detected
+                                    # and the user must choose at the
+                                    # submit_signoff HITL gate.
 ---
 ```
 
@@ -76,7 +119,7 @@ Skills are auto-discovered from the plugin's `skills/` sub-directories. Run
 
     <codenook> discover plugins --plugin development --type skill --json
 
-to list available skills, then read the chosen `skills/<name>/index.md` for
+to list available skills, then read the chosen `skills/<name>/SKILL.md` for
 usage. Invoke a skill via:
 
     .codenook/codenook-core/skills/builtin/skill-resolve/resolve-skill.sh \

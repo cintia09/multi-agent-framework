@@ -1,3 +1,33 @@
+## v0.29.15 — Auto-detect `target_dir` + wizard prompt + audit hardening
+
+### Changed
+
+- **`task new` UX (kernel CLI):** the previously-hardcoded
+  `target_dir = "src/"` default is now auto-detected by walking
+  the workspace for the first existing dir in
+  `("src", "lib", "app", "pkg", "internal", "cmd")`, falling
+  back to `"src/"`. `--accept-defaults` uses the auto-detected
+  value; the `--interactive` wizard now also prompts for
+  `target_dir` (between exec_mode and the summary), and
+  `--target-dir <path>` is forwarded into the inner argv as
+  before. Bootloader template (`claude_md_sync.py`) updated to
+  list `target_dir` as a required Pre-task interview question
+  and to document the auto-detection in the `--accept-defaults`
+  paragraph.
+- **`--target-dir` validation:** absolute paths and `..` segments
+  are now rejected at parse time with a clear error.
+- **Wizard skip-list:** `--target-dir` added to the interactive
+  wizard's `skip_keys`, so a forwarded `--target-dir` no longer
+  silently overrides the wizard-collected value.
+- **`--parent` chain attach:** `task_chain attach` failures are
+  no longer silently swallowed — the new task creation now
+  propagates the non-zero exit code with stderr surfaced, so a
+  task can never be created with a phantom `parent_id`.
+- **Per-task `audit.jsonl` flock:** the per-task audit tee in
+  `_hitl.py` now takes its own `fcntl.LOCK_EX` on the per-task
+  file, so concurrent deciders for different HITL entries can no
+  longer interleave lines mid-write.
+
 ## v0.29.14 — Wrap per-target sandboxes under workspace `target/`
 
 ### Changed

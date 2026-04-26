@@ -333,14 +333,25 @@ def cmd_decide(ws: Path, eid: str, decision: str, reviewer: str,
             else:
                 f.write(line)
 
-        # E2E-P-007 — per-task audit.jsonl tee.
+        # E2E-P-007 — per-task audit.jsonl tee. Held under its OWN flock
+        # so concurrent deciders for different HITL entries (which take
+        # separate per-entry locks above) cannot interleave lines in
+        # this shared per-task file.
         task_id = entry.get("task_id")
         if task_id:
             try:
                 tdir = ws / ".codenook" / "tasks" / str(task_id)
                 tdir.mkdir(parents=True, exist_ok=True)
                 with (tdir / "audit.jsonl").open("a", encoding="utf-8") as f:
-                    f.write(line)
+                    if _fcntl is not None:
+                        _fcntl.flock(f.fileno(), _fcntl.LOCK_EX)
+                        try:
+                            f.write(line)
+                            f.flush()
+                        finally:
+                            _fcntl.flock(f.fileno(), _fcntl.LOCK_UN)
+                    else:
+                        f.write(line)
             except OSError:
                 pass
     finally:

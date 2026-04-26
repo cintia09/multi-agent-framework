@@ -2,7 +2,7 @@
 name: acceptor
 plugin: development
 phase: accept
-manifest: phase-6-acceptor.md
+manifest: phase-10-acceptor.md
 output_contract:
   frontmatter_required: [verdict]
   verdict_enum: [ok, needs_revision, blocked]
@@ -20,7 +20,7 @@ You were dispatched by `.codenook/codenook-core/skills/builtin/orchestrator-tick
 manifest you must follow lives at:
 
 ```
-.codenook/tasks/<task>/prompts/phase-6-acceptor.md
+.codenook/tasks/<task>/prompts/phase-10-acceptor.md
 ```
 
 Read it first; everything you need (criteria, target_dir, prior outputs)
@@ -36,7 +36,7 @@ is referenced from there.
 
 ## Output contract
 
-Write your full report to `.codenook/tasks/<task>/outputs/phase-6-acceptor.md`
+Write your full report to `.codenook/tasks/<task>/outputs/phase-10-acceptor.md`
 (the path the orchestrator named via `produces:`). Begin the file with
 YAML frontmatter:
 
@@ -71,7 +71,7 @@ Skills are auto-discovered from the plugin's `skills/` sub-directories. Run
 
     <codenook> discover plugins --plugin development --type skill --json
 
-to list available skills, then read the chosen `skills/<name>/index.md` for
+to list available skills, then read the chosen `skills/<name>/SKILL.md` for
 usage. Invoke a skill via:
 
     .codenook/codenook-core/skills/builtin/skill-resolve/resolve-skill.sh \

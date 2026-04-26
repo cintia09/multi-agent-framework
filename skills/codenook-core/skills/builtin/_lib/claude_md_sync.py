@@ -518,9 +518,20 @@ Before creating the task, ask 2–4 short clarifying questions via
 your `ask_user` tool. Look at the chosen plugin's first phase
 (usually `clarify`, `outline`, or `intake`) and ask what its role
 would otherwise need: scope, audience, style, existing inputs.
-Concatenate the answers (one Q+A per line) into a single
-multi-line string — that becomes `--input`. Skip ONLY when the
-user explicitly says "just go" / "你看着办" / supplies a brief.
+**One of those questions MUST be the target directory** — submitter
+detects `.gerrit` / GitHub remote inside it, and tester / reviewer
+both walk it as the source root. The kernel auto-detects a
+plausible default (`src/`, `lib/`, `app/`, `pkg/`, `internal/`,
+`cmd/` — first existing wins, else `src/`), surface that as the
+default in the `ask_user` so the user can confirm or override in
+one keystroke. Concatenate the answers (one Q+A per line) into a
+single multi-line string — that becomes `--input`. Pass the
+target directory choice as `--target-dir <path>` to `task new`.
+Skip ONLY when the user explicitly says "just go" / "你看着办" /
+supplies a brief; in that case still pass `--target-dir` based on
+the kernel's auto-detection (do not silently fall through to the
+hard-coded `src/` default when the workspace clearly has a
+different layout).
 
 #### Duplicate / parent check (MANDATORY)
 
@@ -639,13 +650,16 @@ default whenever `--model` is absent.
 - `--input` carries the gathered interview answers (multi-line
   via shell quoting or `--input-file <path>`).
 - `--accept-defaults` fills `dual_mode`, `priority`, `target_dir`
-  with sane values so no entry-question gate fires.
+  with sane values so no entry-question gate fires. `target_dir`
+  is auto-detected from common source-root markers (`src/`, `lib/`,
+  `app/`, `pkg/`, `internal/`, `cmd/`) — first existing one wins;
+  fallback is `src/`.
 
 Returns the new `T-NNN-<slug>` on stdout. Two other entry points
 exist when useful: `--interactive` (wizard prompts plugin /
-profile / title / input / model / exec mode) and minimal
-`task new --title "..." --accept-defaults` (uses defaults end-
-to-end; useful when the user supplies a complete brief).
+profile / title / input / model / exec mode / target dir) and
+minimal `task new --title "..." --accept-defaults` (uses defaults
+end-to-end; useful when the user supplies a complete brief).
 
 #### Drive the tick loop
 

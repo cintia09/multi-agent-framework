@@ -1,5 +1,68 @@
 # development plugin — changelog
 
+## 0.4.0 — memory-first generic skills
+
+Plugin pivot away from hard-coded device / remote-review knowledge:
+specifics now live in workspace memory or come from the user via HITL.
+
+### Post-review hardening (same release)
+
+- `acceptor/role.md` — fixed wrong manifest / prompt / output
+  references (was `phase-6-acceptor.md`, should be
+  `phase-10-acceptor.md` per `phases.yaml`).
+- All 10 roles — boilerplate skill descriptor path corrected from
+  `skills/<name>/index.md` (which is the *knowledge* convention)
+  to the actual skill convention `skills/<name>/SKILL.md`.
+- `remote-watch/watch.sh` — failed probes now report
+  `status: unknown` and `exit 2` instead of being silently
+  classified as `pending` via the catch-all regex.
+- `device-detect/detect.sh`, `remote-watch/watch.sh`,
+  `test-runner/runner.sh` — argv parsing now arity-checks `$2`
+  before dereferencing, so a missing value produces the
+  documented `exit 2` instead of a `set -u` unbound-variable
+  trap.
+- `remote-watch/SKILL.md`, `test-runner/SKILL.md` — added a
+  Security / threat-model section documenting that `--config` is
+  sourced as shell and is the caller's trust boundary.
+- `device-detect/SKILL.md` — `*.yaml` added to `unknown-config`
+  detection (matches code); `primary` documented as
+  first-seen non-`unknown` bucket (matches code).
+
+### New skills
+
+- `device-detect/` — enumerate generic execution-environment buckets
+  (`local-python`, `local-node`, `local-go`, `recorded-env`,
+  `custom-runner`, `unknown-config`, `unknown`) under `<target_dir>`
+  and emit a `memory_search_hint` so the calling role can do a
+  workspace memory lookup before asking the user.
+- `remote-watch/` — generic three-tier remote review/CI poller.
+  Tier 1 ships defaults for GitHub PR (`gh pr view`) and Gerrit
+  (`ssh <host> gerrit query`). Tier 2 sources a `--config <path>`
+  shell snippet (typically extracted from a memory entry under
+  `memory/knowledge/remote-watch-config-*/`) defining `PROBE_CMD`
+  + `STATUS_REGEX_*`. Tier 3 exits with `needs_user_config:true`
+  + exit code 3 so the conductor asks the user.
+
+### Changed skills
+
+- `test-runner/runner.sh` — rewritten to a generic three-tier
+  dispatcher (markers → `--config <path>` → `needs_user_config:true`
+  + exit 3). Previous hard-coded ADB / QEMU semantics removed.
+
+### Changed roles
+
+- `submitter` — step 2 now emits `verdict: blocked` +
+  `submission_decision_needed: true` when no remote is detected, so
+  the conductor asks the user (manual paste URL / skip / abort) at
+  the `submit_signoff` HITL gate. Step 6 invokes the new
+  `remote-watch` skill via the same memory-first → ask-user flow
+  (single snapshot only — no daemons / continuous tailing).
+- `test-planner` — new step 1 asks the user for test scope
+  (`smoke` / `new-feature` / `regression` / `full-regression`); new
+  step 2 calls `device-detect`, then memory-searches the returned
+  hint, then asks the user only when both miss. Output frontmatter
+  gains `scope:`, `environment:`, and `environment_source:` fields.
+
 ## 0.2.2 — frontmatter fix
 
 - Add missing `name: test-runner` field to `skills/test-runner/SKILL.md` frontmatter so `memory doctor` no longer emits a warning during install.

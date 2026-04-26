@@ -39,13 +39,53 @@ is referenced from there.
 
 ## Steps
 
-1. Read clarifier criteria + (when present) the implementer output to
+1. **Confirm test scope with the user** before listing cases. Use
+   `ask_user` (or, in inline conductor mode, the host's interactive
+   prompt) with the following choices:
+   * `smoke` — minimal happy-path only (≤5 cases); fastest.
+   * `new-feature` — cover the surface introduced by this task only.
+   * `regression` — re-run the existing test suite touched by this
+     change (no new cases authored).
+   * `full-regression` — entire repo regression run (slow; only when
+     `target_dir` is the repo root or the user explicitly asks).
+   Default: `new-feature` for `feature` profile; `regression` for
+   `hotfix` / `refactor`; `full-regression` for `test-only` (still
+   confirm with the user). Record the chosen scope in the output
+   frontmatter under `scope:`.
+2. **Confirm execution environment (memory-first → ask-user).**
+   This role is environment-agnostic: it does not hard-code device
+   types. Resolve in three tiers:
+   1. **Probe** — invoke the plugin's `device-detect` skill:
+      `bash .codenook/plugins/development/skills/device-detect/detect.sh \
+            --target-dir <target_dir> --json`.
+      The skill returns generic buckets (`local-python`, `local-node`,
+      `local-go`, `recorded-env`, `custom-runner`, `unknown-config`,
+      `unknown`) plus a `memory_search_hint` string. Local-* buckets
+      are unambiguous → record `environment: local-<lang>` and skip
+      to step 3. Other buckets fall through.
+   2. **Memory lookup** — run
+      `<codenook> knowledge search "<memory_search_hint from probe>"`.
+      A hit returns a workspace knowledge entry that names the
+      concrete environment (real device / simulator / network fixture
+      / …) and any prerequisites. Record `environment: <name from
+      entry>` and the entry id under `environment_source:`.
+   3. **Ask the user** — when memory is silent OR more than one
+      bucket is reported, ask via `ask_user` (host's interactive
+      prompt in inline mode):
+        * which environment to use (free-form when no candidates),
+        * whether it is currently available (online / booted /
+          reachable). If unavailable, emit `verdict: blocked`.
+      Record the answer in frontmatter `environment:` and offer to
+      promote the answer to a memory entry under
+      `.codenook/memory/knowledge/test-environment-<slug>/index.md`
+      so the next task in this workspace can skip the ask.
+3. Read clarifier criteria + (when present) the implementer output to
    identify the surface that needs coverage.
-2. List concrete test cases. Each case must specify:
+4. List concrete test cases. Each case must specify:
    * id (TC-N), name, fixture path (or "n/a"), pass criteria.
-3. Note any fixtures or seed data the tester must set up.
-4. Specify the runner (pytest / jest / go test) and the smallest
-   command line that exercises the planned cases.
+5. Note any fixtures or seed data the tester must set up.
+6. Specify the smallest command line that exercises the planned
+   cases under the chosen runner / environment.
 
 ## Output contract
 
@@ -61,7 +101,9 @@ verdict: ok            # plan exists / is sufficient
                        # blocked = environment unusable
 summary: <≤200 chars>
 case_count: <int>
-runner: pytest|jest|go test|none
+runner: pytest|jest|go test|none|<custom>
+environment: local-python|local-node|local-go|<recorded-name>|<user-answer>
+environment_source: <memory-entry-id-or-"user-asked">
 ---
 ```
 
@@ -81,7 +123,7 @@ Skills are auto-discovered from the plugin's `skills/` sub-directories. Run
 
     <codenook> discover plugins --plugin development --type skill --json
 
-to list available skills, then read the chosen `skills/<name>/index.md` for
+to list available skills, then read the chosen `skills/<name>/SKILL.md` for
 usage. Invoke a skill via:
 
     .codenook/codenook-core/skills/builtin/skill-resolve/resolve-skill.sh \

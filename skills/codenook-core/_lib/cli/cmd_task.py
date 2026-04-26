@@ -269,6 +269,39 @@ INT_FIELDS = {"max_iterations"}
 WRITABLE = {"dual_mode", "target_dir", "priority", "max_iterations", "summary", "title", "task_input"}
 
 
+# Markers used by `_detect_default_target_dir` to pick the most-likely
+# source root inside a workspace when the caller omitted --target-dir
+# AND passed --accept-defaults. The order is significant: the first
+# directory that exists wins, falling back to "src/" for backward
+# compatibility (even when no marker dir matches). See v0.29.15
+# docs/architecture.md for the rationale.
+TARGET_DIR_CANDIDATES = (
+    "src",
+    "lib",
+    "app",
+    "pkg",
+    "internal",
+    "cmd",
+)
+
+
+def _detect_default_target_dir(workspace: Path) -> str:
+    """Pick a sensible default target_dir for a fresh task.
+
+    Looks for common source-root markers under ``workspace``. Returns a
+    trailing-slash path when a marker dir exists; otherwise falls back
+    to ``"src/"`` (kernel default for backward compatibility, even if
+    it doesn't yet exist — entry-question gates can still surface it).
+    """
+    for cand in TARGET_DIR_CANDIDATES:
+        if (workspace / cand).is_dir():
+            return f"{cand}/"
+    # Last-resort: kernel default "src/" for backward compatibility,
+    # even when no standard source dir exists in the workspace.
+    return "src/"
+
+
+
 def _plugin_entry_question_keys(workspace: Path, plugin: str) -> set[str]:
     """Collect every field name that any phase in the plugin's
     entry-questions.yaml lists under `required` or `questions`.
@@ -543,6 +576,12 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
                 plugin = next(it)
             elif a == "--target-dir":
                 target_dir = next(it)
+                _normalized = target_dir.replace("\\", "/")
+                if _normalized.startswith("/") or ".." in _normalized.split("/"):
+                    sys.stderr.write(
+                        f"codenook task new: invalid --target-dir (absolute path "
+                        f"or path traversal): {target_dir!r}\n")
+                    return 2
             elif a == "--dual-mode":
                 dual_mode = next(it); dual_mode_set = True
             elif a == "--max-iterations":
@@ -620,7 +659,7 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
         return 2
 
     if not target_dir:
-        target_dir = "src/"
+        target_dir = _detect_default_target_dir(ctx.workspace)
 
     prompted_any = False
     if not plugin:
@@ -832,16 +871,23 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
                 f"(no .codenook/tasks/{parent}/ directory)\n"
             )
             return 2
-        try:
-            subprocess.run(
-                [sys.executable, "-m", "task_chain",
-                 "--workspace", str(ctx.workspace),
-                 "attach", task_id, parent],
-                check=False,
-                env=_subproc_env(ctx),
+        cp = subprocess.run(
+            [sys.executable, "-m", "task_chain",
+             "--workspace", str(ctx.workspace),
+             "attach", task_id, parent],
+            check=False,
+            env=_subproc_env(ctx),
+            capture_output=True,
+            text=True,
+        )
+        if cp.returncode != 0:
+            sys.stderr.write(
+                f"codenook task new: failed to attach --parent {parent} "
+                f"(task_chain attach exit {cp.returncode})\n"
             )
-        except Exception:
-            pass
+            if cp.stderr:
+                sys.stderr.write(cp.stderr)
+            return cp.returncode or 1
 
     if not dual_mode_set and not accept_defaults:
         recovery = (
@@ -1480,6 +1526,18 @@ def _task_new_interactive(ctx: CodenookContext, args: list[str]) -> int:
             if exec_mode is _PROMPT_EOF:
                 return _abort_eof()
 
+        # Target directory — submitter / tester / reviewer all need this
+        # to find the actual source tree. Without a real target_dir,
+        # `.gerrit` detection, `runner.sh --target-dir`, etc. silently
+        # mis-fire. Auto-detect and let the user override.
+        detected_target = _detect_default_target_dir(ctx.workspace)
+        target_dir_in = _prompt(
+            "Target directory (relative to workspace; runner / submitter "
+            "use this)", default=detected_target)
+        if target_dir_in is _PROMPT_EOF:
+            return _abort_eof()
+        target_dir_in = (target_dir_in or detected_target).strip()
+
         # Summary
         sys.stdout.write("\nSummary:\n")
         sys.stdout.write(f"  plugin     : {plugin}\n")
@@ -1489,6 +1547,7 @@ def _task_new_interactive(ctx: CodenookContext, args: list[str]) -> int:
             f"  input      : {(task_input[:60] + '...') if len(task_input) > 60 else (task_input or '(none)')}\n")
         sys.stdout.write(f"  model      : {model or '(plugin/phase default)'}\n")
         sys.stdout.write(f"  exec mode  : {exec_mode}\n")
+        sys.stdout.write(f"  target dir : {target_dir_in}\n")
         confirm_raw = _prompt("Create? [Y/n]", default="Y")
         if confirm_raw is _PROMPT_EOF:
             return _abort_eof()
@@ -1512,12 +1571,14 @@ def _task_new_interactive(ctx: CodenookContext, args: list[str]) -> int:
         new_args += ["--model", model]
     if exec_mode and exec_mode != "sub-agent":
         new_args += ["--exec", exec_mode]
+    if target_dir_in:
+        new_args += ["--target-dir", target_dir_in]
     # Forward any extra flags the caller already passed (e.g. --id) but
     # avoid re-injecting fields the wizard just collected.
     skip_next = False
     skip_keys = {
         "--title", "--plugin", "--profile", "--input", "--input-file",
-        "--model", "--exec", "--accept-defaults",
+        "--model", "--exec", "--accept-defaults", "--target-dir",
     }
     for a in forwarded:
         if skip_next:

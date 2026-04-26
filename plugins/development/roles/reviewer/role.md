@@ -107,7 +107,7 @@ Skills are auto-discovered from the plugin's `skills/` sub-directories. Run
 
     <codenook> discover plugins --plugin development --type skill --json
 
-to list available skills, then read the chosen `skills/<name>/index.md` for
+to list available skills, then read the chosen `skills/<name>/SKILL.md` for
 usage. Invoke a skill via:
 
     .codenook/codenook-core/skills/builtin/skill-resolve/resolve-skill.sh \
