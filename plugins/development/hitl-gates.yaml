@@ -38,6 +38,17 @@ gates:
       Approve the plan (decomposition, sequencing, fanout) before the
       implementer starts. Catches missing or out-of-scope subtasks early.
 
+  dfmea_signoff:
+    trigger: dfmea
+    required_reviewers: [human]
+    description: >
+      Approve the DFMEA (failure mode register, top concerns, mitigations)
+      before implementation. Reviewer can reject (loop back to plan), accept
+      (proceed to implement), or override the analyst's risk judgment with
+      a comment. Verdict 'needs_revision' from the analyst itself bounces
+      back to plan, NOT to design — plan is the most concrete surface for
+      mitigations to land on.
+
   build_signoff:
     trigger: build
     required_reviewers: [human]

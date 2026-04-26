@@ -58,7 +58,7 @@ is referenced from there.
    the plugin's `remote-watch` skill — environment-agnostic, three
    tiers:
    1. **Cheap probe** —
-      `bash .codenook/plugins/development/skills/remote-watch/watch.sh \
+      `python3 .codenook/plugins/development/skills/remote-watch/watch.py \
             --target-dir <target_dir> --ref <pr-or-change-id> --json`.
       The skill ships defaults for GitHub PR (`gh pr view`) and
       Gerrit (`ssh <host> gerrit query`). Tier-1 hit → record status.
@@ -69,7 +69,7 @@ is referenced from there.
       `.codenook/memory/knowledge/remote-watch-config-*/` contains a
       shell snippet defining `PROBE_CMD` + `STATUS_REGEX_*`. Extract
       it to a temp file (e.g. `<workspace>/tmp/remote-probe-<id>.sh`)
-      and re-invoke `watch.sh --config <path>`.
+      and re-invoke `watch.py --config <path>`.
    3. **Ask the user** — when memory is silent: ask via the
       `submit_signoff` HITL gate to either paste the current status
       manually, skip monitoring, or supply a probe command. Offer to

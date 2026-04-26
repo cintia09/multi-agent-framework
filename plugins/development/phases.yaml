@@ -47,6 +47,12 @@ phases:
     allows_fanout: true
     gate: plan_signoff
 
+  dfmea:
+    role: dfmea-analyst
+    produces: outputs/phase-3b-dfmea.md
+    supports_iteration: true
+    gate: dfmea_signoff
+
   implement:
     role: implementer
     produces: outputs/phase-4-implementer.md
@@ -104,11 +110,11 @@ phases:
 
 profiles:
   feature:
-    phases: [clarify, design, plan, implement, build, review, submit, test-plan, test, accept, ship]
+    phases: [clarify, design, plan, dfmea, implement, build, review, submit, test-plan, test, accept, ship]
   hotfix:
     phases: [clarify, implement, build, review, test-plan, test, ship]
   refactor:
-    phases: [clarify, design, plan, implement, build, review, test-plan, test, ship]
+    phases: [clarify, design, plan, dfmea, implement, build, review, test-plan, test, ship]
   test-only:
     phases: [clarify, test-plan, test, accept]
   docs:

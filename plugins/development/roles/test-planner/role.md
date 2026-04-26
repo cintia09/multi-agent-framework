@@ -56,7 +56,7 @@ is referenced from there.
    This role is environment-agnostic: it does not hard-code device
    types. Resolve in three tiers:
    1. **Probe** — invoke the plugin's `device-detect` skill:
-      `bash .codenook/plugins/development/skills/device-detect/detect.sh \
+      `python3 .codenook/plugins/development/skills/device-detect/detect.py \
             --target-dir <target_dir> --json`.
       The skill returns generic buckets (`local-python`, `local-node`,
       `local-go`, `recorded-env`, `custom-runner`, `unknown-config`,

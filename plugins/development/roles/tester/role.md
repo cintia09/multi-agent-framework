@@ -33,7 +33,7 @@ is referenced from there.
 2. Read the implementer's `Files changed:` list (when present —
    absent in the `test-only` profile).
 3. Detect the test runner via
-   `.codenook/plugins/development/skills/test-runner/runner.sh`.
+   `.codenook/plugins/development/skills/test-runner/runner.py`.
 4. Run the smallest test set that exercises the planned cases; do not
    run the whole repo unless the plan explicitly requires it.
 5. On `verdict: needs_revision` (== v5 has_failures): include the first

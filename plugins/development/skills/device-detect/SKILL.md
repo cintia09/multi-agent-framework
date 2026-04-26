@@ -28,7 +28,7 @@ that by:
 ## CLI
 
 ```
-detect.sh --target-dir <dir> [--json]
+detect.py --target-dir <dir> [--json]
 ```
 
 ## Detection (generic markers, no device-type hard-coding)

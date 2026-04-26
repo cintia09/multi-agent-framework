@@ -257,7 +257,8 @@ def find_phase(phases: list[dict], pid: str) -> dict | None:
 
 
 def lookup_transition(trans: dict, cur_id: str, verdict: str,
-                      profile: str | None = None) -> str | None:
+                      profile: str | None = None,
+                      custom_chain: list[str] | None = None) -> str | None:
     """Resolve transitions[cur_id][verdict].
 
     Supports three layouts:
@@ -269,7 +270,20 @@ def lookup_transition(trans: dict, cur_id: str, verdict: str,
     ``transitions:`` wrapper whose first-level value (for that profile)
     looks like a phase map, we descend one level. Falls back to flat
     layout for backward compatibility.
+
+    When ``custom_chain`` is set (state['custom_phase_chain']) AND the
+    verdict is ``ok``, the chain wins: next phase = next id after
+    ``cur_id`` in the chain, or ``complete`` when ``cur_id`` is the
+    last entry. For other verdicts (needs_revision/blocked) the
+    profile/default transitions table still applies — those branches
+    are about error recovery, which the user's custom composition
+    intentionally inherits from the plugin's defaults.
     """
+    if custom_chain and verdict == "ok" and cur_id in custom_chain:
+        i = custom_chain.index(cur_id)
+        if i + 1 >= len(custom_chain):
+            return "complete"
+        return custom_chain[i + 1]
     table = trans.get("transitions", {}) or trans  # tolerant of either layout
     # Detect profile-keyed layout: every top-level value is itself a dict
     # whose values are dicts (i.e. {profile: {phase: {verdict: target}}}).
@@ -364,6 +378,8 @@ def _resolve_profile(phases_doc: dict, state: dict,
     profile and the chain is the order they appear in.
 
     Resolution order (v0.2.0+):
+      0. ``state['custom_phase_chain']`` — wizard / --phase-chain composer
+         (highest priority; bypasses all profile resolution).
       1. ``state['profile']``      — already-cached resolution.
       2. clarifier output frontmatter ``task_type``.
       3. ``state['task_type']``    — caller hint (entry-questions seed).
@@ -373,6 +389,10 @@ def _resolve_profile(phases_doc: dict, state: dict,
     as provisional so a clarifier output that arrives later (i.e. after
     the very first tick) can still pin the real profile.
     """
+    custom = state.get("custom_phase_chain")
+    if isinstance(custom, list) and custom:
+        return None, [str(x) for x in custom]
+
     profiles = phases_doc.get("profiles")
     if not profiles or not isinstance(profiles, dict):
         # Legacy layout: chain is the flat list order.
@@ -981,7 +1001,8 @@ def dispatch_or_skip(
                 ),
             }
         )
-        nxt = lookup_transition(trans_doc, pid, "ok", profile=profile)
+        nxt = lookup_transition(trans_doc, pid, "ok", profile=profile,
+                                custom_chain=state.get("custom_phase_chain"))
         if nxt is None:
             return {
                 "status": "error",
@@ -1231,7 +1252,8 @@ def _tick_body(workspace: Path, state: dict) -> dict:
     # ── 5. transition (only when we have a verdict to act on) ──
     if verdict_for_transition is not None:
         nxt = lookup_transition(trans_doc, cur.get("id"), verdict_for_transition,
-                                profile=profile)
+                                profile=profile,
+                                custom_chain=state.get("custom_phase_chain"))
         if nxt is None:
             return {"status": "error",
                            "next_action": f"no transition from {cur.get('id')}/{verdict_for_transition}"}

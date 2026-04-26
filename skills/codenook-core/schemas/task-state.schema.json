@@ -33,6 +33,11 @@
       "type": ["string", "null"],
       "description": "Resolved profile name (cached by orchestrator-tick after the first dispatch). Internal."
     },
+    "custom_phase_chain": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Wizard / --phase-chain composer override. When non-empty, orchestrator-tick bypasses profile resolution and walks exactly these phase ids in order. Set once at task creation; never re-cached."
+    },
     "selected_plugins": {
       "type": "array",
       "items": {"type": "string"}

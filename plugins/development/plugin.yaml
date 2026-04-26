@@ -16,7 +16,7 @@
 
 # ── M2 install-pipeline contract ────────────────────────────────────────
 id: development
-version: "0.4.1"
+version: "0.5.0"
 type: domain
 entry_points:
   install: phases.yaml

@@ -483,6 +483,50 @@ def _load_plugin_profiles(ctx: CodenookContext, plugin: str) -> list[str]:
     return [str(k) for k in profiles.keys()]
 
 
+def _load_plugin_phase_catalogue(
+    ctx: CodenookContext, plugin: str,
+) -> list[str]:
+    """Return the full ordered phase id catalogue declared in
+    ``plugins/<plugin>/phases.yaml`` under the top-level ``phases:``
+    block. Used by ``--phase-chain`` validation and by the wizard's
+    custom-chain composer (so the user picks from real phase ids).
+
+    Returns ``[]`` on any error so callers can surface a friendly
+    message.
+    """
+    phases_yaml = (
+        ctx.workspace / ".codenook" / "plugins" / plugin / "phases.yaml"
+    )
+    if not phases_yaml.is_file():
+        return []
+    try:
+        import yaml  # type: ignore[import-untyped]
+        doc = yaml.safe_load(phases_yaml.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return []
+    raw = doc.get("phases", {})
+    if isinstance(raw, dict):
+        return [str(k) for k in raw.keys()]
+    if isinstance(raw, list):
+        return [
+            str(ph.get("id")) for ph in raw
+            if isinstance(ph, dict) and ph.get("id")
+        ]
+    return []
+
+
+def _parse_phase_chain_arg(raw: str) -> list[str]:
+    """Split a comma- (or space-) separated phase chain into an
+    ordered list with surrounding whitespace stripped. Empty entries
+    are dropped (so trailing commas / double commas don't pollute the
+    chain).
+    """
+    if not raw:
+        return []
+    sep = "," if "," in raw else None  # None → split on any whitespace
+    return [p.strip() for p in raw.split(sep) if p.strip()]
+
+
 def _load_plugin_phase_chain(
     ctx: CodenookContext, plugin: str, profile: str | None,
 ) -> list[str]:
@@ -561,6 +605,7 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
     model = ""
     exec_mode_val = ""
     profile = ""
+    custom_phase_chain_raw = ""
     task_input = ""
     task_input_set = False
     input_file = ""
@@ -605,6 +650,8 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
                 exec_mode_val = next(it)
             elif a == "--profile":
                 profile = next(it)
+            elif a == "--phase-chain":
+                custom_phase_chain_raw = next(it)
             elif a == "--input":
                 task_input = next(it); task_input_set = True
             elif a == "--input-file":
@@ -726,6 +773,33 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
             profile = chosen
             prompted_profile = True
 
+    # Custom phase chain — overrides profile chain when present. Two
+    # mutually-compatible inputs:
+    #   * --phase-chain "p1,p2,p3" passed explicitly.
+    #   * Wizard "custom" profile pick (collected separately and
+    #     converted into --phase-chain on the recursive call).
+    custom_phase_chain: list[str] = []
+    if custom_phase_chain_raw:
+        custom_phase_chain = _parse_phase_chain_arg(custom_phase_chain_raw)
+        if not custom_phase_chain:
+            sys.stderr.write(
+                "codenook task new: --phase-chain produced an empty list "
+                "after parsing\n")
+            return 2
+        catalogue = _load_plugin_phase_catalogue(ctx, plugin)
+        if catalogue:
+            unknown = [p for p in custom_phase_chain if p not in catalogue]
+            if unknown:
+                sys.stderr.write(
+                    f"codenook task new: --phase-chain contains phase ids "
+                    f"not declared by plugin '{plugin}': "
+                    f"{', '.join(unknown)} "
+                    f"(valid: {', '.join(catalogue)})\n")
+                return 2
+        # When a custom chain is given, the profile field becomes
+        # informational only — transitions still resolve via the
+        # 'default' table (orchestrator-tick handles this).
+
     # Summary + confirm page — only when we actually prompted the
     # user for something AND stdin is a TTY (keeps scripted / CI
     # flows from blocking). Non-TTY pipelines already saw the
@@ -737,6 +811,9 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
         sys.stdout.write(f"  title     : {title}\n")
         sys.stdout.write(f"  plugin    : {plugin}\n")
         sys.stdout.write(f"  profile   : {profile or '(default)'}\n")
+        if custom_phase_chain:
+            sys.stdout.write(
+                f"  phase chain (custom): {' → '.join(custom_phase_chain)}\n")
         sys.stdout.write(f"  priority  : {priority}\n")
         if parent:
             sys.stdout.write(f"  parent    : {parent}\n")
@@ -852,6 +929,8 @@ def _task_new(ctx: CodenookContext, args: list[str]) -> int:
         state["execution_mode"] = exec_mode_val
     if profile:
         state["profile"] = profile
+    if custom_phase_chain:
+        state["custom_phase_chain"] = custom_phase_chain
     if task_input_set and task_input:
         state["task_input"] = task_input
 
@@ -1476,21 +1555,69 @@ def _task_new_interactive(ctx: CodenookContext, args: list[str]) -> int:
                 return _abort_eof()
 
         profiles = _load_plugin_profiles(ctx, plugin)
+        catalogue = _load_plugin_phase_catalogue(ctx, plugin)
         profile = ""
+        custom_chain: list[str] = []
         if profiles:
             default_profile = "default" if "default" in profiles else profiles[0]
+            choices_label = ", ".join(profiles)
+            if catalogue:
+                choices_label += ", custom"
             sys.stdout.write(
-                f"Profiles for '{plugin}': {', '.join(profiles)}\n")
+                f"Profiles for '{plugin}': {choices_label}\n")
+            if catalogue:
+                sys.stdout.write(
+                    "  (pick 'custom' to assemble your own ordered phase "
+                    "chain from the plugin's phase catalogue)\n")
             profile = _prompt("Profile", default=default_profile)
             if profile is _PROMPT_EOF:
                 return _abort_eof()
-            while profile not in profiles:
+            valid_picks = list(profiles) + (["custom"] if catalogue else [])
+            while profile not in valid_picks:
                 sys.stdout.write(
                     f"  ! '{profile}' is not a valid profile (valid: "
-                    f"{', '.join(profiles)})\n")
+                    f"{', '.join(valid_picks)})\n")
                 profile = _prompt("Profile", default=default_profile)
                 if profile is _PROMPT_EOF:
                     return _abort_eof()
+            if profile == "custom":
+                # Show the catalogue + a recommended starting point (the
+                # default profile's chain) so the user has a baseline to
+                # edit, not a blank page.
+                seed_chain = _load_plugin_phase_chain(
+                    ctx, plugin, default_profile) or list(catalogue)
+                sys.stdout.write("\nAvailable phases for '{}':\n".format(plugin))
+                for i, ph in enumerate(catalogue, 1):
+                    sys.stdout.write(f"  {i:2d}. {ph}\n")
+                sys.stdout.write(
+                    f"\nDefault chain ('{default_profile}'): "
+                    f"{', '.join(seed_chain)}\n")
+                sys.stdout.write(
+                    "Enter your custom chain as a comma-separated list of "
+                    "phase ids in execution order.\n")
+                while True:
+                    raw_chain = _prompt(
+                        "Custom phase chain", default=", ".join(seed_chain))
+                    if raw_chain is _PROMPT_EOF:
+                        return _abort_eof()
+                    parsed = _parse_phase_chain_arg(raw_chain)
+                    if not parsed:
+                        sys.stdout.write(
+                            "  ! chain cannot be empty.\n")
+                        continue
+                    unknown = [p for p in parsed if p not in catalogue]
+                    if unknown:
+                        sys.stdout.write(
+                            f"  ! unknown phase ids: {', '.join(unknown)}. "
+                            f"Pick from: {', '.join(catalogue)}\n")
+                        continue
+                    custom_chain = parsed
+                    break
+                # Profile becomes informational; transitions resolve
+                # via 'default' in orchestrator-tick when no profile-
+                # specific entry matches. Clear the field so we don't
+                # also persist a stale 'custom' string.
+                profile = ""
         else:
             sys.stdout.write(
                 f"(plugin '{plugin}' has no profiles block — skipping)\n")
@@ -1541,7 +1668,11 @@ def _task_new_interactive(ctx: CodenookContext, args: list[str]) -> int:
         # Summary
         sys.stdout.write("\nSummary:\n")
         sys.stdout.write(f"  plugin     : {plugin}\n")
-        sys.stdout.write(f"  profile    : {profile or '(default)'}\n")
+        if custom_chain:
+            sys.stdout.write(
+                f"  phase chain: custom — {' → '.join(custom_chain)}\n")
+        else:
+            sys.stdout.write(f"  profile    : {profile or '(default)'}\n")
         sys.stdout.write(f"  title      : {title}\n")
         sys.stdout.write(
             f"  input      : {(task_input[:60] + '...') if len(task_input) > 60 else (task_input or '(none)')}\n")
@@ -1573,12 +1704,15 @@ def _task_new_interactive(ctx: CodenookContext, args: list[str]) -> int:
         new_args += ["--exec", exec_mode]
     if target_dir_in:
         new_args += ["--target-dir", target_dir_in]
+    if custom_chain:
+        new_args += ["--phase-chain", ",".join(custom_chain)]
     # Forward any extra flags the caller already passed (e.g. --id) but
     # avoid re-injecting fields the wizard just collected.
     skip_next = False
     skip_keys = {
         "--title", "--plugin", "--profile", "--input", "--input-file",
         "--model", "--exec", "--accept-defaults", "--target-dir",
+        "--phase-chain",
     }
     for a in forwarded:
         if skip_next:

@@ -1,4 +1,36 @@
-## v0.29.15 — Auto-detect `target_dir` + wizard prompt + audit hardening
+## v0.29.16 — Custom phase composition (`--phase-chain` + wizard composer)
+
+### Added
+
+- **`task new --phase-chain "p1,p2,p3"`** — bypasses profile
+  resolution and runs the task through exactly the listed phase
+  ids (in order). Each id is validated against the chosen
+  plugin's `phases.yaml :: phases:` catalogue; unknown ids
+  abort `task new` with a clear error.
+- **Wizard custom-chain composer:** when the chosen plugin has
+  declared profiles AND a non-empty phase catalogue, the
+  profile picker now appends a `custom` choice. Picking it
+  lists the catalogue (with the default profile's chain shown
+  as a seed), then prompts for a comma-separated ordered
+  chain. The wizard validates and forwards the result as
+  `--phase-chain` into the inner `task new` invocation.
+- **Persistence:** a custom chain is stored as
+  `state.custom_phase_chain` (list[str]) and surfaced in the
+  task summary as `phase chain (custom): p1 → p2 → p3`.
+- **Orchestrator-tick honors it first.** `_resolve_profile()`
+  now checks `state['custom_phase_chain']` before any profile
+  lookup; when present and non-empty it returns
+  `(None, custom_chain)` so transitions resolution falls
+  through to the `default` table. No profile is cached, so a
+  later clarifier `task_type` does not retroactively override
+  the user's explicit composition.
+
+### Changed
+
+- **Wizard `skip_keys`:** `--phase-chain` added so a forwarded
+  flag no longer double-injects on the recursive call.
+
+
 
 ### Changed
 

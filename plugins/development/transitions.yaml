@@ -31,9 +31,13 @@ transitions:
       needs_revision: design
       blocked: design
     plan:
-      ok: implement
+      ok: dfmea
       needs_revision: plan
       blocked: plan
+    dfmea:
+      ok: implement
+      needs_revision: plan
+      blocked: dfmea
     implement:
       ok: build
       needs_revision: implement
@@ -78,9 +82,13 @@ transitions:
       needs_revision: design
       blocked: design
     plan:
-      ok: implement
+      ok: dfmea
       needs_revision: plan
       blocked: plan
+    dfmea:
+      ok: implement
+      needs_revision: plan
+      blocked: dfmea
     implement:
       ok: build
       needs_revision: implement
@@ -156,9 +164,13 @@ transitions:
       needs_revision: design
       blocked: design
     plan:
-      ok: implement
+      ok: dfmea
       needs_revision: plan
       blocked: plan
+    dfmea:
+      ok: implement
+      needs_revision: plan
+      blocked: dfmea
     implement:
       ok: build
       needs_revision: implement

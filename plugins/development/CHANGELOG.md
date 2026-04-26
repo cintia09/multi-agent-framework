@@ -1,5 +1,91 @@
 # development plugin — changelog
 
+## 0.5.0 — DFMEA phase between plan and implement
+
+New phase `dfmea` (id: `phase-3b-dfmea`) inserted between `plan`
+and `implement` for the `feature` and `refactor` profiles. The
+DFMEA Analyst stress-tests the planner's output by enumerating
+failure modes, scoring them on Severity / Occurrence / Detection
+(SOD + RPN per ISO 9001 / IATF 16949 convention), and recommending
+mitigations.
+
+Design choices:
+
+- **Interacts with plan, not design.** The plan in this plugin
+  is the *concrete implementation document* (per-module / per-
+  step). That's the most enumerable surface for failure modes —
+  design is too abstract to score S/O/D against. `verdict:
+  needs_revision` from the analyst loops back to `plan`, which
+  re-reads the analyst's "## Mitigations summary" on the next
+  iteration.
+- **No hard RPN threshold.** Intentionally NO `RPN >= 120 →
+  needs_revision` rule. The analyst judges holistically — a single
+  S=10/O=2/D=2 issue (RPN=40) about user-visible data loss
+  matters more than five RPN=200 noise items. Hard thresholds
+  produce ritualistic compliance, not real risk reduction.
+- **No new HITL gate model needed.** The existing HITL gate
+  pattern works fine: `dfmea_signoff` opens after the analyst
+  emits `verdict: ok`, and the human reviewer can override
+  (reject = back to plan, approve = proceed to implement).
+- **hotfix profile skipped.** Hotfixes go straight from clarify
+  to implement; there's no plan to analyse. test-only / docs /
+  review / design profiles also skip DFMEA — they don't exercise
+  the plan phase.
+
+Files added:
+
+- `roles/dfmea-analyst/{role.md,index.md}` — full role profile
+  including the SOD scoring rubric.
+- `manifest-templates/phase-3b-dfmea.md` — dispatch manifest
+  rendered into per-task prompts.
+- `phases.yaml` — new `dfmea` entry in the catalogue; `feature`
+  and `refactor` profiles updated.
+- `hitl-gates.yaml` — new `dfmea_signoff` gate.
+- `transitions.yaml` — `default` / `feature` / `refactor`
+  profiles: `plan ok → dfmea`, `dfmea ok → implement`,
+  `dfmea needs_revision → plan`, `dfmea blocked → dfmea`.
+
+No existing phase-output filename was renumbered (DFMEA's output
+uses the `3b` suffix — `outputs/phase-3b-dfmea.md` — to leave
+implement / build / review / etc. file numbering untouched).
+
+Bumps to 0.5.0.
+
+## 0.4.2 — port 3 generic skills from shell to Python
+
+The three v0.4.0 generic skills (`device-detect`, `test-runner`,
+`remote-watch`) were originally shipped as bash 3.2-compatible
+shell scripts. Re-implemented in Python 3 for: better error
+handling (no more parallel-arrays-as-dict for bash 3.2 macOS),
+proper JSON emission via `json.dumps`, less obscure shell
+quoting, and consistency with the rest of the dev plugin.
+
+Same CLI surface, same exit codes, same JSON shape — the calling
+roles only see the `.sh` → `.py` extension change. Behaviour
+preserved:
+
+- `detect.py` — buckets / primary / markers / memory_search_hint
+  identical; tier-4 generic-config sweep covers `*.cfg|*.toml|*.yaml`
+  excluding tier-1 names.
+- `runner.py` — tier-1 marker dispatch (pytest/npm/go), tier-2
+  `--config <python module>`, tier-3 `needs_user_config` (rc=3).
+  `PASS_CRITERION = "exit0"` or `"regex:<pattern>"` unchanged.
+- `watch.py` — tier-1 GitHub (`gh pr view`) + Gerrit (`ssh
+  gerrit query`), tier-2 `--config <python module>`, tier-3
+  `needs_user_config` (rc=3). Failed probes still report
+  `status=unknown` + rc=2.
+
+Threat-model wording in all 3 SKILL.md updated: `--config` is now
+loaded as a Python module via `runpy.run_path` (was: sourced as
+shell). Trust boundary is the same — the caller is responsible
+for only pointing at human-curated memory entries or fresh user-
+pasted snippets.
+
+Roles updated to use `python3 …/<name>.py …` instead of
+`bash …/<name>.sh …`: `test-planner`, `submitter`, `tester`.
+
+No phase-chain / signoff change. Bumps to 0.4.2.
+
 ## 0.4.1 — memory scan hardening across all 7 worker roles
 
 All 7 worker roles (planner, designer, implementer, tester,
