@@ -110,7 +110,7 @@ user's request is substantial; the user always confirms before
     files in place, preserves `tasks/` / `memory/` /
     `hitl-queue/` / `state.json`. Always prefer this over a
     re-install.
-  * Targeted edits inside `memory/{knowledge,skills}/<slug>/`
+  * Targeted edits inside `memory/{{knowledge,skills}}/<slug>/`
     when the user explicitly asks to modify a specific entry.
   Re-installing the kernel for any reason MUST go through
   `--upgrade`. If the user asks for a "fresh install", confirm

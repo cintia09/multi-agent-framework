@@ -1,3 +1,19 @@
+## v0.29.20 — Hotfix: escape brace literal in v0.29.19 bootloader rule
+
+### Fixed
+
+- `claude_md_sync.py:render_block` raised `KeyError` when
+  rendering the v0.29.19 destructive-ops rule because the
+  literal text `memory/{knowledge,skills}/<slug>/` was
+  interpreted as a `str.format` placeholder. Escaped to
+  `memory/{{knowledge,skills}}/<slug>/` so it renders as a
+  single brace pair in CLAUDE.md. Workspaces upgraded to
+  v0.29.19 should re-run `python3 install.py --upgrade` to
+  pick up the bootloader block (the v0.29.19 install silently
+  skipped CLAUDE.md sync because of this crash).
+
+---
+
 ## v0.29.19 — Bootloader guardrail against destructive .codenook ops
 
 ### Added

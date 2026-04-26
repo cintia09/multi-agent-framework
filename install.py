@@ -19,7 +19,7 @@ import os
 import sys
 from pathlib import Path
 
-VERSION = "0.29.19"
+VERSION = "0.29.20"
 
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
