@@ -21,6 +21,11 @@ Criteria:    {criteria_path}
 
 Mechanical compile + lint + smoke. Pure pass/fail.
 
+Boundary note: distinguish local/pre-submit smoke from real E2E. Real
+E2E means exercising a deployed/runtime endpoint or device against the
+submitted ref; it normally belongs to the later `test-plan` / `test`
+phases unless the build command genuinely performs it.
+
 ## Inputs you MUST read
 
 - `.codenook/tasks/{task_id}/state.json` — task metadata.

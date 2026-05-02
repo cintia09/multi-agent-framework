@@ -49,7 +49,7 @@ plugins/development/
 ├── roles/                 # 11 role profiles (clarifier..acceptor, dfmea-analyst)
 ├── manifest-templates/    # 12 phase-N-<role>.md dispatch templates
 ├── skills/test-runner/    # plugin-shipped pytest/npm/go wrapper
-├── validators/            # post-{implement,build,test}.py
+├── validators/            # post-{implement,build,submit,test-plan,test}.py
 ├── prompts/               # criteria-{implement,test,accept}.md
 ├── knowledge/             # pytest-conventions.md
 └── examples/              # seed.json fixtures
@@ -67,6 +67,21 @@ summary: <≤200 chars>
 ```
 
 `orchestrator-tick.read_verdict` reads only this; the body is for humans.
+
+## Submit → test E2E boundary
+
+For profiles with a `submit` phase, the submitter must record
+`submitted_ref` in its frontmatter. The downstream `test-plan` and
+`test` phases must target that exact ref.
+
+Local build/smoke/script syntax checks are not real E2E unless they
+exercise a deployed/runtime endpoint or device and prove that target is
+running the submitted ref. The plugin's post validators enforce this
+contract mechanically:
+
+- `post-submit.py` requires `submitted_ref` for real submissions.
+- `post-test-plan.py` requires environment + submitted-ref planning.
+- `post-test.py` requires submitted-ref-bound execution sections.
 
 ## Known gaps (M6 scope)
 

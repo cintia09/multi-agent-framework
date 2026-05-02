@@ -1,5 +1,32 @@
 # development plugin — changelog
 
+## 0.5.2 — Bind submit/test to submitted refs and harden E2E evidence
+
+Tightens the feature/hotfix/refactor testing boundary so `submit` means
+"the code is available at a testable ref" and the downstream
+`test-plan` / `test` phases verify that exact ref.
+
+Behaviour changes:
+
+- `submit` now has `post_validate: validators/post-submit.py`.
+  `verdict: ok` with a real submission must include `submitted_ref` and
+  `pr_url`.
+- `test-plan` now has `post_validate: validators/post-test-plan.py`.
+  Passing plans must include `case_count`, `runner`, `environment`,
+  `environment_source`, `submitted_ref`, plus `## Submitted Ref` and
+  `## Test Cases` sections.
+- `test` output now requires `submitted_ref` frontmatter and the core
+  report sections: `Submitted Ref`, `Test Inventory`, `Execution`,
+  `Failures`, `Coverage Gaps`, and `Environment Notes`.
+- Builder / submitter / tester prompts now explicitly distinguish local
+  build/smoke/script checks from real E2E. Real E2E requires exercising
+  a deployed/runtime endpoint or device and proving it is running the
+  submitted ref.
+
+Why: T-029 showed that local checks plus `node --check
+scripts/smoke-real.mjs` can be mistaken for real site validation. This
+release makes the submit → test handoff mechanically auditable.
+
 ## 0.5.1 — Doc sync: surface DFMEA in plugin.yaml + README
 
 The `dfmea` phase was added in v0.5.0 but the plugin's `summary`

@@ -19,7 +19,9 @@ Criteria:    {criteria_path}
 
 ## Your job (one line)
 
-Push the change for external review (Gerrit / GitHub PR) or mark as skipped.
+Push the change for external review (Gerrit / GitHub PR) or mark as
+skipped, and record the exact submitted ref that downstream E2E will
+test.
 
 ## Inputs you MUST read
 
@@ -45,6 +47,7 @@ verdict: ok                # or needs_revision / blocked
 summary: <≤200 chars>
 submission: gerrit|github|none
 pr_url: "<url or empty>"
+submitted_ref: "<commit SHA, branch ref, PR head SHA, Change-Id, or empty>"
 iteration: {iteration}
 ---
 ```
@@ -58,6 +61,10 @@ Unquoted colons are the most common cause of `yaml_parse_error` blocks.
 Failure routing (per design §3): `needs_revision` bounces to `review`
 (unique among phases — local review must reconsider before another
 submit attempt).
+
+Boundary note: `submit` establishes the ref under test. It does not mean
+real E2E passed; the next `test-plan` / `test` phases must verify the
+submitted ref in the selected environment.
 
 ## Knowledge / skills
 

@@ -76,11 +76,13 @@ phases:
   submit:
     role: submitter
     produces: outputs/phase-7-submitter.md
+    post_validate: validators/post-submit.py
     gate: submit_signoff
 
   test-plan:
     role: test-planner
     produces: outputs/phase-8-test-planner.md
+    post_validate: validators/post-test-plan.py
     gate: test_plan_signoff
 
   test:

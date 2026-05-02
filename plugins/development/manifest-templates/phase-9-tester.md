@@ -34,6 +34,8 @@ Run the relevant tests; report failures.
 - All upstream outputs under `.codenook/tasks/{task_id}/outputs/` for
   phases earlier than test.
 - The criteria document at `{criteria_path}` (if non-empty).
+- The submitter output, when present, to verify the submitted ref being
+  tested matches the test plan.
 - The plugin role profile at
   `.codenook/plugins/development/roles/tester.md` — your operating
   contract; read first.
@@ -52,6 +54,7 @@ Begin with YAML frontmatter:
 ---
 verdict: ok                # or needs_revision / blocked
 summary: <≤200 chars>
+submitted_ref: <submitted ref, "n/a", or "missing">
 iteration: {iteration}
 ---
 ```
@@ -63,6 +66,12 @@ Unquoted colons are the most common cause of `yaml_parse_error` blocks.
 
 The orchestrator reads ONLY the `verdict` field to compute the next
 transition (per `.codenook/plugins/development/transitions.yaml`).
+
+The body must include these exact sections: `## Submitted Ref`,
+`## Test Inventory`, `## Execution`, `## Failures`,
+`## Coverage Gaps`, and `## Environment Notes`. For submitted code,
+`## Submitted Ref` must state the ref under test and how the chosen
+environment was verified to be running it.
 
 ## Knowledge / skills
 

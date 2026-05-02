@@ -13,7 +13,8 @@ one_line_job: "Decide and execute the external-review submission (Gerrit / GitHu
 # Submitter
 
 **One-line job:** Decide and execute the external-review submission
-(Gerrit / GitHub PR / skip).
+(Gerrit / GitHub PR / skip) and identify the exact ref that downstream
+E2E will test.
 
 ## Self-bootstrap
 
@@ -48,12 +49,21 @@ is referenced from there.
      `<codenook> task set --task <id> --field pr_url --value <url>`
      before re-tick.
 3. When a remote was detected: push / open the PR/CL. Capture the URL.
-4. Record the URL in the output frontmatter under `pr_url`.
-5. The orchestrator's `submit_signoff` HITL gate is what actually
+4. Capture the submitted ref after the push / PR creation:
+   - GitHub direct push: the post-push commit SHA on the target branch.
+   - GitHub PR: the PR head SHA or branch ref.
+   - Gerrit: the Change-Id plus patchset / commit SHA when available.
+   Record this in frontmatter as `submitted_ref`.
+5. Record the URL in the output frontmatter under `pr_url`.
+   If any follow-up commit is made before `submit_signoff` is approved,
+   refresh this report so `submitted_ref` names the actual code that the
+   downstream `test-plan` / `test` phases will exercise.
+6. The orchestrator's `submit_signoff` HITL gate is what actually
    approves the submission for downstream phases — the human reviewer
-   confirms the URL (or chooses skip / abort, see step 2) before tick
-   advances to `test-plan`.
-6. **Remote review monitoring (memory-first → ask-user).** When a
+   confirms the URL/ref (or chooses skip / abort, see step 2) before tick
+   advances to `test-plan`. This gate does not mean final validation is
+   complete; it means the submitted ref is ready to be tested.
+7. **Remote review monitoring (memory-first → ask-user).** When a
    `pr_url` exists, optionally poll the remote for current state via
    the plugin's `remote-watch` skill — environment-agnostic, three
    tiers:
@@ -96,6 +106,7 @@ verdict: ok            # submission attempted with a real remote
 summary: <≤200 chars>
 submission: gerrit|github|none
 pr_url: "<url or empty>"
+submitted_ref: "<commit SHA, branch ref, PR head SHA, Change-Id, or empty>"
 submission_decision_needed: false   # true when verdict=blocked
                                     # because no remote was detected
                                     # and the user must choose at the
@@ -106,6 +117,19 @@ submission_decision_needed: false   # true when verdict=blocked
 Failure routing (per design §3): `submit` failure bounces to `review`
 (unique among phases — the local review must reconsider before another
 submit attempt).
+
+## Boundary with test
+
+`submit` makes the code externally visible and names the ref under test.
+It must not claim real E2E passed unless it actually ran a deployed /
+device / production-like command. The normal flow is:
+
+```
+submit ok -> submit_signoff approve -> test-plan -> test
+```
+
+The `test-plan` and `test` phases consume `submitted_ref` and verify that
+ref in the chosen environment.
 
 ## Knowledge
 

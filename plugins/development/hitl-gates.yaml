@@ -54,7 +54,9 @@ gates:
     required_reviewers: [human]
     description: >
       Confirm the build/lint/smoke passed and the cached build command
-      is still correct for the current change. Pure mechanical gate.
+      is still correct for the current change. Pure mechanical gate; it
+      is not a substitute for submitted-ref E2E unless the builder
+      explicitly ran a deployed/runtime E2E command.
 
   local_review_signoff:
     trigger: review
@@ -69,8 +71,10 @@ gates:
     required_reviewers: [human]
     description: >
       Confirm the external review submission decision (Gerrit / GitHub /
-      skip) and the recorded PR/CL link. External LGTM is out of
-      orchestrator scope; resume tick once it lands.
+      skip), the recorded PR/CL link, and the exact submitted ref that
+      downstream test-plan/test will exercise. External LGTM is out of
+      orchestrator scope; approving this gate means "ready to test the
+      submitted ref", not "final validation complete".
 
   test_plan_signoff:
     trigger: test-plan

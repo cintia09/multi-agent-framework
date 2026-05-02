@@ -26,7 +26,8 @@ Author (or validate) the test document — cases, fixtures, pass criteria.
 - `.codenook/tasks/{task_id}/state.json` — task metadata.
 - All upstream outputs under `.codenook/tasks/{task_id}/outputs/` for
   phases earlier than test-plan (clarifier criteria + any implementer
-  output when present).
+  output when present). If a submitter output exists, extract
+  `submitted_ref` and plan tests for that exact ref.
 - The plugin role profile at
   `.codenook/plugins/development/roles/test-planner.md` — your
   operating contract; read first.
@@ -47,6 +48,9 @@ verdict: ok                # or needs_revision / blocked
 summary: <≤200 chars>
 case_count: <int>
 runner: pytest|jest|go test|none
+environment: local-python|local-node|local-go|<recorded-name>|<user-answer>
+environment_source: <memory-entry-id-or-"user-asked">
+submitted_ref: <submitted ref, "n/a", or "missing">
 iteration: {iteration}
 ---
 ```
@@ -60,6 +64,11 @@ Unquoted colons are the most common cause of `yaml_parse_error` blocks.
 Failure routing (per design §3):
 * `test-only`: `needs_revision` self-loops on `test-plan`.
 * All other profiles: `needs_revision` bounces to `implement`.
+
+The body must include `## Submitted Ref` and make clear whether tests are
+local/pre-submit checks or real E2E against a deployed/runtime
+environment. Real E2E plans must say how the environment is verified to
+be running the submitted ref.
 
 ## Knowledge / skills
 

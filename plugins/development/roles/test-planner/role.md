@@ -79,13 +79,23 @@ is referenced from there.
       promote the answer to a memory entry under
       `.codenook/memory/knowledge/test-environment-<slug>/index.md`
       so the next task in this workspace can skip the ask.
-3. Read clarifier criteria + (when present) the implementer output to
-   identify the surface that needs coverage.
-4. List concrete test cases. Each case must specify:
-   * id (TC-N), name, fixture path (or "n/a"), pass criteria.
-5. Note any fixtures or seed data the tester must set up.
-6. Specify the smallest command line that exercises the planned
-   cases under the chosen runner / environment.
+3. Read upstream submission context:
+   - If `outputs/phase-7-submitter.md` exists, extract `submitted_ref`
+     and `pr_url`; the plan must target that exact ref.
+   - If the active profile has no submit phase, record
+     `submitted_ref: n/a`.
+   - If a submit phase exists but the submitter report is missing a ref,
+     emit `verdict: blocked` or `needs_revision` rather than inventing a
+     test target.
+4. Read clarifier criteria + (when present) the implementer output to
+    identify the surface that needs coverage.
+5. List concrete test cases. Each case must specify:
+    * id (TC-N), name, fixture path (or "n/a"), pass criteria.
+6. Note any fixtures or seed data the tester must set up.
+7. Specify the smallest command line that exercises the planned
+    cases under the chosen runner / environment.
+   For real E2E / deployment tests, the command or precondition must
+   state how the environment is verified to be running `submitted_ref`.
 
 ## Output contract
 
@@ -104,8 +114,12 @@ case_count: <int>
 runner: pytest|jest|go test|none|<custom>
 environment: local-python|local-node|local-go|<recorded-name>|<user-answer>
 environment_source: <memory-entry-id-or-"user-asked">
+submitted_ref: <submitted ref, "n/a", or "missing">
 ---
 ```
+
+The body MUST include a `## Submitted Ref` section naming the ref under
+test and a `## Test Cases` section mapping cases to acceptance criteria.
 
 Failure routing (per design §3):
 * `test-only`: `needs_revision` self-loops on `test-plan`.

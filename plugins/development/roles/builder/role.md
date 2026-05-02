@@ -47,8 +47,16 @@ is referenced from there.
    Then re-read the file and proceed.
 3. Run the build command from `cwd` (defaults to workspace root).
 4. If a `lint.command` is configured, run it after build succeeds.
-5. Capture the raw stdout+stderr (truncate to ≤200 lines per stream)
-   and write a structured summary in the body.
+5. Classify the validation boundary explicitly:
+   - `local build/test` — compile, unit tests, lint, local smoke, script
+     syntax checks, or any command that does not hit a deployed artifact.
+   - `real E2E` — a command that exercises a deployed/runtime endpoint or
+     device, using the submitted ref or an explicitly named deployment ref.
+   Do **not** describe `node --check`, dry-runs, local unit tests, or
+   pre-submit smoke as "real E2E". If real E2E was not run, say so plainly
+   and point to the downstream `test-plan` / `test` phases.
+6. Capture the raw stdout+stderr (truncate to ≤200 lines per stream)
+    and write a structured summary in the body.
 
 ## Output contract
 
@@ -70,6 +78,11 @@ exit_code: 0
 Followed by the body. The orchestrator reads only the frontmatter
 verdict to decide the next transition; the body is for humans (and the
 distiller).
+
+Include a `## Validation Boundary` section in the body that lists what
+was proven locally and whether any real E2E was run. A green build does
+not imply production/site/device E2E unless the executed command
+actually exercised that environment.
 
 Failure routing (per design §3): `needs_revision` bounces to the
 implementer in every profile that has one (feature/hotfix/refactor); in

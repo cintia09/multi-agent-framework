@@ -29,17 +29,24 @@ is referenced from there.
 ## Steps
 
 1. Read the test-plan output (`outputs/phase-8-test-planner.md`) for
-   the case list, runner, and pass criteria.
-2. Read the implementer's `Files changed:` list (when present —
-   absent in the `test-only` profile).
-3. Detect the test runner via
-   `.codenook/plugins/development/skills/test-runner/runner.py`.
-4. Run the smallest test set that exercises the planned cases; do not
-   run the whole repo unless the plan explicitly requires it.
-5. On `verdict: needs_revision` (== v5 has_failures): include the first
-   failing test name + ≤10 lines of trace.
-6. On environment failure (missing toolchain, network) emit
-   `verdict: blocked`.
+    the case list, runner, and pass criteria.
+2. Read the submitter output (`outputs/phase-7-submitter.md`) when it
+   exists. Verify that the test plan's `submitted_ref` matches the
+   submitter's `submitted_ref`; if it does not, emit `verdict: blocked`
+   rather than testing the wrong code.
+3. Read the implementer's `Files changed:` list (when present —
+    absent in the `test-only` profile).
+4. Detect the test runner via
+    `.codenook/plugins/development/skills/test-runner/runner.py`.
+5. Run the smallest test set that exercises the planned cases; do not
+    run the whole repo unless the plan explicitly requires it.
+   Do not replace a planned real E2E command with local/unit tests.
+   If the environment cannot be shown to run the submitted ref, mark the
+   relevant case skipped/blocked and emit `verdict: blocked`.
+6. On `verdict: needs_revision` (== v5 has_failures): include the first
+    failing test name + ≤10 lines of trace.
+7. On environment failure (missing toolchain, network) emit
+    `verdict: blocked`.
 
 Failure routing (per design §3):
 * `test-only`: `needs_revision` bounces to `test-plan` (no implementer).
@@ -55,12 +62,25 @@ YAML frontmatter:
 ---
 verdict: ok            # or needs_revision / blocked
 summary: <≤200 chars>
+submitted_ref: <submitted ref, "n/a", or "missing">
 ---
 ```
 
 Followed by the body. The orchestrator reads only the frontmatter
 verdict to decide the next transition; the body is for humans (and the
 distiller).
+
+The body MUST include these exact sections:
+
+- `## Submitted Ref`
+- `## Test Inventory`
+- `## Execution`
+- `## Failures`
+- `## Coverage Gaps`
+- `## Environment Notes`
+
+`## Submitted Ref` must state the ref under test and how it was verified
+for the chosen environment (or `n/a` for profiles without a submit phase).
 
 ## Knowledge consultation (MANDATORY before answering)
 

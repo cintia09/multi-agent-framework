@@ -9,6 +9,10 @@ A test-phase output passes when **all** of:
 - [ ] Has a **Failures** section (may be empty only if zero failures)
 - [ ] Has a **Coverage Gaps** section (may be empty only if zero gaps)
 - [ ] Has an **Environment Notes** section
+- [ ] Has a **Submitted Ref** section naming the ref under test (or `n/a`
+      for profiles without a submit phase)
+- [ ] Frontmatter includes `submitted_ref` and it matches the submitter
+      output when a submit phase exists
 
 ## Content Quality
 
@@ -17,6 +21,8 @@ A test-phase output passes when **all** of:
 - [ ] Every skipped/blocked test has a reason
 - [ ] Environment Notes lists concrete tool versions (not "latest")
 - [ ] Coverage ratio in summary matches the inventory table
+- [ ] For submitted code, the tested environment is shown to be running
+      the submitted ref; otherwise affected tests are blocked/skipped
 
 ## Verdict Gate
 
@@ -31,3 +37,5 @@ A test-phase output passes when **all** of:
 - ❌ Listed a test but did not run it (and did not mark skipped with reason)
 - ❌ Coverage Gaps empty while Test Inventory shows "not-covered" rows
 - ❌ Introduced new features while "testing" (scope creep — stop and return `has_failures`)
+- ❌ Tested a different commit/ref than the submitter output without
+     marking the test blocked and explaining the mismatch
