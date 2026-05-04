@@ -1,0 +1,44 @@
+# plugins/issuenook/transitions.yaml -- verdict-driven routing
+
+transitions:
+  default:
+    info_collect: { ok: log_analyse, needs_revision: info_collect, blocked: info_collect }
+    log_analyse: { ok: code_analyse, needs_revision: log_analyse, blocked: log_analyse }
+    code_analyse: { ok: hypothesise, needs_revision: code_analyse, blocked: code_analyse }
+    hypothesise: { ok: verify_hypothesis, needs_revision: hypothesise, blocked: hypothesise }
+    verify_hypothesis: { ok: conclude, needs_revision: hypothesise, blocked: verify_hypothesis }
+    conclude: { ok: complete, needs_revision: verify_hypothesis, blocked: conclude }
+
+  full:
+    info_collect: { ok: log_analyse, needs_revision: info_collect, blocked: info_collect }
+    log_analyse: { ok: code_analyse, needs_revision: log_analyse, blocked: log_analyse }
+    code_analyse: { ok: hypothesise, needs_revision: code_analyse, blocked: code_analyse }
+    hypothesise: { ok: verify_hypothesis, needs_revision: hypothesise, blocked: hypothesise }
+    verify_hypothesis: { ok: conclude, needs_revision: hypothesise, blocked: verify_hypothesis }
+    conclude: { ok: complete, needs_revision: verify_hypothesis, blocked: conclude }
+
+  log-only:
+    info_collect: { ok: log_analyse, needs_revision: info_collect, blocked: info_collect }
+    log_analyse: { ok: hypothesise, needs_revision: log_analyse, blocked: log_analyse }
+    hypothesise: { ok: verify_hypothesis, needs_revision: hypothesise, blocked: hypothesise }
+    verify_hypothesis: { ok: conclude, needs_revision: hypothesise, blocked: verify_hypothesis }
+    conclude: { ok: complete, needs_revision: verify_hypothesis, blocked: conclude }
+
+  code-only:
+    info_collect: { ok: code_analyse, needs_revision: info_collect, blocked: info_collect }
+    code_analyse: { ok: hypothesise, needs_revision: code_analyse, blocked: code_analyse }
+    hypothesise: { ok: verify_hypothesis, needs_revision: hypothesise, blocked: hypothesise }
+    verify_hypothesis: { ok: conclude, needs_revision: hypothesise, blocked: verify_hypothesis }
+    conclude: { ok: complete, needs_revision: verify_hypothesis, blocked: conclude }
+
+  analyse-only:
+    info_collect: { ok: log_analyse, needs_revision: info_collect, blocked: info_collect }
+    log_analyse: { ok: code_analyse, needs_revision: log_analyse, blocked: log_analyse }
+    code_analyse: { ok: conclude, needs_revision: code_analyse, blocked: code_analyse }
+    conclude: { ok: complete, needs_revision: code_analyse, blocked: conclude }
+
+  hypothesis-only:
+    info_collect: { ok: hypothesise, needs_revision: info_collect, blocked: info_collect }
+    hypothesise: { ok: verify_hypothesis, needs_revision: hypothesise, blocked: hypothesise }
+    verify_hypothesis: { ok: conclude, needs_revision: hypothesise, blocked: verify_hypothesis }
+    conclude: { ok: complete, needs_revision: verify_hypothesis, blocked: conclude }

@@ -1,0 +1,14 @@
+{
+  "input": "Investigate runtime issue ISSUE-1234 — service times out after upgrade.",
+  "issue_id": "ISSUE-1234",
+  "info_collection_scope": "Collect symptom, environment, version, impact, known facts, and exclusions.",
+  "log_locations": ["target/issuenook-example/logs/service.log"],
+  "log_analysis_focus": "Open-ended anomaly scan around timeout timestamps; do not assume root cause.",
+  "code_paths": ["target/issuenook-example/src/service"],
+  "code_analysis_focus": "Review timeout handling, retry logic, concurrency, and configuration loading.",
+  "target_dir": "target/issuenook-example",
+  "profile": "full",
+  "dual_mode": "serial",
+  "max_iterations": 3,
+  "expected_verdicts": ["ok", "ok", "ok", "ok", "ok", "ok"]
+}

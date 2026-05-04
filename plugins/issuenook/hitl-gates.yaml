@@ -1,0 +1,42 @@
+# plugins/issuenook/hitl-gates.yaml -- one gate per phase
+
+gates:
+  info_collect_signoff:
+    trigger: info_collect
+    required_reviewers: [human]
+    description: >
+      审批信息收集结果：用户希望收集的信息、问题背景、现象、环境、影响范围和调查目标是否准确。
+
+  log_analyse_signoff:
+    trigger: log_analyse
+    required_reviewers: [human]
+    description: >
+      审批日志分析结果：日志范围、分析侧重点、异常信号、时间序列和开放式观察是否完整可信。
+
+  code_analyse_signoff:
+    trigger: code_analyse
+    required_reviewers: [human]
+    description: >
+      审批代码分析结果：代码路径、分析侧重点、review 观察、可疑实现路径和风险点是否合理。
+
+  hypothesis_signoff:
+    trigger: hypothesise
+    required_reviewers: [human]
+    description: >
+      审批根因假设。人类可以修改、删除、合并或选择假设。
+      推荐评论格式：
+        SELECTED: H1, H3
+        EDITS: <对假设的修改意见>
+        NOTES: <可选补充>
+
+  hypothesis_verification_signoff:
+    trigger: verify_hypothesis
+    required_reviewers: [human]
+    description: >
+      审批根因假设验证分析：推理链、日志证据、代码证据、memory 依据、反证检查和置信度是否可信。
+
+  conclusion_signoff:
+    trigger: conclude
+    required_reviewers: [human]
+    description: >
+      审批最终结论：根因、证据摘要、置信度、残余未知、修复/缓解建议和后续验证项是否可接受。

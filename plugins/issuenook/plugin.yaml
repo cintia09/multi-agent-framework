@@ -1,0 +1,108 @@
+# plugins/issuenook/plugin.yaml -- Issuenook v0.1.0
+#
+# Composable software runtime issue investigation plugin. Replaces the
+# former PR-focused prnook surface; no backward compatibility is promised.
+
+id: issuenook
+version: "0.1.0"
+type: domain
+default_model: tier_standard
+entry_points:
+  install: phases.yaml
+declared_subsystems:
+  - domain/issue-investigation
+requires:
+  core_version: ">=0.5.0-m5,<1.0.0"
+
+name: issuenook
+applies_to: [issue-investigation, debugging, troubleshooting, root-cause, runtime-analysis]
+summary: >
+  Issuenook is a composable, HITL-gated software runtime issue
+  investigation workflow. It can run information collection, open-ended
+  log analysis, open-ended code analysis, root-cause hypothesis generation,
+  hypothesis verification, and conclusion reporting as separate or combined
+  phases.
+examples:
+  - "调查线上服务 CPU 飙高的根因"
+  - "分析某个版本运行日志中的异常"
+  - "Review this code path and infer possible runtime failure causes"
+  - "根据日志和代码验证 H1/H2 根因假设"
+anti_examples:
+  - "Implement a new feature"
+  - "Write a blog post"
+
+supports_dual_mode: true
+supports_fanout: false
+supports_concurrency: false
+
+data_layout: external
+data_glob:
+  - ".codenook/plugins/issuenook/**"
+data_excludes:
+  - ".codenook/**"
+  - ".git/**"
+  - "__pycache__/**"
+
+config:
+  schema: config-schema.yaml
+  defaults: config-defaults.yaml
+
+routing:
+  priority: 75
+  keywords:
+    - issue调查
+    - 问题调查
+    - 故障调查
+    - 故障排查
+    - 根因分析
+    - 日志分析
+    - 代码分析
+    - 运行问题
+    - runtime issue
+    - incident investigation
+    - root cause
+    - troubleshooting
+
+match:
+  use-cases:
+    - "investigate a runtime issue with logs, code, hypotheses, and HITL gates"
+    - "analyse logs or source code before forming root-cause hypotheses"
+    - "compose issue-investigation phases into log-only, code-only, or full workflows"
+  keywords:
+    - issuenook
+    - issue
+    - incident
+    - troubleshooting
+    - root cause
+    - logs
+    - code analysis
+    - hypothesis
+    - HITL
+  examples:
+    - "用 issuenook 调查这次服务异常"
+    - "run a log-only issue investigation"
+    - "verify these root-cause hypotheses against logs and code"
+
+knowledge:
+  produces:
+    default_target: plugin_local
+    promote_to_workspace_when:
+      - "topic in [investigation, cases, diagnostics]"
+  consumes: [workspace, plugin_shipped, plugin_local]
+
+skills:
+  produces:
+    default_target: plugin_local
+  consumes: [workspace.builtin, workspace.custom, plugin_shipped, plugin_local]
+
+available_skills:
+  - name: module-analysis
+    use_case: "abstract template for authoring module/component analysis skills used by issuenook code-analysis and hypothesis-verification phases"
+
+deployment_supplied_skills:
+  - name: issue-context-access
+    use_case: "fetch issue/ticket/incident records from the deployment's tracker; workspace-supplied via memory/skills"
+  - name: runtime-log-access
+    use_case: "fetch or index runtime logs from the deployment's log system; workspace-supplied via memory/skills"
+  - name: source-code-access
+    use_case: "resolve source repositories, branches, commits, and local checkouts; workspace-supplied via memory/skills"

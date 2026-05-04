@@ -1,0 +1,47 @@
+# plugins/researchnook/entry-questions.yaml
+#
+# Keep task-level fields minimal so light profiles remain usable. Each
+# role performs its own "阶段输入检查" and asks focused follow-up
+# questions when needed.
+
+brief:
+  required:
+    - research_topic
+    - report_audience
+    - report_goal
+
+framework_select:
+  required: []
+
+scope:
+  required: []
+
+source_plan:
+  required: []
+
+data_collect:
+  required: []
+
+data_assess:
+  required: []
+
+analysis:
+  required: []
+
+causal_probe:
+  required: []
+
+scenario_forecast:
+  required: []
+
+synthesis:
+  required: []
+
+draft_report:
+  required: []
+
+review:
+  required: []
+
+revise_publish:
+  required: []

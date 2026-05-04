@@ -1,0 +1,47 @@
+# plugins/issuenook/config-schema.yaml
+
+fields:
+  models:
+    type: object
+    required: true
+    fields:
+      info-collector:      { type: string, min_length: 1 }
+      log-analyst:         { type: string, min_length: 1 }
+      code-analyst:        { type: string, min_length: 1 }
+      hypothesizer:        { type: string, min_length: 1 }
+      hypothesis-verifier: { type: string, min_length: 1 }
+      concluder:           { type: string, min_length: 1 }
+      default:             { type: string, min_length: 1 }
+
+  hitl:
+    type: object
+    fields:
+      mode:
+        type: string
+        enum: [auto, confirm, ask]
+      gates:
+        type: array
+
+  concurrency:
+    type: object
+    fields:
+      max_parallel:
+        type: integer
+        min: 1
+
+  knowledge:
+    type: object
+    fields:
+      consumes: { type: array }
+
+  skills:
+    type: object
+    fields:
+      consumes: { type: array }
+
+  investigation_sources:
+    type: object
+    fields:
+      issue_tracker_base_url: { type: string, min_length: 1 }
+      log_capture_base_url:   { type: string, min_length: 1 }
+      source_repo_base_url:   { type: string, min_length: 1 }

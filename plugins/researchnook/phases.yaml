@@ -1,0 +1,89 @@
+# plugins/researchnook/phases.yaml -- composable research report phases
+
+phases:
+  brief:
+    role: brief-collector
+    produces: outputs/phase-brief.md
+    gate: brief_signoff
+
+  framework_select:
+    role: framework-selector
+    produces: outputs/phase-framework-select.md
+    gate: framework_signoff
+
+  scope:
+    role: scope-designer
+    produces: outputs/phase-scope.md
+    gate: scope_signoff
+
+  source_plan:
+    role: source-planner
+    produces: outputs/phase-source-plan.md
+    gate: source_plan_signoff
+
+  data_collect:
+    role: data-collector
+    produces: outputs/phase-data-collect.md
+    gate: data_collect_signoff
+
+  data_assess:
+    role: evidence-assessor
+    produces: outputs/phase-data-assess.md
+    gate: data_assess_signoff
+
+  analysis:
+    role: analyst
+    produces: outputs/phase-analysis.md
+    gate: analysis_signoff
+
+  causal_probe:
+    role: causal-analyst
+    produces: outputs/phase-causal-probe.md
+    gate: causal_probe_signoff
+    supports_iteration: true
+
+  scenario_forecast:
+    role: scenario-forecaster
+    produces: outputs/phase-scenario-forecast.md
+    gate: scenario_forecast_signoff
+    supports_iteration: true
+
+  synthesis:
+    role: synthesizer
+    produces: outputs/phase-synthesis.md
+    gate: synthesis_signoff
+
+  draft_report:
+    role: report-drafter
+    produces: outputs/phase-draft-report.md
+    gate: draft_report_signoff
+
+  review:
+    role: report-reviewer
+    produces: outputs/phase-report-review.md
+    gate: report_review_signoff
+    supports_iteration: true
+
+  revise_publish:
+    role: publisher
+    produces: outputs/phase-revise-publish.md
+    gate: publish_signoff
+    supports_iteration: true
+
+profiles:
+  default:
+    phases: [brief, framework_select, scope, source_plan, data_collect, data_assess, analysis, synthesis, draft_report, review, revise_publish]
+  full:
+    phases: [brief, framework_select, scope, source_plan, data_collect, data_assess, analysis, causal_probe, scenario_forecast, synthesis, draft_report, review, revise_publish]
+  forecast:
+    phases: [brief, framework_select, scope, source_plan, data_collect, data_assess, analysis, scenario_forecast, synthesis, draft_report, review, revise_publish]
+  causal-analysis:
+    phases: [brief, framework_select, scope, source_plan, data_collect, data_assess, analysis, causal_probe, synthesis, draft_report, review, revise_publish]
+  market-research:
+    phases: [brief, framework_select, scope, source_plan, data_collect, data_assess, analysis, synthesis, draft_report, review, revise_publish]
+  decision-brief:
+    phases: [brief, framework_select, scope, data_assess, analysis, synthesis, draft_report, review, revise_publish]
+  report-only:
+    phases: [brief, framework_select, data_assess, synthesis, draft_report, review, revise_publish]
+  review-only:
+    phases: [brief, review, revise_publish]

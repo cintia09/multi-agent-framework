@@ -1,0 +1,48 @@
+{
+  "input": "研究未来 3 年某城市房价走势，面向自住购房者，输出中文决策简报和完整研究报告。",
+  "research_topic": "未来 3 年某城市房价走势",
+  "report_audience": "计划自住购房的普通家庭",
+  "report_goal": "帮助读者理解主要驱动因素、情景、风险和需要继续观察的指标；不提供购房建议保证。",
+  "output_language": "zh-CN",
+  "output_type": ["decision-brief", "full-report"],
+  "time_horizon": "3 years",
+  "geography": "replace-with-city-or-region",
+  "preferred_frameworks": ["OSTIN", "PESTLE", "scenario forecasting"],
+  "optional_frameworks": ["SWOT"],
+  "excluded_frameworks": ["5 Why unless a specific causal question is added"],
+  "source_constraints": {
+    "real_web_scraping": false,
+    "paid_data_access": false,
+    "requires_user_supplied_sources": true
+  },
+  "candidate_sources": [
+    "local statistical bureau housing indicators",
+    "central bank mortgage policy summaries",
+    "public land supply and transaction reports",
+    "population and income trend data",
+    "user-provided market notes"
+  ],
+  "required_caveats": [
+    "not investment or purchase advice",
+    "scenario analysis only",
+    "confidence depends on source quality and time horizon"
+  ],
+  "target_dir": "target/researchnook-example",
+  "profile": "forecast",
+  "dual_mode": "serial",
+  "max_iterations": 3,
+  "expected_verdicts": [
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+  ]
+}

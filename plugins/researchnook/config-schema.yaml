@@ -1,0 +1,55 @@
+# plugins/researchnook/config-schema.yaml
+
+fields:
+  models:
+    type: object
+    required: true
+    fields:
+      brief-collector:     { type: string, min_length: 1 }
+      framework-selector:  { type: string, min_length: 1 }
+      scope-designer:      { type: string, min_length: 1 }
+      source-planner:      { type: string, min_length: 1 }
+      data-collector:      { type: string, min_length: 1 }
+      evidence-assessor:   { type: string, min_length: 1 }
+      analyst:             { type: string, min_length: 1 }
+      causal-analyst:      { type: string, min_length: 1 }
+      scenario-forecaster: { type: string, min_length: 1 }
+      synthesizer:         { type: string, min_length: 1 }
+      report-drafter:      { type: string, min_length: 1 }
+      report-reviewer:     { type: string, min_length: 1 }
+      publisher:           { type: string, min_length: 1 }
+      default:             { type: string, min_length: 1 }
+
+  hitl:
+    type: object
+    fields:
+      mode:
+        type: string
+        enum: [auto, confirm, ask]
+      gates:
+        type: array
+
+  concurrency:
+    type: object
+    fields:
+      max_parallel:
+        type: integer
+        min: 1
+
+  knowledge:
+    type: object
+    fields:
+      consumes: { type: array }
+
+  skills:
+    type: object
+    fields:
+      consumes: { type: array }
+
+  research_defaults:
+    type: object
+    fields:
+      output_language: { type: string, min_length: 1 }
+      evidence_labels: { type: array }
+      forecast_scenarios: { type: array }
+      required_caveats: { type: array }

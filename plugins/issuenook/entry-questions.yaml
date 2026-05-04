@@ -1,0 +1,27 @@
+# plugins/issuenook/entry-questions.yaml
+#
+# Minimal phase-entry fields. Roles still perform their own "阶段输入检查"
+# and must ask clear Chinese follow-up questions when information is absent.
+
+info_collect:
+  required:
+    - info_collection_scope
+
+log_analyse:
+  required:
+    - log_locations
+    - log_analysis_focus
+
+code_analyse:
+  required:
+    - code_paths
+    - code_analysis_focus
+
+hypothesise:
+  required: []
+
+verify_hypothesis:
+  required: []
+
+conclude:
+  required: []

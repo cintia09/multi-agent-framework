@@ -1,0 +1,96 @@
+# plugins/researchnook/transitions.yaml -- verdict-driven routing
+
+transitions:
+  default:
+    brief: { ok: framework_select, needs_revision: brief, blocked: brief }
+    framework_select: { ok: scope, needs_revision: framework_select, blocked: framework_select }
+    scope: { ok: source_plan, needs_revision: scope, blocked: scope }
+    source_plan: { ok: data_collect, needs_revision: source_plan, blocked: source_plan }
+    data_collect: { ok: data_assess, needs_revision: data_collect, blocked: data_collect }
+    data_assess: { ok: analysis, needs_revision: data_assess, blocked: data_assess }
+    analysis: { ok: synthesis, needs_revision: analysis, blocked: analysis }
+    synthesis: { ok: draft_report, needs_revision: synthesis, blocked: synthesis }
+    draft_report: { ok: review, needs_revision: draft_report, blocked: draft_report }
+    review: { ok: revise_publish, needs_revision: draft_report, blocked: review }
+    revise_publish: { ok: complete, needs_revision: review, blocked: revise_publish }
+
+  full:
+    brief: { ok: framework_select, needs_revision: brief, blocked: brief }
+    framework_select: { ok: scope, needs_revision: framework_select, blocked: framework_select }
+    scope: { ok: source_plan, needs_revision: scope, blocked: scope }
+    source_plan: { ok: data_collect, needs_revision: source_plan, blocked: source_plan }
+    data_collect: { ok: data_assess, needs_revision: data_collect, blocked: data_collect }
+    data_assess: { ok: analysis, needs_revision: data_assess, blocked: data_assess }
+    analysis: { ok: causal_probe, needs_revision: analysis, blocked: analysis }
+    causal_probe: { ok: scenario_forecast, needs_revision: causal_probe, blocked: causal_probe }
+    scenario_forecast: { ok: synthesis, needs_revision: scenario_forecast, blocked: scenario_forecast }
+    synthesis: { ok: draft_report, needs_revision: synthesis, blocked: synthesis }
+    draft_report: { ok: review, needs_revision: draft_report, blocked: draft_report }
+    review: { ok: revise_publish, needs_revision: draft_report, blocked: review }
+    revise_publish: { ok: complete, needs_revision: review, blocked: revise_publish }
+
+  forecast:
+    brief: { ok: framework_select, needs_revision: brief, blocked: brief }
+    framework_select: { ok: scope, needs_revision: framework_select, blocked: framework_select }
+    scope: { ok: source_plan, needs_revision: scope, blocked: scope }
+    source_plan: { ok: data_collect, needs_revision: source_plan, blocked: source_plan }
+    data_collect: { ok: data_assess, needs_revision: data_collect, blocked: data_collect }
+    data_assess: { ok: analysis, needs_revision: data_assess, blocked: data_assess }
+    analysis: { ok: scenario_forecast, needs_revision: analysis, blocked: analysis }
+    scenario_forecast: { ok: synthesis, needs_revision: scenario_forecast, blocked: scenario_forecast }
+    synthesis: { ok: draft_report, needs_revision: synthesis, blocked: synthesis }
+    draft_report: { ok: review, needs_revision: draft_report, blocked: draft_report }
+    review: { ok: revise_publish, needs_revision: draft_report, blocked: review }
+    revise_publish: { ok: complete, needs_revision: review, blocked: revise_publish }
+
+  causal-analysis:
+    brief: { ok: framework_select, needs_revision: brief, blocked: brief }
+    framework_select: { ok: scope, needs_revision: framework_select, blocked: framework_select }
+    scope: { ok: source_plan, needs_revision: scope, blocked: scope }
+    source_plan: { ok: data_collect, needs_revision: source_plan, blocked: source_plan }
+    data_collect: { ok: data_assess, needs_revision: data_collect, blocked: data_collect }
+    data_assess: { ok: analysis, needs_revision: data_assess, blocked: data_assess }
+    analysis: { ok: causal_probe, needs_revision: analysis, blocked: analysis }
+    causal_probe: { ok: synthesis, needs_revision: causal_probe, blocked: causal_probe }
+    synthesis: { ok: draft_report, needs_revision: synthesis, blocked: synthesis }
+    draft_report: { ok: review, needs_revision: draft_report, blocked: draft_report }
+    review: { ok: revise_publish, needs_revision: draft_report, blocked: review }
+    revise_publish: { ok: complete, needs_revision: review, blocked: revise_publish }
+
+  market-research:
+    brief: { ok: framework_select, needs_revision: brief, blocked: brief }
+    framework_select: { ok: scope, needs_revision: framework_select, blocked: framework_select }
+    scope: { ok: source_plan, needs_revision: scope, blocked: scope }
+    source_plan: { ok: data_collect, needs_revision: source_plan, blocked: source_plan }
+    data_collect: { ok: data_assess, needs_revision: data_collect, blocked: data_collect }
+    data_assess: { ok: analysis, needs_revision: data_assess, blocked: data_assess }
+    analysis: { ok: synthesis, needs_revision: analysis, blocked: analysis }
+    synthesis: { ok: draft_report, needs_revision: synthesis, blocked: synthesis }
+    draft_report: { ok: review, needs_revision: draft_report, blocked: draft_report }
+    review: { ok: revise_publish, needs_revision: draft_report, blocked: review }
+    revise_publish: { ok: complete, needs_revision: review, blocked: revise_publish }
+
+  decision-brief:
+    brief: { ok: framework_select, needs_revision: brief, blocked: brief }
+    framework_select: { ok: scope, needs_revision: framework_select, blocked: framework_select }
+    scope: { ok: data_assess, needs_revision: scope, blocked: scope }
+    data_assess: { ok: analysis, needs_revision: data_assess, blocked: data_assess }
+    analysis: { ok: synthesis, needs_revision: analysis, blocked: analysis }
+    synthesis: { ok: draft_report, needs_revision: synthesis, blocked: synthesis }
+    draft_report: { ok: review, needs_revision: draft_report, blocked: draft_report }
+    review: { ok: revise_publish, needs_revision: draft_report, blocked: review }
+    revise_publish: { ok: complete, needs_revision: review, blocked: revise_publish }
+
+  report-only:
+    brief: { ok: framework_select, needs_revision: brief, blocked: brief }
+    framework_select: { ok: data_assess, needs_revision: framework_select, blocked: framework_select }
+    data_assess: { ok: synthesis, needs_revision: data_assess, blocked: data_assess }
+    synthesis: { ok: draft_report, needs_revision: synthesis, blocked: synthesis }
+    draft_report: { ok: review, needs_revision: draft_report, blocked: draft_report }
+    review: { ok: revise_publish, needs_revision: draft_report, blocked: review }
+    revise_publish: { ok: complete, needs_revision: review, blocked: revise_publish }
+
+  review-only:
+    brief: { ok: review, needs_revision: brief, blocked: brief }
+    review: { ok: revise_publish, needs_revision: review, blocked: review }
+    revise_publish: { ok: complete, needs_revision: review, blocked: revise_publish }

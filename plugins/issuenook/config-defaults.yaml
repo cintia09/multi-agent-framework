@@ -1,0 +1,29 @@
+# plugins/issuenook/config-defaults.yaml
+
+models:
+  info-collector:      tier_balanced
+  log-analyst:         tier_balanced
+  code-analyst:        tier_strong
+  hypothesizer:        tier_strong
+  hypothesis-verifier: tier_strong
+  concluder:           tier_balanced
+  default:             tier_strong
+
+hitl:
+  mode: confirm
+  gates:
+    - info_collect_signoff
+    - log_analyse_signoff
+    - code_analyse_signoff
+    - hypothesis_signoff
+    - hypothesis_verification_signoff
+    - conclusion_signoff
+
+concurrency:
+  max_parallel: 1
+
+knowledge:
+  consumes: [workspace, plugin_shipped, plugin_local]
+
+skills:
+  consumes: [workspace.builtin, workspace.custom, plugin_shipped, plugin_local]

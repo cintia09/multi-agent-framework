@@ -1,0 +1,48 @@
+# plugins/issuenook/phases.yaml -- composable issue investigation phases
+
+phases:
+  info_collect:
+    role: info-collector
+    produces: outputs/phase-info-collect.md
+    gate: info_collect_signoff
+
+  log_analyse:
+    role: log-analyst
+    produces: outputs/phase-log-analyse.md
+    gate: log_analyse_signoff
+
+  code_analyse:
+    role: code-analyst
+    produces: outputs/phase-code-analyse.md
+    gate: code_analyse_signoff
+
+  hypothesise:
+    role: hypothesizer
+    produces: outputs/phase-hypothesise.md
+    gate: hypothesis_signoff
+    supports_iteration: true
+
+  verify_hypothesis:
+    role: hypothesis-verifier
+    produces: outputs/phase-verify-hypothesis.md
+    gate: hypothesis_verification_signoff
+    supports_iteration: true
+
+  conclude:
+    role: concluder
+    produces: outputs/phase-conclusion.md
+    gate: conclusion_signoff
+
+profiles:
+  default:
+    phases: [info_collect, log_analyse, code_analyse, hypothesise, verify_hypothesis, conclude]
+  full:
+    phases: [info_collect, log_analyse, code_analyse, hypothesise, verify_hypothesis, conclude]
+  log-only:
+    phases: [info_collect, log_analyse, hypothesise, verify_hypothesis, conclude]
+  code-only:
+    phases: [info_collect, code_analyse, hypothesise, verify_hypothesis, conclude]
+  analyse-only:
+    phases: [info_collect, log_analyse, code_analyse, conclude]
+  hypothesis-only:
+    phases: [info_collect, hypothesise, verify_hypothesis, conclude]

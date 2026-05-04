@@ -1,0 +1,80 @@
+# plugins/researchnook/hitl-gates.yaml -- one gate per phase
+
+gates:
+  brief_signoff:
+    trigger: brief
+    required_reviewers: [human]
+    description: >
+      审批研究 brief：研究目标、受众、核心问题、边界、输出形式和中文优先风格是否准确。
+
+  framework_signoff:
+    trigger: framework_select
+    required_reviewers: [human]
+    description: >
+      审批框架选择：OSTIN、PESTLE、SWOT、5 Why、情景预测等组合是否适合本报告；5 Why 是否仅在需要因果追问时使用。
+
+  scope_signoff:
+    trigger: scope
+    required_reviewers: [human]
+    description: >
+      审批研究范围：主题拆解、变量、地域/时间边界、排除项、假设和交付物粒度是否明确。
+
+  source_plan_signoff:
+    trigger: source_plan
+    required_reviewers: [human]
+    description: >
+      审批资料源计划：来源类型、可信度、引用规则、缺口、用户需要提供的数据和不联网限制是否清楚。
+
+  data_collect_signoff:
+    trigger: data_collect
+    required_reviewers: [human]
+    description: >
+      审批资料收集结果：事实、数据、引用观点和来源元数据是否足够支撑后续分析。
+
+  data_assess_signoff:
+    trigger: data_assess
+    required_reviewers: [human]
+    description: >
+      审批证据评估：事实、数据、引用观点、假设、推断和最终判断是否分离，置信度和缺口是否明确。
+
+  analysis_signoff:
+    trigger: analysis
+    required_reviewers: [human]
+    description: >
+      审批结构化分析：框架应用是否恰当，结论是否由证据支撑，反方观点和局限是否记录。
+
+  causal_probe_signoff:
+    trigger: causal_probe
+    required_reviewers: [human]
+    description: >
+      审批因果追问：5 Why 或 driver tree 是否只在证据允许时使用，unsupported links 是否标为假设。
+
+  scenario_forecast_signoff:
+    trigger: scenario_forecast
+    required_reviewers: [human]
+    description: >
+      审批情景预测：基准/乐观/悲观情景、触发条件、敏感变量、置信度和不确定性是否完整。
+
+  synthesis_signoff:
+    trigger: synthesis
+    required_reviewers: [human]
+    description: >
+      审批综合洞察：关键发现、反方观点、置信度、决策含义和 OSTIN Next action 是否平衡。
+
+  draft_report_signoff:
+    trigger: draft_report
+    required_reviewers: [human]
+    description: >
+      审批报告草稿：结构、语气、引用、证据标注、图表占位、结论强度和目标受众适配是否可接受。
+
+  report_review_signoff:
+    trigger: review
+    required_reviewers: [human]
+    description: >
+      审批报告审查：事实、引用、逻辑、预测、因果、风险提示和报告可读性问题是否完整列出。
+
+  publish_signoff:
+    trigger: revise_publish
+    required_reviewers: [human]
+    description: >
+      审批最终报告：修订是否回应审查意见，最终 deliverable 是否可发布，剩余 caveats 是否清晰。

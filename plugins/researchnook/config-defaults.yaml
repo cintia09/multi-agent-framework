@@ -1,0 +1,52 @@
+# plugins/researchnook/config-defaults.yaml
+
+models:
+  brief-collector:      tier_balanced
+  framework-selector:   tier_balanced
+  scope-designer:       tier_balanced
+  source-planner:       tier_balanced
+  data-collector:       tier_balanced
+  evidence-assessor:    tier_strong
+  analyst:              tier_strong
+  causal-analyst:       tier_strong
+  scenario-forecaster:  tier_strong
+  synthesizer:          tier_strong
+  report-drafter:       tier_balanced
+  report-reviewer:      tier_strong
+  publisher:            tier_balanced
+  default:              tier_strong
+
+hitl:
+  mode: confirm
+  gates:
+    - brief_signoff
+    - framework_signoff
+    - scope_signoff
+    - source_plan_signoff
+    - data_collect_signoff
+    - data_assess_signoff
+    - analysis_signoff
+    - causal_probe_signoff
+    - scenario_forecast_signoff
+    - synthesis_signoff
+    - draft_report_signoff
+    - report_review_signoff
+    - publish_signoff
+
+concurrency:
+  max_parallel: 1
+
+knowledge:
+  consumes: [workspace, plugin_shipped, plugin_local]
+
+skills:
+  consumes: [workspace.builtin, workspace.custom, plugin_shipped, plugin_local]
+
+research_defaults:
+  output_language: zh-CN
+  evidence_labels: [fact, data, quoted_opinion, assumption, inference, judgment]
+  forecast_scenarios: [base, upside, downside]
+  required_caveats:
+    - not_investment_or_purchase_advice
+    - evidence_limits
+    - uncertainty

@@ -85,13 +85,15 @@ If you've ever wanted your AI assistant to **work like a team instead of a soloi
 
 ## 🧩 Plugin catalogue
 
-Three first-party plugins ship in this repo and install through the same `python3 install.py` pipeline. Community plugins follow the same contract — see [`docs/plugin-authoring.md`](docs/architecture.md) and the `plugins/` folder for reference layouts.
+Five first-party plugins ship in this repo and install through the same `python3 install.py` pipeline. Community plugins follow the same contract — see [`docs/plugin-authoring.md`](docs/architecture.md) and the `plugins/` folder for reference layouts.
 
 | Plugin | Version | Domain | Phase chain (default profile) |
 |---|---|---|---|
 | 🛠️ **`development`** | `v0.5.1` | Software delivery — feature work, hotfixes, refactors, docs, reviews. | `clarify → design → plan → dfmea → implement → build → review → submit → test-plan → test → accept → ship` |
 | ✍️ **`writing`** | `v0.3.0` | Long-form authoring — articles, docs, RFCs. | `outline → draft → review → revise → publish` |
 | 🧰 **`generic`** | `v0.3.0` | Low-priority catch-all for tasks that don't match a specialised plugin. | `clarify → execute → review` |
+| 🔎 **`issuenook`** | `v0.1.0` | Runtime issue investigation — collect context, analyze logs/code, form and verify root-cause hypotheses. | `info_collect → log_analyse → code_analyse → hypothesise → verify_hypothesis → conclude` |
+| 📚 **`researchnook`** | `v0.1.0` | Research and investigation reports — evidence assessment, framework selection, analysis, review, and publish. | `brief → framework_select → scope → source_plan → data_collect → data_assess → analysis → synthesis → draft_report → review → revise_publish` |
 
 The development plugin alone ships **7 profiles** (`feature`, `hotfix`, `refactor`, `test-only`, `docs`, `review`, `design`) — each a different ordering of the same 12-phase catalogue. The clarifier picks the profile from your intent, so you never need to know the profile names.
 

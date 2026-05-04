@@ -1,0 +1,112 @@
+# plugins/researchnook/plugin.yaml -- Researchnook v0.1.0
+#
+# General research / investigation report workflow. Ships methodology only:
+# no scraper, paid data connector, database connector, or investment advice.
+
+id: researchnook
+version: "0.1.0"
+type: domain
+default_model: tier_standard
+entry_points:
+  install: phases.yaml
+declared_subsystems:
+  - domain/research-reporting
+requires:
+  core_version: ">=0.5.0-m5,<1.0.0"
+
+name: researchnook
+applies_to: [research, investigation-report, market-analysis, trend-analysis, decision-brief, scenario-forecast]
+summary: >
+  Researchnook is a composable, HITL-gated research and investigation
+  report workflow. It helps define the brief, select frameworks, plan
+  and assess sources, analyze evidence, run optional causal and scenario
+  reasoning, draft reports, review claims, and publish final deliverables.
+examples:
+  - "分析未来三年某城市房价走势"
+  - "写一份行业趋势调查报告"
+  - "Prepare a decision brief for a market entry question"
+  - "Run a scenario forecast with evidence confidence labels"
+anti_examples:
+  - "Debug a runtime incident"
+  - "Implement a feature"
+  - "Scrape paid data sources automatically"
+
+supports_dual_mode: true
+supports_fanout: false
+supports_concurrency: false
+
+data_layout: external
+data_glob:
+  - ".codenook/plugins/researchnook/**"
+data_excludes:
+  - ".codenook/**"
+  - ".git/**"
+  - "__pycache__/**"
+
+config:
+  schema: config-schema.yaml
+  defaults: config-defaults.yaml
+
+routing:
+  priority: 70
+  keywords:
+    - researchnook
+    - 研究报告
+    - 调查报告
+    - 分析报告
+    - 市场研究
+    - 趋势预测
+    - 房价分析
+    - 情景预测
+    - decision brief
+    - market research
+    - scenario forecast
+
+match:
+  use-cases:
+    - "create a structured research or investigation report with evidence assessment and HITL review"
+    - "analyze a market, policy, trend, competitor, or housing-price question"
+    - "compose OSTIN, PESTLE, SWOT, 5 Why, and scenario forecasting into a report workflow"
+  keywords:
+    - researchnook
+    - research
+    - investigation report
+    - market analysis
+    - trend forecast
+    - housing price
+    - 房价
+    - 研究报告
+    - 调查报告
+    - 情景预测
+    - OSTIN
+    - PESTLE
+    - SWOT
+    - 5 Why
+  examples:
+    - "用 researchnook 做未来房价分析报告"
+    - "create a full market research report"
+    - "run a decision brief with scenario forecasting"
+
+knowledge:
+  produces:
+    default_target: plugin_local
+    promote_to_workspace_when:
+      - "topic in [research, reports, evidence, forecasting]"
+  consumes: [workspace, plugin_shipped, plugin_local]
+
+skills:
+  produces:
+    default_target: plugin_local
+  consumes: [workspace.builtin, workspace.custom, plugin_shipped, plugin_local]
+
+available_skills:
+  - name: framework-selector
+    use_case: "choose a fit-for-purpose mix of OSTIN, PESTLE, SWOT, 5 Why, and scenario forecasting for research reports"
+
+deployment_supplied_skills:
+  - name: source-access
+    use_case: "fetch user-approved documents, public data, or internal research repositories; workspace-supplied via memory/skills"
+  - name: citation-manager
+    use_case: "normalize citations and bibliography format; workspace-supplied via memory/skills"
+  - name: data-analysis-helper
+    use_case: "run quantitative analysis on user-supplied datasets; workspace-supplied via memory/skills"
